@@ -1,7 +1,8 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
+import { LocationFrameSvg } from '@/features/home/components/LocationFrameSvg';
+import { vehicleIconSource } from '@/features/home/utils/vehicleIconFromManifest';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -23,7 +24,7 @@ function createStyles(colors: ThemeColors) {
     head: {
       flexDirection: 'row',
       justifyContent: 'space-between',
-      alignItems: 'flex-start',
+      alignItems: 'center',
     },
     userRow: { flexDirection: 'row', gap: spacing.sm, flex: 1 },
     avatar: {
@@ -42,21 +43,22 @@ function createStyles(colors: ThemeColors) {
       fontSize: typography.fontSize.md,
     },
     meta: { color: colors.textSecondary, fontSize: typography.fontSize.sm },
-    van: {
-      padding: spacing.xs,
+    vehicleIconWrap: {
+      padding: 4,
       backgroundColor: colors.background,
-      borderRadius: 10,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      minWidth: 48,
+      minHeight: 48,
     },
+    vehicleIcon: { width: 48, height: 48 },
     timeline: { flexDirection: 'row', gap: spacing.sm },
-    colIcon: { alignItems: 'center' },
-    dotted: {
-      flex: 1,
-      width: 2,
-      marginVertical: 4,
-      borderLeftWidth: 2,
-      borderStyle: 'dotted',
-      borderColor: colors.border,
-      minHeight: 28,
+    colRouteArt: {
+      width: 28,
+      alignItems: 'center',
+      justifyContent: 'flex-start',
+      paddingTop: 2,
     },
     colText: { flex: 1, gap: spacing.sm },
     addr: { color: colors.textPrimary, fontSize: typography.fontSize.sm, lineHeight: 20 },
@@ -69,6 +71,7 @@ export function ActiveTripCard({ trip }: Props) {
   const initial = trip.passengerLabel.trim().charAt(0).toUpperCase() || 'D';
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const vehicleSrc = useMemo(() => vehicleIconSource(trip.vehicleName), [trip.vehicleName]);
 
   return (
     <View style={styles.card}>
@@ -82,16 +85,19 @@ export function ActiveTripCard({ trip }: Props) {
             <Text style={styles.meta}>{trip.statusLabel}</Text>
           </View>
         </View>
-        <View style={styles.van}>
-          <Ionicons name="car-sport" size={22} color={colors.primary} />
+        <View style={styles.vehicleIconWrap} accessibilityLabel={trip.vehicleName || 'Vehicle'}>
+          <Image
+            source={vehicleSrc}
+            style={styles.vehicleIcon}
+            resizeMode="contain"
+            accessibilityIgnoresInvertColors
+          />
         </View>
       </View>
 
       <View style={styles.timeline}>
-        <View style={styles.colIcon}>
-          <Ionicons name="location" size={18} color={colors.primary} />
-          <View style={styles.dotted} />
-          <Ionicons name="location-outline" size={18} color={colors.muted} />
+        <View style={styles.colRouteArt} accessibilityLabel="Route from pickup to drop-off">
+          <LocationFrameSvg width={28} height={104} />
         </View>
         <View style={styles.colText}>
           <View>

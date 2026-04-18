@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "_comment": "Maps display labels to src/lib/utils/assets.ts keys and paths under assets/images/. Paths match require() in assets.ts.",
+  "homeScreen": {
+    "heroIllustration": {
+      "name": "Driver illustration (Start your delivery card)",
+      "assetKey": null,
+      "importPath": "assets/images/driverImage.svg",
+      "usage": "Home: delivery promo card art (DriverImage component)",
+      "type": "svg"
+    },
+    "locationFrameArt": {
+      "name": "Location connection frame",
+      "assetKey": null,
+      "importPath": "assets/images/locationFrame.svg",
+      "usage": "Ongoing booking cards route visual",
+      "type": "svg"
+    }
+  },
+  "transportAndServiceIcons": [
+    {
+      "id": "car_hire",
+      "displayName": "Car Hire",
+      "assetKey": "riderCar",
+      "fileName": "rider-car.png",
+      "relativePath": "assets/images/rider-car.png",
+      "usage": "Home quick option — Car Hire (riderCar style)"
+    },
+    {
+      "id": "car_rider_delivery",
+      "displayName": "Car (rider vehicle)",
+      "assetKey": "riderCar",
+      "fileName": "rider-car.png",
+      "relativePath": "assets/images/rider-car.png",
+      "usage": "Booking cards when vehicle name is Car; riderOptions in home/index.tsx"
+    },
+    {
+      "id": "delivery",
+      "displayName": "Delivery",
+      "assetKey": "delivery",
+      "fileName": "delivery.png",
+      "relativePath": "assets/images/delivery.png",
+      "usage": "Home option — Delivery (disabled styling; routes to delivery flow)"
+    },
+    {
+      "id": "taxi",
+      "displayName": "Taxi",
+      "assetKey": "taxiIcon",
+      "fileName": "taxi_icon.png",
+      "relativePath": "assets/images/taxi_icon.png",
+      "usage": "Home featured row — Taxi"
+    },
+    {
+      "id": "courier",
+      "displayName": "Couriers",
+      "assetKey": "courier",
+      "fileName": "courier.png",
+      "relativePath": "assets/images/courier.png",
+      "usage": "Home featured row — Couriers"
+    },
+    {
+      "id": "train_coach",
+      "displayName": "Train / Coach",
+      "assetKey": "busImg",
+      "fileName": "busImg.png",
+      "relativePath": "assets/images/busImg.png",
+      "usage": "Home featured row — label Train/Coach (uses bus image)"
+    },
+    {
+      "id": "food_scooter",
+      "displayName": "Food",
+      "assetKey": "scootyImg",
+      "fileName": "scooty.png",
+      "relativePath": "assets/images/scooty.png",
+      "usage": "Home featured row — Food (adjacent to Taxi/Courier in UI)"
+    }
+  ],
+  "additionalRiderVehicleIcons": [
+    {
+      "assetKey": "riderBike",
+      "fileName": "rider-bike.png",
+      "relativePath": "assets/images/rider-bike.png",
+      "label": "Bike / Motorcycle",
+      "_note": "chooseRide uses riderBike for Motorcycle; BookingDetails references assets.Motorcycle which is not in assets.ts."
+    },
+    {
+      "assetKey": "riderSmVan",
+      "fileName": "rider-sm-van.png",
+      "relativePath": "assets/images/rider-sm-van.png",
+      "label": "Small Van / Midi Van"
+    },
+    {
+      "assetKey": "riderMwb",
+      "fileName": "rider-mwb.png",
+      "relativePath": "assets/images/rider-mwb.png",
+      "label": "SWB / MWB"
+    },
+    {
+      "assetKey": "riderLWb",
+      "fileName": "rider-lwb.png",
+      "relativePath": "assets/images/rider-lwb.png",
+      "label": "LWB"
+    },
+    {
+      "assetKey": "riderXlWb",
+      "fileName": "rider-xlwb.png",
+      "relativePath": "assets/images/rider-xlwb.png",
+      "label": "XLWB"
+    },
+    {
+      "assetKey": "riderLuton",
+      "fileName": "rider-luton.png",
+      "relativePath": "assets/images/rider-luton.png",
+      "label": "Luton"
+    },
+    {
+      "assetKey": "riderSevenFive",
+      "fileName": "rider-7.5t.png",
+      "relativePath": "assets/images/rider-7.5t.png",
+      "label": "7.5t"
+    }
+  ]
+}

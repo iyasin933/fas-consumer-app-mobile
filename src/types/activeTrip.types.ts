@@ -16,6 +16,8 @@ export type ActiveTripCardVm = {
   id: string;
   passengerLabel: string;
   statusLabel: string;
+  /** Vehicle label from API — matched in-app to `transport-icons-manifest.json`. */
+  vehicleName: string;
   originAddress: string;
   destAddress: string;
   originTimeLabel: string;

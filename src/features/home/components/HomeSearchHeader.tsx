@@ -1,9 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useMemo, useState } from 'react';
-import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo } from 'react';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useHomeProfile } from '@/features/home/hooks/useHomeProfile';
-import { useHomeSearch } from '@/features/home/hooks/useHomeSearch';
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
@@ -30,14 +29,10 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.md,
       paddingVertical: 10,
     },
-    searchFocused: {
-      borderColor: colors.primary,
-    },
-    input: {
+    searchText: {
       flex: 1,
       fontSize: typography.fontSize.md,
-      color: colors.textPrimary,
-      paddingVertical: 0,
+      color: colors.muted,
     },
     avatar: { marginLeft: 2 },
     avatarInner: {
@@ -56,27 +51,38 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function HomeSearchHeader() {
-  const { query, setQuery } = useHomeSearch();
+type Props = {
+  onOpenWhereTo: () => void;
+  resolving: boolean;
+};
+
+/**
+ * Home “Where to?” bar. Parent screen owns the full-screen Places overlay so
+ * it can render **last** above ScrollView / tab chrome (z-index + order).
+ */
+export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
   const { initial, signOut } = useHomeProfile();
-  const [focused, setFocused] = useState(false);
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.row}>
-      <View style={[styles.search, focused && styles.searchFocused]}>
-        <Ionicons name="search" size={20} color={colors.muted} />
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Where to?"
-          placeholderTextColor={colors.muted}
-          style={styles.input}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-        />
-      </View>
+      <Pressable
+        style={styles.search}
+        onPress={onOpenWhereTo}
+        accessibilityRole="button"
+        accessibilityLabel="Where to?"
+        disabled={resolving}
+      >
+        {resolving ? (
+          <ActivityIndicator size="small" color={colors.muted} />
+        ) : (
+          <Ionicons name="search" size={20} color={colors.muted} />
+        )}
+        <Text style={styles.searchText} numberOfLines={1}>
+          {resolving ? 'Pinning address…' : 'Where to?'}
+        </Text>
+      </Pressable>
       <Pressable
         accessibilityLabel="Profile, long press to sign out"
         onLongPress={() => void signOut()}

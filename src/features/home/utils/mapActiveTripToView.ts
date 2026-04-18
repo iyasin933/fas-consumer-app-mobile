@@ -146,10 +146,47 @@ export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTrip
     pickStr(load as ActiveTripRaw, ['dropoffTime']) ||
     'ASAP';
 
+  const vehicleNested =
+    pickNested(o, ['vehicle']) ?? pickNested(load, ['vehicle']) ?? pickNested(o, ['selectedVehicle']);
+  const vehicleFromNested =
+    vehicleNested && typeof vehicleNested === 'object'
+      ? pickStr(vehicleNested as ActiveTripRaw, ['name', 'type', 'label', 'title', 'vehicleName'])
+      : '';
+
+  const vehicle =
+    vehicleFromNested ||
+    firstPickStr(roots, [
+      'vehicleName',
+      'vehicle_name',
+      'vehicleType',
+      'vehicle_type',
+      'transportType',
+      'transport_name',
+      'transport_type',
+      'vanType',
+      'van_type',
+      'carType',
+      'car_type',
+      'equipmentType',
+      'equipment_type',
+      'riderVehicle',
+      'rideVehicle',
+    ]) ||
+    pickStr(load as ActiveTripRaw, ['vehicleName', 'vehicleType', 'vanType', 'vehicle']) ||
+    (selectedQuote && typeof selectedQuote === 'object'
+      ? pickStr(selectedQuote as ActiveTripRaw, [
+          'vehicleName',
+          'vehicle',
+          'vehicleType',
+          'vehicle_label',
+        ])
+      : '');
+
   return {
     id: idOf(o, index),
     passengerLabel: passenger,
     statusLabel: status,
+    vehicleName: vehicle,
     originAddress: pickup,
     destAddress: drop,
     originTimeLabel: originTime,
