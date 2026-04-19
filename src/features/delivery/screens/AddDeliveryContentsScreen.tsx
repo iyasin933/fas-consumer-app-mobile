@@ -196,7 +196,7 @@ export function AddDeliveryContentsScreen() {
   }, [coords, refresh, reverse, writePickupOrDropoff]);
 
   const onChooseVehicle = useCallback(() => {
-    navigation.navigate('ChooseVehicle');
+    navigation.navigate('RecipientDetails');
   }, [navigation]);
 
   if (!pickup?.address || !dropoff?.address) {

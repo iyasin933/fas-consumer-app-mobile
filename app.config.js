@@ -75,6 +75,14 @@ module.exports = () => {
           },
         ],
         '@react-native-community/datetimepicker',
+        [
+          '@stripe/stripe-react-native',
+          {
+            /** Apple Pay — add your Stripe merchant id when you enable Apple Pay. */
+            merchantIdentifier: '',
+            enableGooglePay: false,
+          },
+        ],
       ],
       extra: {
         eas: {

@@ -41,7 +41,17 @@ export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Users: undefined;
   AddDeliveryContents: undefined;
+  RecipientDetails: undefined;
   ChooseVehicle: undefined;
+  DeliveryPayment: {
+    /** Charged amount in smallest currency unit (pence for GBP). */
+    amountPence: number;
+    vehicleName: string;
+    /** TEG / exchange id from create-load (`result.id`) when your create-intent endpoint requires it. */
+    loadId?: string | number;
+    /** DropYou consumer booking UUID (`result.bookingId`); also in `deliveryOrderDraftStore`. */
+    bookingId?: string;
+  };
 };
 
 /** Use on the Map tab to push stack screens registered on `AppNavigator`. */

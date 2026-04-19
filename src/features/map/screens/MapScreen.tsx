@@ -26,8 +26,13 @@ import {
   DROPOFF_ID,
   PICKUP_ID,
   canProceed,
+  scheduledPickupDropoffComplete,
   useDeliveryFormStore,
 } from '@/features/map/store/deliveryFormStore';
+import {
+  getScheduledPickupDropoffOrderError,
+  mergeStopDateTime,
+} from '@/features/map/utils/deliverySchedule';
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { PlaceValue, PlacesTarget } from '@/features/map/types';
 import type { MainTabParamList, MapTabScreenNavigationProp } from '@/types/navigation.types';
@@ -153,8 +158,11 @@ export function MapScreen() {
       .filter((r) => r.kind === 'stop' && r.place)
       .map((r) => ({ latitude: r.place!.lat, longitude: r.place!.lng }));
 
-    // Prefer the user-picked pickup time; otherwise fall back to "now".
-    const departureMs = pickupFromISO ? Date.parse(pickupFromISO) : Date.now();
+    // Same merge as ScheduledPills / validation: pickup calendar + time-of-day.
+    // `Date.parse(window.fromISO)` alone ignores a changed date pill until the time is re-saved.
+    const departureMs = pickupRow.window?.fromISO
+      ? mergeStopDateTime(pickupRow.dateISO, pickupRow.window.fromISO).getTime()
+      : Date.now();
 
     void (async () => {
       const origin = { latitude: pickupRow.place!.lat, longitude: pickupRow.place!.lng };
@@ -184,21 +192,24 @@ export function MapScreen() {
       if (dropoffScheduleUserEditedRef.current || tab !== 'scheduled') return;
 
       const arriveMs = departureMs + durationSec * 1000;
-      const fromISO = new Date(arriveMs).toISOString();
+      const arrive = new Date(arriveMs);
+      const fromISO = arrive.toISOString();
       const toISO = new Date(arriveMs + 30 * 60 * 1000).toISOString();
       setWindow(DROPOFF_ID, { fromISO, toISO });
+      // Calendar day for dropoff must follow **arrival**, not pickup's date — otherwise
+      // `mergeStopDateTime(dropoff.dateISO, dropoff.window)` overwrites the ETA day and
+      // breaks overnight routes + validation (pickup evening / dropoff next morning).
       setDateISO(
         DROPOFF_ID,
-        pickupDateISO ||
-          new Date(
-            new Date(arriveMs).getFullYear(),
-            new Date(arriveMs).getMonth(),
-            new Date(arriveMs).getDate(),
-            12,
-            0,
-            0,
-            0,
-          ).toISOString(),
+        new Date(
+          arrive.getFullYear(),
+          arrive.getMonth(),
+          arrive.getDate(),
+          12,
+          0,
+          0,
+          0,
+        ).toISOString(),
       );
     })();
 
@@ -318,10 +329,15 @@ export function MapScreen() {
       const pickup = rows.find((r) => r.kind === 'pickup');
       const dropoff = rows.find((r) => r.kind === 'dropoff');
       const addressesOk = Boolean(pickup?.place?.address && dropoff?.place?.address);
+      const orderErr =
+        tab === 'scheduled' && addressesOk && scheduledPickupDropoffComplete(rows)
+          ? getScheduledPickupDropoffOrderError(tab, rows)
+          : null;
       setToast(
-        tab === 'scheduled' && addressesOk
-          ? 'Set pickup date & time and dropoff date & time to continue.'
-          : 'Please fill in both pickup and dropoff.',
+        orderErr ??
+          (tab === 'scheduled' && addressesOk
+            ? 'Set pickup date & time and dropoff date & time to continue.'
+            : 'Please fill in both pickup and dropoff.'),
       );
       return;
     }

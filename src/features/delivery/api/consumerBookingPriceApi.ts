@@ -23,6 +23,16 @@ export type DeliveryVehicleDto = {
   name: string;
   type?: string;
   code?: string;
+  /**
+   * TEG `vehicleTypes[].apiKey` when the booking-price API sends it explicitly
+   * (see TEG [load form values](https://docs.dev.transportexchangegroup.com/reference/getloadformvaluesusingget)).
+   */
+  apiKey?: string;
+  /**
+   * When the booking-price API returns a TEG `minVehicleSize` token (e.g. `S/Van`, `LWB`),
+   * it doubles as the vehicle type key for load creation.
+   */
+  minVehicleSize?: string;
   minPrice?: number;
   maxPrice?: number;
   /** When set, UI shows VAT-inclusive range: £(max(0, priceWithVat − 50)) – £(priceWithVat). */
@@ -284,11 +294,23 @@ function normalizeVehicle(raw: unknown, index: number): DeliveryVehicleDto | nul
     asMoney(o.priceWithVAT) ??
     (priceObj ? asMoney(priceObj.withVat) : undefined);
 
+  const tegVehicleKey =
+    asString(o.apiKey) ??
+    asString(o.api_key) ??
+    asString(o.vehicleTypeApiKey) ??
+    asString(o.tegVehicleTypeApiKey);
+
   return {
     id,
     name,
     type: asString(o.type) ?? asString(o.vehicleType) ?? asString(o.category),
-    code: asString(o.code),
+    code: asString(o.code) ?? tegVehicleKey,
+    apiKey: tegVehicleKey,
+    minVehicleSize:
+      asString(o.minVehicleSize) ??
+      asString(o.min_vehicle_size) ??
+      asString(o.tegMinVehicleSize) ??
+      asString(o.vehicleSize),
     minPrice,
     maxPrice,
     priceWithVat: priceWithVat != null && Number.isFinite(priceWithVat) ? priceWithVat : undefined,

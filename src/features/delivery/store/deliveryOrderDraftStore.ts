@@ -16,6 +16,18 @@ type State = {
   dimensions: ContentDimensionsDraft;
   pallets: PalletLineDraft[];
   selectedVehicleId: string | null;
+  /** Recipient step — wired to `POST /dropyou/load`. */
+  recipientName: string;
+  recipientCompany: string;
+  /** E.g. `+44` from `react-native-country-codes-picker`. */
+  recipientDialCode: string;
+  /** National number only (no dial code). */
+  recipientPhoneLocal: string;
+  recipientNotes: string;
+  /** Set after successful load create — TEG / exchange id (`result.id`); cleared on new trip. */
+  createdLoadId: string | null;
+  /** Same response — DropYou booking UUID (`result.bookingId`); use for consumer-facing flows. */
+  createdBookingId: string | null;
 };
 
 type Actions = {
@@ -38,6 +50,8 @@ type Actions = {
   addPalletLine: () => { ok: boolean };
   removePalletLine: (palletId: string) => void;
   setSelectedVehicleId: (id: string | null) => void;
+  setRecipient: (patch: Partial<Pick<State, 'recipientName' | 'recipientCompany' | 'recipientDialCode' | 'recipientPhoneLocal' | 'recipientNotes'>>) => void;
+  setCreatedLoadIds: (payload: { loadId: string; bookingId: string | null }) => void;
   resetDraft: () => void;
 };
 
@@ -58,6 +72,13 @@ const initialState = (): State => ({
   dimensions: emptyDimensions(),
   pallets: [initialPalletLine()],
   selectedVehicleId: null,
+  recipientName: '',
+  recipientCompany: '',
+  recipientDialCode: '+44',
+  recipientPhoneLocal: '',
+  recipientNotes: '',
+  createdLoadId: null,
+  createdBookingId: null,
 });
 
 export const useDeliveryOrderDraftStore = create<State & Actions>((set, get) => ({
@@ -119,6 +140,11 @@ export const useDeliveryOrderDraftStore = create<State & Actions>((set, get) => 
     }),
 
   setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId }),
+
+  setRecipient: (patch) => set((s) => ({ ...s, ...patch })),
+
+  setCreatedLoadIds: ({ loadId, bookingId }) =>
+    set({ createdLoadId: loadId, createdBookingId: bookingId }),
 
   resetDraft: () => set(initialState()),
 }));

@@ -27,6 +27,12 @@ export const PALLET_TYPE_OPTIONS: PalletTypeOption[] = [
   },
 ];
 
+/**
+ * When the user never picked a pallet type, `POST /dropyou/load` still expects a
+ * catalogue `value` — use the first real option (Mini Quarter Pallet).
+ */
+export const DEFAULT_PALLET_TYPE_VALUE = PALLET_TYPE_OPTIONS[1]?.value ?? 'Quarter Pallet';
+
 /** Display label for a stored API value (empty → first row label). */
 export function palletTypeLabel(value: string): string {
   if (!value) return PALLET_TYPE_OPTIONS[0].label;

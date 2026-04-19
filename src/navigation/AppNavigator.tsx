@@ -2,6 +2,8 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AddDeliveryContentsScreen } from '@/features/delivery/screens/AddDeliveryContentsScreen';
 import { ChooseVehicleScreen } from '@/features/delivery/screens/ChooseVehicleScreen';
+import { DeliveryPaymentScreen } from '@/features/delivery/screens/DeliveryPaymentScreen';
+import { RecipientDetailsScreen } from '@/features/delivery/screens/RecipientDetailsScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { MainTabNavigator } from '@/navigation/MainTabNavigator';
 import { UsersScreen } from '@/screens/users/UsersScreen';
@@ -27,7 +29,13 @@ export function AppNavigator() {
         component={AddDeliveryContentsScreen}
         options={{ title: 'Add your contents' }}
       />
+      <Stack.Screen
+        name="RecipientDetails"
+        component={RecipientDetailsScreen}
+        options={{ title: 'Recipient details' }}
+      />
       <Stack.Screen name="ChooseVehicle" component={ChooseVehicleScreen} options={{ title: 'Choose vehicle' }} />
+      <Stack.Screen name="DeliveryPayment" component={DeliveryPaymentScreen} options={{ title: 'Pay' }} />
     </Stack.Navigator>
   );
 }

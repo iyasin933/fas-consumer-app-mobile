@@ -62,7 +62,8 @@ export function useDirectionsEta() {
       const res = await fetch(url);
       const json = (await res.json()) as {
         status: string;
-        routes: {
+        error_message?: string;
+        routes?: {
           legs: {
             duration: { value: number };
             duration_in_traffic?: { value: number };
@@ -70,8 +71,12 @@ export function useDirectionsEta() {
           }[];
         }[];
       };
-      if (json.status !== 'OK' || !json.routes.length) {
-        debugLog('Directions', `status=${json.status}`);
+      if (json.status !== 'OK' || !json.routes?.length) {
+        debugLog(
+          'Directions',
+          `status=${json.status}`,
+          json.error_message ? `message=${json.error_message}` : '',
+        );
         return null;
       }
       const legs = json.routes[0].legs;

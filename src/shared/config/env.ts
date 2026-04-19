@@ -14,4 +14,6 @@ export const env = {
   googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
   /** Used for Places Autocomplete + Geocoding HTTP calls from the app. */
   googleMapsApiKey: (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '').trim(),
+  /** Stripe publishable key — required for Payment Sheet (`@stripe/stripe-react-native`). */
+  stripePublishableKey: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim(),
 };

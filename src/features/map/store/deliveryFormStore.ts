@@ -2,6 +2,7 @@ import { create } from 'zustand';
 
 import type { DeliveryStop, DeliveryTab, PlaceValue, TimeWindow } from '@/features/map/types';
 import { MAX_STOPS } from '@/features/map/types';
+import { isScheduledPickupBeforeDropoffEnd } from '@/features/map/utils/deliverySchedule';
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 
@@ -167,7 +168,7 @@ export function getStopLabel(rows: DeliveryStop[], row: DeliveryStop): string {
 }
 
 /** Pickup/dropoff have a scheduled date and time window (scheduled tab only). */
-function scheduledPickupDropoffComplete(rows: DeliveryStop[]): boolean {
+export function scheduledPickupDropoffComplete(rows: DeliveryStop[]): boolean {
   const pickup = rows.find((r) => r.kind === 'pickup');
   const dropoff = rows.find((r) => r.kind === 'dropoff');
   const rowOk = (r: DeliveryStop | undefined) => Boolean(r?.window?.fromISO && r?.dateISO);
@@ -184,5 +185,6 @@ export function canProceed(rows: DeliveryStop[], tab: DeliveryTab): boolean {
   const addressesOk = Boolean(pickup?.place?.address) && Boolean(dropoff?.place?.address);
   if (!addressesOk) return false;
   if (tab !== 'scheduled') return true;
-  return scheduledPickupDropoffComplete(rows);
+  if (!scheduledPickupDropoffComplete(rows)) return false;
+  return isScheduledPickupBeforeDropoffEnd(rows, tab);
 }
