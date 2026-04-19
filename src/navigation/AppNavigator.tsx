@@ -1,6 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { AddDeliveryContentsScreen } from '@/features/delivery/screens/AddDeliveryContentsScreen';
+import { ChooseQuotesScreen } from '@/features/delivery/screens/ChooseQuotesScreen';
 import { ChooseVehicleScreen } from '@/features/delivery/screens/ChooseVehicleScreen';
 import { DeliveryPaymentScreen } from '@/features/delivery/screens/DeliveryPaymentScreen';
 import { RecipientDetailsScreen } from '@/features/delivery/screens/RecipientDetailsScreen';
@@ -35,6 +36,7 @@ export function AppNavigator() {
         options={{ title: 'Recipient details' }}
       />
       <Stack.Screen name="ChooseVehicle" component={ChooseVehicleScreen} options={{ title: 'Choose vehicle' }} />
+      <Stack.Screen name="ChooseQuotes" component={ChooseQuotesScreen} options={{ title: 'Quotes' }} />
       <Stack.Screen name="DeliveryPayment" component={DeliveryPaymentScreen} options={{ title: 'Pay' }} />
     </Stack.Navigator>
   );

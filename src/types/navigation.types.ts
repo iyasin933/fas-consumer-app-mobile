@@ -43,6 +43,13 @@ export type AppStackParamList = {
   AddDeliveryContents: undefined;
   RecipientDetails: undefined;
   ChooseVehicle: undefined;
+  /** Live carrier quotes for a load (after `POST /dropyou/load`, before payment). */
+  ChooseQuotes: {
+    loadId: string;
+    bookingId?: string;
+    amountPence: number;
+    vehicleName: string;
+  };
   DeliveryPayment: {
     /** Charged amount in smallest currency unit (pence for GBP). */
     amountPence: number;

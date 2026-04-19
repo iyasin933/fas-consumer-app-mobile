@@ -4,6 +4,12 @@
  *
  * `apiUrl` is the full REST base including `/api/v1` — callers use paths like `/auth/login`.
  */
+function trimTrailingSlashes(s: string): string {
+  let x = s.trim();
+  while (x.endsWith('/')) x = x.slice(0, -1);
+  return x;
+}
+
 export const env = {
   apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://api.dropyou.co.uk/api/v1',
   /** Numeric id for the CONSUMER role — required for signup (ask backend / DB). */
@@ -16,4 +22,27 @@ export const env = {
   googleMapsApiKey: (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '').trim(),
   /** Stripe publishable key — required for Payment Sheet (`@stripe/stripe-react-native`). */
   stripePublishableKey: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim(),
+  /**
+   * When true, `POST /payment/create-intent` sends `amount` in **major** units (e.g. `319.2` for £319.20).
+   * When false (default), `amount` is **minor** (pence). Set true if the server already multiplies by 100
+   * to reach Stripe’s smallest unit — otherwise you get ~100× the displayed price on the Stripe sheet.
+   */
+  paymentCreateIntentAmountInMajorUnits:
+    process.env.EXPO_PUBLIC_PAYMENT_CREATE_INTENT_AMOUNT_MAJOR === 'true',
+  /**
+   * Socket.IO server origin (no `/api/v1`, no trailing `/`). Example: `https://api.dropyou.co.uk`
+   * — used for load-quote events (`subscribe_to_load`, `dropyou_quote_received`).
+   */
+  socketUrl:
+    trimTrailingSlashes(process.env.EXPO_PUBLIC_SOCKET_URL ?? '') ||
+    trimTrailingSlashes(
+      String(process.env.EXPO_PUBLIC_API_URL ?? 'https://api.dropyou.co.uk/api/v1').replace(
+        /\/api\/v\d+\/?$/i,
+        '',
+      ),
+    ),
+  /**
+   * Engine.IO path (Socket.IO default is `/socket.io`). Set if your gateway mounts elsewhere.
+   */
+  socketPath: trimTrailingSlashes(process.env.EXPO_PUBLIC_SOCKET_PATH ?? '') || '/socket.io',
 };

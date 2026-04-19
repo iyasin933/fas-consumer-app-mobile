@@ -2,6 +2,7 @@ import { api } from '@/api/client';
 
 import type { DropyouLoadPayload } from '@/features/delivery/api/buildDropyouLoadPayload';
 import { summarizePaymentApiError } from '@/features/delivery/api/deliveryPaymentApi';
+import { notifyLoadCreatedForQuotes } from '@/features/delivery/socket/loadQuotesSubscriptionBridge';
 
 const DROPYOU_LOAD_PATH = '/dropyou/load';
 
@@ -88,9 +89,21 @@ export async function createDropyouLoad(body: DropyouLoadPayload): Promise<Creat
   const res = await api.post(DROPYOU_LOAD_PATH, body);
   const { data } = res;
   const parsed = parseCreateLoadResult(data);
-  if (parsed) return parsed;
+  if (parsed) {
+    notifyLoadCreatedForQuotes(parsed.loadId);
+    if (__DEV__) {
+      console.log('[createDropyouLoad] load created → subscribe quotes immediately for loadId=', parsed.loadId);
+    }
+    return parsed;
+  }
   const legacyId = pickLoadId(data);
-  if (legacyId) return { loadId: legacyId, bookingId: null };
+  if (legacyId) {
+    notifyLoadCreatedForQuotes(legacyId);
+    if (__DEV__) {
+      console.log('[createDropyouLoad] load created (legacy parse) → subscribe quotes for loadId=', legacyId);
+    }
+    return { loadId: legacyId, bookingId: null };
+  }
   console.log('[createDropyouLoad] HTTP', res.status, DROPYOU_LOAD_PATH);
   logJson('[createDropyouLoad] response.data (full, no load id parsed)', data);
   const upstream = pickUpstreamLoadErrorMessage(data);

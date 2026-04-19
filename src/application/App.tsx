@@ -4,6 +4,7 @@ import { StripeProvider } from '@stripe/stripe-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { LoadQuotesSocketProvider } from '@/features/delivery/providers/LoadQuotesSocketProvider';
 import { AnimatedSplashScreen } from '@/features/splash/screens/AnimatedSplashScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { RootNavigator } from '@/navigation/RootNavigator';
@@ -28,12 +29,14 @@ export function AppRoot() {
       <ThemeProvider>
         <QueryProvider>
           <AuthHydration>
-            <ThemedStatusBar />
-            {showSplash ? (
-              <AnimatedSplashScreen onAnimationComplete={handleSplashComplete} />
-            ) : (
-              <RootNavigator />
-            )}
+            <LoadQuotesSocketProvider>
+              <ThemedStatusBar />
+              {showSplash ? (
+                <AnimatedSplashScreen onAnimationComplete={handleSplashComplete} />
+              ) : (
+                <RootNavigator />
+              )}
+            </LoadQuotesSocketProvider>
           </AuthHydration>
         </QueryProvider>
       </ThemeProvider>

@@ -54,7 +54,6 @@ export function ChooseVehicleScreen() {
   const { data, isPending, isError, error, refetch, isRefetching } = useConsumerBookingPriceVehicles();
   const selectedVehicleId = useDeliveryOrderDraftStore((s) => s.selectedVehicleId);
   const setSelectedVehicleId = useDeliveryOrderDraftStore((s) => s.setSelectedVehicleId);
-  console.log('selectedVehicleId', selectedVehicleId);
   const pickup = useDeliveryOrderDraftStore((s) => s.pickup);
   const dropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
   const pallets = useDeliveryOrderDraftStore((s) => s.pallets);
@@ -232,16 +231,14 @@ export function ChooseVehicleScreen() {
         recipientPhoneLocal: draft.recipientPhoneLocal,
         recipientNotes: draft.recipientNotes,
       });
-      console.log('payload passing', payload);
-
       const { loadId, bookingId } = await createDropyouLoad(payload);
       useDeliveryOrderDraftStore.getState().setCreatedLoadIds({ loadId, bookingId });
       const amountPence = vehicleQuoteToAmountPence(v);
-      navigation.navigate('DeliveryPayment', {
-        amountPence,
-        vehicleName: v.name,
+      navigation.navigate('ChooseQuotes', {
         loadId,
         bookingId: bookingId ?? undefined,
+        amountPence,
+        vehicleName: v.name,
       });
     } catch (e) {
       if (isAxiosError(e)) {
