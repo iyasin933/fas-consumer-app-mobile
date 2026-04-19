@@ -21,7 +21,7 @@ type Props = {
   row: DeliveryStop;
   label: string;
   tab: DeliveryTab;
-  /** Long-press this to initiate drag within DraggableFlatList. */
+  /** Long-press reorder handle; only shown when this is set (e.g. draggable list). */
   onDragStart?: () => void;
   isActiveDrag?: boolean;
 
@@ -44,8 +44,7 @@ type Props = {
  *   - extra controls (toggle + delete on stops),
  *   - optional scheduled pills.
  *
- * Only `stop` cards are draggable — pickup/dropoff are locked to their
- * semantic positions (origin/destination of the route).
+ * Stop rows can expose a reorder handle when `onDragStart` is provided.
  */
 export const DeliveryRowCard = memo(function DeliveryRowCard({
   row,
@@ -120,11 +119,7 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
               />
             </View>
           )}
-          {/*
-            Drag handle only on stops — pickup & dropoff are locked to their
-            semantic endpoints (origin / destination).
-          */}
-          {isStop && (
+          {isStop && onDragStart && (
             <Pressable
               onLongPress={onDragStart}
               delayLongPress={180}

@@ -1,7 +1,6 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useEffect, useRef, useState } from 'react';
 import {
-  Modal,
   Platform,
   Pressable,
   StyleSheet,
@@ -27,14 +26,14 @@ type Props = {
 };
 
 /**
- * Cross-platform date/time in a modal.
+ * Cross-platform date/time picker UI.
  *
- * iOS: Important — `tempValue` is only synced from `value` when the sheet
- * **opens**. Otherwise the parent re-renders (new `Date` identity) would reset
- * the spinner while the user is still editing, so Done appeared to do nothing.
+ * iOS: Renders as an in-tree full-screen overlay (high z-index), not RN
+ * `Modal`, so touches work above @gorhom/bottom-sheet (same issue as
+ * PlacesAutocompleteModal).
  *
- * RN `Modal` mounts outside `GestureHandlerRootView`; we wrap the sheet so
- * header taps (Cancel / Done) and the spinner reliably receive touches.
+ * `tempValue` is only synced from `value` when the sheet **opens**; otherwise
+ * parent re-renders would reset the spinner while the user is still editing.
  */
 export function DatePickerModal({
   visible,
@@ -80,13 +79,14 @@ export function DatePickerModal({
     );
   }
 
+  if (!visible) return null;
+
   return (
-    <Modal
-      transparent
-      visible={visible}
-      animationType="fade"
-      onRequestClose={onCancel}
-      presentationStyle="overFullScreen"
+    <View
+      style={styles.overlayHost}
+      pointerEvents="auto"
+      accessibilityViewIsModal
+      collapsable={false}
     >
       <GestureHandlerRootView style={styles.ghRoot}>
         <Pressable
@@ -138,11 +138,20 @@ export function DatePickerModal({
           </View>
         </Pressable>
       </GestureHandlerRootView>
-    </Modal>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
+  /** Same stacking approach as PlacesAutocompleteModal — above bottom-sheet native layers. */
+  overlayHost: {
+    ...StyleSheet.absoluteFillObject,
+    zIndex: 2147483000,
+    ...Platform.select({
+      android: { elevation: 64 },
+      default: {},
+    }),
+  },
   ghRoot: { flex: 1 },
   backdrop: {
     flex: 1,

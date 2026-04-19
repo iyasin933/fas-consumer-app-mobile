@@ -1,10 +1,6 @@
-import BottomSheet, { BottomSheetView } from '@gorhom/bottom-sheet';
+import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
-import DraggableFlatList, {
-  type DragEndParams,
-  type RenderItemParams,
-} from 'react-native-draggable-flatlist';
 
 import { AddStopButton } from '@/features/map/components/AddStopButton';
 import { DeliveryRowCard } from '@/features/map/components/DeliveryRowCard';
@@ -28,26 +24,25 @@ type Props = {
   onClearPlace: (target: PlacesTarget) => void;
   onPickupGps: () => void;
   onProceed: () => void;
-  /** Called when the user edits dropoff time/date so ETA can avoid overwriting. */
-  onDropoffScheduleEdited?: () => void;
   /** Fires once when the sheet's snap index settles (used to sync map insets). */
   onChange?: (index: number) => void;
   initialSnapIndex?: 0 | 1 | 2;
   /** Extra bottom padding so content clears the floating tab bar. */
   bottomInset?: number;
+  /** Called when the user edits dropoff date/time so ETA does not overwrite their choice. */
+  onDropoffScheduleEdited?: () => void;
 };
 
 /**
  * Bottom sheet hosting the delivery form. Three snap points:
  * 35 % (tabs only) → 65 % (default) → 95 % (expanded).
  *
- * The list inside is a `DraggableFlatList` (react-native-draggable-flatlist).
- * We disable the sheet's own content-panning gesture so vertical pans go to
- * the list — the sheet still responds to drags on its handle.
+ * Tabs + delivery-type toggles and the Add Stop / Proceed row stay fixed; only
+ * the pickup / stop / dropoff cards sit in `BottomSheetScrollView`.
+ * `enableContentPanningGesture={false}` keeps vertical pans on that area from
+ * moving the sheet — use the handle (or empty map) to change snap.
  *
- * Ordering rule (enforced on drag end): `[pickup, ...stops, dropoff]`. Only
- * stop cards expose a drag handle, but we still sanitize on drop in case the
- * list reorders the endpoints.
+ * Stops stay in insert order (pickup → …stops… → dropoff).
  */
 export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
   function DeliveryBottomSheet(
@@ -81,7 +76,6 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
     const setTab = useDeliveryFormStore((s) => s.setTab);
     const addStop = useDeliveryFormStore((s) => s.addStop);
     const removeStop = useDeliveryFormStore((s) => s.removeStop);
-    const reorder = useDeliveryFormStore((s) => s.reorder);
     const toggleStopIsAlsoDropoff = useDeliveryFormStore((s) => s.toggleStopIsAlsoDropoff);
     const setWindow = useDeliveryFormStore((s) => s.setWindow);
     const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
@@ -90,75 +84,56 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
     const proceedEnabled = canProceed(rows);
     const stopCount = rows.filter((r) => r.kind === 'stop').length;
 
-    const handleDragEnd = useCallback(
-      ({ data }: DragEndParams<DeliveryStop>) => {
-        // The store's `reorder` also enforces order, but we normalize here
-        // too so the DraggableFlatList receives a clean list immediately
-        // instead of flashing a momentarily-wrong order.
-        const pickup = data.find((r) => r.kind === 'pickup');
-        const dropoff = data.find((r) => r.kind === 'dropoff');
-        const stops = data.filter((r) => r.kind === 'stop');
-        if (!pickup || !dropoff) {
-          reorder(data);
-          return;
-        }
-        reorder([pickup, ...stops, dropoff]);
-      },
-      [reorder],
-    );
-
-    const renderItem = useCallback(
-      ({ item, drag, isActive }: RenderItemParams<DeliveryStop>) => {
+    const renderRow = useCallback(
+      (item: DeliveryStop) => {
         const label = getStopLabel(rows, item);
         const isStop = item.kind === 'stop';
+        const isDropoff = item.kind === 'dropoff';
         return (
-          <View style={styles.cardWrap}>
-            <DeliveryRowCard
-              row={item}
-              label={label}
-              tab={tab}
-              // Only stops can be dragged — pickup & dropoff are locked.
-              onDragStart={isStop ? drag : undefined}
-              isActiveDrag={isActive}
-              onOpenPlaces={() =>
-                onOpenPlaces(
-                  item.kind === 'pickup'
-                    ? { kind: 'pickup' }
-                    : item.kind === 'dropoff'
-                      ? { kind: 'dropoff' }
-                      : { kind: 'stop', stopId: item.id },
-                )
-              }
-              onOpenExtraDropoffPlaces={() =>
-                onOpenPlaces({ kind: 'stopExtraDropoff', stopId: item.id })
-              }
-              onClearPlace={() =>
-                onClearPlace(
-                  item.kind === 'pickup'
-                    ? { kind: 'pickup' }
-                    : item.kind === 'dropoff'
-                      ? { kind: 'dropoff' }
-                      : { kind: 'stop', stopId: item.id },
-                )
-              }
-              onClearExtraDropoff={
-                isStop
-                  ? () => onClearPlace({ kind: 'stopExtraDropoff', stopId: item.id })
-                  : undefined
-              }
-              onGpsTap={item.kind === 'pickup' ? onPickupGps : undefined}
-              onRemove={isStop ? () => removeStop(item.id) : undefined}
-              onToggleDropoff={isStop ? () => toggleStopIsAlsoDropoff(item.id) : undefined}
-              onWindowChange={(w) => {
-                if (item.kind === 'dropoff') onDropoffScheduleEdited?.();
-                setWindow(item.id, w);
-              }}
-              onDateChange={(iso) => {
-                if (item.kind === 'dropoff') onDropoffScheduleEdited?.();
-                setDateISO(item.id, iso);
-              }}
-            />
-          </View>
+          <DeliveryRowCard
+            row={item}
+            label={label}
+            tab={tab}
+            onDragStart={undefined}
+            isActiveDrag={false}
+            onOpenPlaces={() =>
+              onOpenPlaces(
+                item.kind === 'pickup'
+                  ? { kind: 'pickup' }
+                  : item.kind === 'dropoff'
+                    ? { kind: 'dropoff' }
+                    : { kind: 'stop', stopId: item.id },
+              )
+            }
+            onOpenExtraDropoffPlaces={() =>
+              onOpenPlaces({ kind: 'stopExtraDropoff', stopId: item.id })
+            }
+            onClearPlace={() =>
+              onClearPlace(
+                item.kind === 'pickup'
+                  ? { kind: 'pickup' }
+                  : item.kind === 'dropoff'
+                    ? { kind: 'dropoff' }
+                    : { kind: 'stop', stopId: item.id },
+              )
+            }
+            onClearExtraDropoff={
+              isStop
+                ? () => onClearPlace({ kind: 'stopExtraDropoff', stopId: item.id })
+                : undefined
+            }
+            onGpsTap={item.kind === 'pickup' ? onPickupGps : undefined}
+            onRemove={isStop ? () => removeStop(item.id) : undefined}
+            onToggleDropoff={isStop ? () => toggleStopIsAlsoDropoff(item.id) : undefined}
+            onWindowChange={(w) => {
+              if (isDropoff) onDropoffScheduleEdited?.();
+              setWindow(item.id, w);
+            }}
+            onDateChange={(iso) => {
+              if (isDropoff) onDropoffScheduleEdited?.();
+              setDateISO(item.id, iso);
+            }}
+          />
         );
       },
       [
@@ -194,34 +169,55 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
           { backgroundColor: c.surface },
         ]}
       >
-        <BottomSheetView style={styles.content}>
-          <DeliveryTabs value={tab} onChange={setTab} />
-          <View style={[styles.divider, { backgroundColor: c.hairline }]} />
-          <DraggableFlatList
-            data={rows}
-            onDragEnd={handleDragEnd}
-            keyExtractor={(r) => r.id}
-            renderItem={renderItem}
-            containerStyle={styles.listContainer}
-            // Add extra bottom padding equal to the floating tab-bar height
-            // so the AddStop / Proceed buttons are never hidden behind it.
-            contentContainerStyle={[
-              styles.listContent,
-              { paddingBottom: 24 + bottomInset },
-            ]}
-            activationDistance={12}
-            ItemSeparatorComponent={() => <View style={styles.rowGap} />}
-            ListFooterComponent={
-              <View style={styles.footer}>
-                <View style={styles.rowGap} />
-                <AddStopButton onPress={() => addStop()} disabled={stopCount >= MAX_STOPS} />
-                <View style={styles.proceedGap} />
-                <ProceedButton enabled={proceedEnabled} onPress={onProceed} />
-              </View>
-            }
+        <View style={[styles.sheetBody, { backgroundColor: c.surface }]}>
+          <View style={styles.stickyHeader}>
+            <DeliveryTabs value={tab} onChange={setTab} />
+            <View style={[styles.divider, { backgroundColor: c.hairline }]} />
+          </View>
+
+          <BottomSheetScrollView
+            style={styles.cardScroll}
+            contentContainerStyle={styles.cardScrollContent}
             keyboardShouldPersistTaps="handled"
-          />
-        </BottomSheetView>
+            showsVerticalScrollIndicator
+          >
+            <View style={styles.cardsColumn}>
+              {rows.map((item) => (
+                <View key={item.id} style={styles.cardWrap}>
+                  {renderRow(item)}
+                </View>
+              ))}
+            </View>
+          </BottomSheetScrollView>
+
+          <View
+            style={[
+              styles.stickyFooter,
+              {
+                borderTopColor: c.hairline,
+                backgroundColor: c.surface,
+                paddingBottom: 12 + bottomInset,
+              },
+            ]}
+          >
+            <View style={styles.footerActionsRow}>
+              <View style={styles.footerActionCellAdd}>
+                <AddStopButton
+                  onPress={() => addStop()}
+                  disabled={stopCount >= MAX_STOPS}
+                  style={styles.footerActionFill}
+                />
+              </View>
+              <View style={styles.footerActionCellProceed}>
+                <ProceedButton
+                  enabled={proceedEnabled}
+                  onPress={onProceed}
+                  style={styles.footerActionFill}
+                />
+              </View>
+            </View>
+          </View>
+        </View>
       </BottomSheet>
     );
   },
@@ -237,12 +233,55 @@ const styles = StyleSheet.create({
     height: 5,
     borderRadius: 3,
   },
-  content: { flex: 1, paddingTop: 4 },
-  divider: { height: 1 },
-  listContainer: { flex: 1 },
-  listContent: { paddingHorizontal: 16, paddingTop: 12 },
+  sheetBody: {
+    flex: 1,
+  },
+  stickyHeader: {
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 4,
+  },
+  divider: {
+    height: StyleSheet.hairlineWidth,
+    marginTop: 0,
+  },
+  /** `minHeight: 0` lets the scroll region shrink inside the flex sheet body. */
+  cardScroll: {
+    flex: 1,
+    minHeight: 0,
+  },
+  cardScrollContent: {
+    flexGrow: 1,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 12,
+  },
+  cardsColumn: {
+    gap: 12,
+  },
   cardWrap: {},
-  rowGap: { height: 12 },
-  footer: { marginTop: 4 },
-  proceedGap: { height: 16 },
+  stickyFooter: {
+    flexShrink: 0,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
+  footerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  /** ~30% / ~70% of the row (after gap), excluding the fixed 10px gutter. */
+  footerActionCellAdd: {
+    flex: 4,
+    minWidth: 0,
+  },
+  footerActionCellProceed: {
+    flex: 7,
+    minWidth: 0,
+  },
+  footerActionFill: {
+    alignSelf: 'stretch',
+    width: '100%',
+  },
 });

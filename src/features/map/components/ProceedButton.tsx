@@ -1,3 +1,4 @@
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 const BRAND_GREEN = '#2ECC71';
@@ -5,9 +6,10 @@ const BRAND_GREEN = '#2ECC71';
 type Props = {
   enabled: boolean;
   onPress: () => void;
+  style?: StyleProp<ViewStyle>;
 };
 
-export function ProceedButton({ enabled, onPress }: Props) {
+export function ProceedButton({ enabled, onPress, style }: Props) {
   return (
     <Pressable
       onPress={onPress}
@@ -16,6 +18,7 @@ export function ProceedButton({ enabled, onPress }: Props) {
         styles.btn,
         !enabled && styles.disabled,
         enabled && pressed && styles.pressed,
+        style,
       ]}
       accessibilityRole="button"
       accessibilityLabel="Proceed"
@@ -33,6 +36,7 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND_GREEN,
     alignItems: 'center',
     justifyContent: 'center',
+    flexGrow: 1,
   },
   disabled: { opacity: 0.4 },
   pressed: { opacity: 0.85 },

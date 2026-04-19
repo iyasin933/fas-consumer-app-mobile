@@ -1,10 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
+import type { StyleProp, ViewStyle } from 'react-native';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useMapColors } from '@/features/map/theme/useMapColors';
 
-/** Full-width "add stop" card: themed bg, green plus, theme-colored label. */
-export function AddStopButton({ onPress, disabled }: { onPress: () => void; disabled?: boolean }) {
+type Props = {
+  onPress: () => void;
+  disabled?: boolean;
+  /** Merged after base styles (e.g. `{ flex: 1 }` in a row footer). */
+  style?: StyleProp<ViewStyle>;
+};
+
+/** "Add stop" control: themed bg, green plus, theme-colored label. */
+export function AddStopButton({ onPress, disabled, style }: Props) {
   const c = useMapColors();
   return (
     <Pressable
@@ -14,6 +22,7 @@ export function AddStopButton({ onPress, disabled }: { onPress: () => void; disa
         { backgroundColor: c.surface, borderColor: c.border },
         pressed && styles.pressed,
         disabled && styles.disabled,
+        style,
       ]}
       disabled={disabled}
       accessibilityRole="button"
@@ -36,6 +45,8 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderRadius: 12,
     paddingVertical: 14,
+    minHeight: 52,
+    flexGrow: 1,
   },
   pressed: { opacity: 0.75 },
   disabled: { opacity: 0.5 },

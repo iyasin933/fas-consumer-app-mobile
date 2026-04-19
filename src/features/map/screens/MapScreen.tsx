@@ -11,6 +11,7 @@ import {
 import { FloatingMapButtons } from '@/features/map/components/FloatingMapButtons';
 import { MapLayer, type MapLayerHandle } from '@/features/map/components/MapLayer';
 import { PlacesAutocompleteModal } from '@/features/map/components/PlacesAutocompleteModal';
+import { ScheduleDateTimePickerProvider } from '@/features/map/components/ScheduleDateTimePickerProvider';
 import { useCurrentLocation } from '@/features/map/hooks/useCurrentLocation';
 import { useDirectionsEta } from '@/features/map/hooks/useDirectionsEta';
 import {
@@ -88,8 +89,7 @@ export function MapScreen() {
   // flow (onPickSuggestion → onClose same tick) can still dispatch the result
   // to the correct row after `placesTarget` has been cleared.
   const placesTargetRef = useRef<PlacesTarget | null>(null);
-  const pickupAutofilledRef = useRef(false);
-  /** When true, skip overwriting dropoff schedule with fresh ETA (user edited dropoff). */
+  /** When true, skip overwriting dropoff schedule from fresh Directions ETA. */
   const dropoffScheduleUserEditedRef = useRef(false);
 
   // ── Apply nav params (initialDropoff + initialSnapIndex) once per mount ───
@@ -112,27 +112,6 @@ export function MapScreen() {
     // `route.params` identity already captures this dependency.
   }, [route.params, setPlace]);
 
-  // ── Auto-fill pickup with reverse-geocoded current location on first fix ─
-  useEffect(() => {
-    if (!coords || pickupAutofilledRef.current) return;
-    const pickup = rows.find((r) => r.id === PICKUP_ID);
-    if (pickup?.place) {
-      pickupAutofilledRef.current = true;
-      return;
-    }
-    pickupAutofilledRef.current = true;
-    mapRef.current?.animateTo(coords, 800);
-    void (async () => {
-      const rev = await reverse(coords.latitude, coords.longitude);
-      setPlace(PICKUP_ID, {
-        address: rev?.address ?? `${coords.latitude.toFixed(5)}, ${coords.longitude.toFixed(5)}`,
-        lat: coords.latitude,
-        lng: coords.longitude,
-        placeId: rev?.placeId,
-      });
-    })();
-  }, [coords, reverse, rows, setPlace]);
-
   // ── Clear the toast after a short delay ─────────────────────────────────
   useEffect(() => {
     if (!toast) return;
@@ -140,25 +119,10 @@ export function MapScreen() {
     return () => clearTimeout(h);
   }, [toast, setToast]);
 
-  // ── Default pickup schedule to “now” (scheduled tab only) ─────────────────
-  useEffect(() => {
-    if (tab !== 'scheduled') return;
-    const pickup = rows.find((r) => r.kind === 'pickup');
-    if (!pickup) return;
-    if (pickup.window || pickup.dateISO) return;
-    const now = new Date();
-    const t = now.toISOString();
-    setWindow(PICKUP_ID, { fromISO: t, toISO: t });
-    setDateISO(
-      PICKUP_ID,
-      new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0, 0).toISOString(),
-    );
-  }, [tab, rows, setWindow, setDateISO]);
-
-  // ── Auto-compute the Dropoff ETA via Google Directions API ──────────────
-  // Route duration is always stored for logistics validation. Suggested dropoff
-  // time is applied unless the user edited dropoff manually (until pickup/route
-  // inputs change again).
+  // ── Directions ETA: route duration + suggested dropoff window (scheduled) ─
+  // `fetchEta` uses Google Directions when configured; otherwise haversine fallback.
+  // Dropoff date/time is filled from ETA until the user edits it; pickup time
+  // or route changes clear the guard via `etaDepsKey`.
   const pickupRow = rows.find((r) => r.kind === 'pickup');
   const dropoffRow = rows.find((r) => r.kind === 'dropoff');
   const pickupKey = pickupRow?.place ? `${pickupRow.place.lat},${pickupRow.place.lng}` : '';
@@ -211,13 +175,25 @@ export function MapScreen() {
 
       setRouteDurationSec(durationSec);
 
-      if (dropoffScheduleUserEditedRef.current) return;
+      if (dropoffScheduleUserEditedRef.current || tab !== 'scheduled') return;
 
       const arriveMs = departureMs + durationSec * 1000;
       const fromISO = new Date(arriveMs).toISOString();
       const toISO = new Date(arriveMs + 30 * 60 * 1000).toISOString();
       setWindow(DROPOFF_ID, { fromISO, toISO });
-      setDateISO(DROPOFF_ID, pickupDateISO || new Date(arriveMs).toISOString());
+      setDateISO(
+        DROPOFF_ID,
+        pickupDateISO ||
+          new Date(
+            new Date(arriveMs).getFullYear(),
+            new Date(arriveMs).getMonth(),
+            new Date(arriveMs).getDate(),
+            12,
+            0,
+            0,
+            0,
+          ).toISOString(),
+      );
     })();
 
     return () => {
@@ -225,7 +201,7 @@ export function MapScreen() {
     };
     // `pickupKey` / `dropoffKey` / `stopsKey` are intentional stable dep keys.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupKey, dropoffKey, stopsKey, pickupFromISO, pickupDateISO]);
+  }, [pickupKey, dropoffKey, stopsKey, pickupFromISO, pickupDateISO, tab]);
 
   const onDropoffScheduleEdited = useCallback(() => {
     dropoffScheduleUserEditedRef.current = true;
@@ -342,53 +318,53 @@ export function MapScreen() {
 
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
-      {/*
-        Intentionally not forwarding `initialRegion` — MapLayer falls back to
-        its UK-wide default so the map always opens on the UK. Once a GPS fix
-        arrives the pickup-autofill effect below calls `mapRef.animateTo(...)`,
-        which pans/zooms the camera to the user.
-      */}
-      <MapLayer ref={mapRef} currentLocation={coords} rows={rows} />
+      <ScheduleDateTimePickerProvider>
+        {/*
+          Intentionally not forwarding `initialRegion` — MapLayer falls back to
+          its UK-wide default. Users set pickup from search or the GPS control.
+        */}
+        <MapLayer ref={mapRef} currentLocation={coords} rows={rows} />
 
-      <FloatingMapButtons
-        onBack={() => {
-          if (navigation.canGoBack()) navigation.goBack();
-        }}
-        onMenu={() => Alert.alert('Menu', 'No actions yet.')}
-      />
+        <FloatingMapButtons
+          onBack={() => {
+            if (navigation.canGoBack()) navigation.goBack();
+          }}
+          onMenu={() => Alert.alert('Menu', 'No actions yet.')}
+        />
 
-      <DeliveryBottomSheet
-        ref={sheetRef}
-        initialSnapIndex={initialSnapIndex}
-        onOpenPlaces={openPlaces}
-        onClearPlace={handleClearPlace}
-        onPickupGps={handlePickupGps}
-        onProceed={handleProceed}
-        onDropoffScheduleEdited={onDropoffScheduleEdited}
-        // Reserve space so AddStop / Proceed clear the floating tab bar.
-        bottomInset={tabBarHeight}
-      />
+        <DeliveryBottomSheet
+          ref={sheetRef}
+          initialSnapIndex={initialSnapIndex}
+          onOpenPlaces={openPlaces}
+          onClearPlace={handleClearPlace}
+          onPickupGps={handlePickupGps}
+          onProceed={handleProceed}
+          onDropoffScheduleEdited={onDropoffScheduleEdited}
+          // Reserve space so AddStop / Proceed clear the floating tab bar.
+          bottomInset={tabBarHeight}
+        />
 
-      {toast && (
-        <Animated.View
-          entering={FadeIn.duration(150)}
-          exiting={FadeOut.duration(150)}
-          style={[styles.toast, { backgroundColor: c.toastBg, bottom: tabBarHeight + 24 }]}
-          pointerEvents="none"
-        >
-          <Text style={[styles.toastTxt, { color: c.toastText }]}>{toast}</Text>
-        </Animated.View>
-      )}
+        {toast && (
+          <Animated.View
+            entering={FadeIn.duration(150)}
+            exiting={FadeOut.duration(150)}
+            style={[styles.toast, { backgroundColor: c.toastBg, bottom: tabBarHeight + 24 }]}
+            pointerEvents="none"
+          >
+            <Text style={[styles.toastTxt, { color: c.toastText }]}>{toast}</Text>
+          </Animated.View>
+        )}
 
-      {/* Last so z-index wins over map, sheet, and floating controls (not RN Modal). */}
-      <PlacesAutocompleteModal
-        visible={!!placesTarget}
-        onClose={closePlaces}
-        onPickSuggestion={handlePickSuggestion}
-        onPickCurrentLocation={handlePickCurrentLocation}
-        bias={coords ? { lat: coords.latitude, lng: coords.longitude } : undefined}
-        title={placesTargetTitle(placesTarget)}
-      />
+        {/* Last so z-index wins over map, sheet, and floating controls (not RN Modal). */}
+        <PlacesAutocompleteModal
+          visible={!!placesTarget}
+          onClose={closePlaces}
+          onPickSuggestion={handlePickSuggestion}
+          onPickCurrentLocation={handlePickCurrentLocation}
+          bias={coords ? { lat: coords.latitude, lng: coords.longitude } : undefined}
+          title={placesTargetTitle(placesTarget)}
+        />
+      </ScheduleDateTimePickerProvider>
     </View>
   );
 }

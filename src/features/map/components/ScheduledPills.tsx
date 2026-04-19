@@ -1,8 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
-import { DatePickerModal } from '@/features/map/components/DatePickerModal';
+import { useScheduleDateTimePicker } from '@/features/map/components/ScheduleDateTimePickerProvider';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { TimeWindow } from '@/features/map/types';
@@ -61,8 +61,7 @@ export function ScheduledPills({
 }: Props) {
   const c = useMapColors();
   const setToast = useDeliveryFormStore((s) => s.setToast);
-  const [timeOpen, setTimeOpen] = useState(false);
-  const [dateOpen, setDateOpen] = useState(false);
+  const { openPicker } = useScheduleDateTimePicker();
 
   const isPickup = scheduleRole === 'pickup';
   const isStop = scheduleRole === 'stop';
@@ -94,8 +93,6 @@ export function ScheduledPills({
 
   const handleTimeConfirm = useCallback(
     (picked: Date) => {
-      setTimeOpen(false);
-
       // Pickup: single instant, not in the past
       if (isPickup) {
         let merged = mergeStopDateTime(dateISO, picked.toISOString());
@@ -145,7 +142,6 @@ export function ScheduledPills({
 
   const handleDateConfirm = useCallback(
     (picked: Date) => {
-      setDateOpen(false);
       const iso = picked.toISOString();
 
       if (isDropoff && minDropoffAt) {
@@ -194,7 +190,15 @@ export function ScheduledPills({
     <View style={styles.row}>
       <Pressable
         style={[styles.pill, window ? pillActive : pillBase]}
-        onPress={() => setTimeOpen(true)}
+        onPress={() =>
+          openPicker({
+            mode: 'time',
+            value: timePickerValue,
+            title: 'Pick a time',
+            onCancel: () => {},
+            onConfirm: handleTimeConfirm,
+          })
+        }
         accessibilityLabel="Select time"
       >
         <Ionicons
@@ -214,7 +218,16 @@ export function ScheduledPills({
       </Pressable>
       <Pressable
         style={[styles.pill, dateISO ? pillActive : pillBase]}
-        onPress={() => setDateOpen(true)}
+        onPress={() =>
+          openPicker({
+            mode: 'date',
+            value: dateISO ? new Date(dateISO) : datePickerMin,
+            minimumDate: datePickerMin,
+            title: 'Pick a date',
+            onCancel: () => {},
+            onConfirm: handleDateConfirm,
+          })
+        }
         accessibilityLabel="Select date"
       >
         <Ionicons
@@ -232,24 +245,6 @@ export function ScheduledPills({
           {dateLabel}
         </Text>
       </Pressable>
-
-      <DatePickerModal
-        visible={timeOpen}
-        mode="time"
-        value={timePickerValue}
-        onCancel={() => setTimeOpen(false)}
-        onConfirm={handleTimeConfirm}
-        title="Pick a time"
-      />
-      <DatePickerModal
-        visible={dateOpen}
-        mode="date"
-        value={dateISO ? new Date(dateISO) : datePickerMin}
-        minimumDate={datePickerMin}
-        onCancel={() => setDateOpen(false)}
-        onConfirm={handleDateConfirm}
-        title="Pick a date"
-      />
     </View>
   );
 }
