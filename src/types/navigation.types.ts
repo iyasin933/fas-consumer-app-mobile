@@ -1,3 +1,7 @@
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+
 export type AuthStackParamList = {
   SignIn: undefined;
   SignUp: undefined;
@@ -34,9 +38,17 @@ export type MainTabParamList = {
 };
 
 export type AppStackParamList = {
-  MainTabs: undefined;
+  MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Users: undefined;
+  AddDeliveryContents: undefined;
+  ChooseVehicle: undefined;
 };
+
+/** Use on the Map tab to push stack screens registered on `AppNavigator`. */
+export type MapTabScreenNavigationProp = CompositeNavigationProp<
+  BottomTabNavigationProp<MainTabParamList, 'Map'>,
+  NativeStackNavigationProp<AppStackParamList>
+>;
 
 declare global {
   namespace ReactNavigation {

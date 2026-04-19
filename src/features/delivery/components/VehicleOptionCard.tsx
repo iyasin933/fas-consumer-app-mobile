@@ -1,0 +1,76 @@
+import { memo, useMemo } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+
+import { useTheme } from '@/hooks/useTheme';
+import type { DeliveryVehicleDto } from '@/features/delivery/api/consumerBookingPriceApi';
+import { vehicleNameToIconAssetKey } from '@/features/delivery/utils/vehicleToIconAsset';
+import { TRANSPORT_ICON_SOURCES, transportIconSource } from '@/features/home/utils/transportIconSources';
+import { spacing } from '@/shared/theme/spacing';
+import { typography } from '@/shared/theme/typography';
+
+function formatGbp(n: number): string {
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(n);
+}
+
+function priceLabel(v: DeliveryVehicleDto): string {
+  if (v.priceWithVat != null && Number.isFinite(v.priceWithVat)) {
+    const hi = v.priceWithVat;
+    const lo = Math.max(0, hi - 50);
+    return `£${lo.toFixed(2)} - £${hi.toFixed(2)}`;
+  }
+  const { minPrice, maxPrice } = v;
+  if (minPrice != null && maxPrice != null && minPrice !== maxPrice) {
+    return `${formatGbp(minPrice)} – ${formatGbp(maxPrice)}`;
+  }
+  const single = minPrice ?? maxPrice;
+  return single != null ? formatGbp(single) : 'Quote on request';
+}
+
+type Props = {
+  vehicle: DeliveryVehicleDto;
+  selected: boolean;
+  onPress: () => void;
+};
+
+export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, selected, onPress }: Props) {
+  const { colors } = useTheme();
+  const assetKey = vehicleNameToIconAssetKey(vehicle.name, vehicle.type ?? vehicle.code);
+  const src = transportIconSource(assetKey) ?? TRANSPORT_ICON_SOURCES.delivery;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          padding: spacing.md,
+          borderRadius: 12,
+          backgroundColor: colors.surface,
+          borderWidth: 2,
+          borderColor: selected ? colors.primary : colors.border,
+        },
+        art: { width: 72, height: 48, resizeMode: 'contain' },
+        body: { flex: 1, gap: 4 },
+        name: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
+        price: { fontSize: typography.fontSize.md, fontWeight: '700', color: colors.textPrimary },
+        disc: {
+          fontSize: typography.fontSize.sm,
+          fontStyle: 'italic',
+          color: colors.danger,
+        },
+      }),
+    [colors.border, colors.danger, colors.primary, colors.surface, colors.textPrimary, selected],
+  );
+
+  return (
+    <Pressable style={styles.card} onPress={onPress}>
+      <Image source={src} style={styles.art} accessibilityIgnoresInvertColors />
+      <View style={styles.body}>
+        <Text style={styles.name}>{vehicle.name}</Text>
+        <Text style={styles.price}>{priceLabel(vehicle)}</Text>
+        <Text style={styles.disc}>Prices can vary</Text>
+      </View>
+    </Pressable>
+  );
+});

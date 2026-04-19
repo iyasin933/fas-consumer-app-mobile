@@ -29,6 +29,8 @@ type State = {
    * dropoff min-time validation. Null when route is incomplete.
    */
   routeDurationSec: number | null;
+  /** Last route distance (metres) from Directions; null when unknown. */
+  routeDistanceM: number | null;
 };
 
 type Actions = {
@@ -43,7 +45,7 @@ type Actions = {
   removeStop: (stopId: string) => void;
   reorder: (nextRows: DeliveryStop[]) => void;
   setToast: (msg: string | null) => void;
-  setRouteDurationSec: (sec: number | null) => void;
+  setRouteMetrics: (durationSec: number | null, distanceM: number | null) => void;
 };
 
 const initialRows = (): DeliveryStop[] => [makeRow('pickup'), makeRow('dropoff')];
@@ -53,6 +55,7 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
   rows: initialRows(),
   toast: null,
   routeDurationSec: null,
+  routeDistanceM: null,
 
   setTab: (tab) => {
     // Switching tabs resets "form fields" but keeps any already-filled addresses
@@ -61,6 +64,7 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
     set((s) => ({
       tab,
       routeDurationSec: null,
+      routeDistanceM: null,
       rows: s.rows.map((r) => ({
         ...r,
         window: undefined,
@@ -72,7 +76,7 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
   },
 
   resetForm: () =>
-    set({ rows: initialRows(), toast: null, routeDurationSec: null }),
+    set({ rows: initialRows(), toast: null, routeDurationSec: null, routeDistanceM: null }),
 
   setPlace: (rowId, place) =>
     set((s) => ({
@@ -145,7 +149,8 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
 
   setToast: (msg) => set({ toast: msg }),
 
-  setRouteDurationSec: (sec) => set({ routeDurationSec: sec }),
+  setRouteMetrics: (durationSec, distanceM) =>
+    set({ routeDurationSec: durationSec, routeDistanceM: distanceM }),
 }));
 
 /** Selector helpers. */
@@ -161,9 +166,23 @@ export function getStopLabel(rows: DeliveryStop[], row: DeliveryStop): string {
   return `Stop ${idx + 1}`;
 }
 
-/** True when the form is valid enough to proceed. */
-export function canProceed(rows: DeliveryStop[]): boolean {
+/** Pickup/dropoff have a scheduled date and time window (scheduled tab only). */
+function scheduledPickupDropoffComplete(rows: DeliveryStop[]): boolean {
   const pickup = rows.find((r) => r.kind === 'pickup');
   const dropoff = rows.find((r) => r.kind === 'dropoff');
-  return Boolean(pickup?.place?.address) && Boolean(dropoff?.place?.address);
+  const rowOk = (r: DeliveryStop | undefined) => Boolean(r?.window?.fromISO && r?.dateISO);
+  return rowOk(pickup) && rowOk(dropoff);
+}
+
+/**
+ * True when the user may proceed: pickup + dropoff addresses always required.
+ * On **scheduled** delivery, pickup and dropoff must each have **date** and **time** (four picks total).
+ */
+export function canProceed(rows: DeliveryStop[], tab: DeliveryTab): boolean {
+  const pickup = rows.find((r) => r.kind === 'pickup');
+  const dropoff = rows.find((r) => r.kind === 'dropoff');
+  const addressesOk = Boolean(pickup?.place?.address) && Boolean(dropoff?.place?.address);
+  if (!addressesOk) return false;
+  if (tab !== 'scheduled') return true;
+  return scheduledPickupDropoffComplete(rows);
 }

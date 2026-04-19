@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, StyleSheet, Text, View } from 'react-native';
 import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
 
+import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
+
 import {
   DeliveryBottomSheet,
   type DeliveryBottomSheetHandle,
@@ -28,7 +30,7 @@ import {
 } from '@/features/map/store/deliveryFormStore';
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { PlaceValue, PlacesTarget } from '@/features/map/types';
-import type { MainTabParamList } from '@/types/navigation.types';
+import type { MainTabParamList, MapTabScreenNavigationProp } from '@/types/navigation.types';
 
 /**
  * Rough haversine-based travel estimate used only as a graceful fallback when
@@ -62,18 +64,19 @@ type MapRoute = RouteProp<MainTabParamList, 'Map'>;
  *  4. A full-screen Places modal (single instance used by every field).
  */
 export function MapScreen() {
-  const navigation = useNavigation();
+  const navigation = useNavigation<MapTabScreenNavigationProp>();
   const route = useRoute<MapRoute>();
   const tabBarHeight = useBottomTabBarHeight();
   const c = useMapColors();
 
   const rows = useDeliveryFormStore((s) => s.rows);
   const tab = useDeliveryFormStore((s) => s.tab);
+  const hydrateFromMapRows = useDeliveryOrderDraftStore((s) => s.hydrateFromMapRows);
   const setPlace = useDeliveryFormStore((s) => s.setPlace);
   const setStopExtraDropoff = useDeliveryFormStore((s) => s.setStopExtraDropoff);
   const setWindow = useDeliveryFormStore((s) => s.setWindow);
   const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
-  const setRouteDurationSec = useDeliveryFormStore((s) => s.setRouteDurationSec);
+  const setRouteMetrics = useDeliveryFormStore((s) => s.setRouteMetrics);
   const toast = useDeliveryFormStore((s) => s.toast);
   const setToast = useDeliveryFormStore((s) => s.setToast);
 
@@ -141,7 +144,7 @@ export function MapScreen() {
 
   useEffect(() => {
     if (!pickupRow?.place || !dropoffRow?.place) {
-      setRouteDurationSec(null);
+      setRouteMetrics(null, null);
       return;
     }
 
@@ -161,8 +164,10 @@ export function MapScreen() {
       if (cancelled) return;
 
       let durationSec: number;
+      let distanceM: number;
       if (eta) {
         durationSec = eta.durationSec;
+        distanceM = eta.distanceM;
       } else {
         // Graceful fallback — sum haversine distance across the full route and
         // convert to seconds using an average urban speed. This means the pill
@@ -171,9 +176,10 @@ export function MapScreen() {
         let km = 0;
         for (let i = 1; i < points.length; i += 1) km += haversineKm(points[i - 1], points[i]);
         durationSec = Math.max(60, Math.round((km / AVG_URBAN_SPEED_KMH) * 3600));
+        distanceM = Math.max(1, Math.round(km * 1000));
       }
 
-      setRouteDurationSec(durationSec);
+      setRouteMetrics(durationSec, distanceM);
 
       if (dropoffScheduleUserEditedRef.current || tab !== 'scheduled') return;
 
@@ -308,13 +314,20 @@ export function MapScreen() {
   }, [coords, refresh, reverse, setPlace]);
 
   const handleProceed = useCallback(() => {
-    if (!canProceed(rows)) {
-      setToast('Please fill in both pickup and dropoff.');
+    if (!canProceed(rows, tab)) {
+      const pickup = rows.find((r) => r.kind === 'pickup');
+      const dropoff = rows.find((r) => r.kind === 'dropoff');
+      const addressesOk = Boolean(pickup?.place?.address && dropoff?.place?.address);
+      setToast(
+        tab === 'scheduled' && addressesOk
+          ? 'Set pickup date & time and dropoff date & time to continue.'
+          : 'Please fill in both pickup and dropoff.',
+      );
       return;
     }
-    // Placeholder: real app would navigate to an order summary screen.
-    Alert.alert('Order', 'Proceeding to order summary (stub).');
-  }, [rows, setToast]);
+    hydrateFromMapRows(rows, tab);
+    navigation.navigate('AddDeliveryContents');
+  }, [hydrateFromMapRows, navigation, rows, setToast, tab]);
 
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>

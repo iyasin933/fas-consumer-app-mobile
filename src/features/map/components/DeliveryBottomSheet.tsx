@@ -81,7 +81,7 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
     const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
 
     const snapPoints = useMemo(() => ['35%', '65%', '95%'], []);
-    const proceedEnabled = canProceed(rows);
+    const proceedEnabled = canProceed(rows, tab);
     const stopCount = rows.filter((r) => r.kind === 'stop').length;
 
     const renderRow = useCallback(
