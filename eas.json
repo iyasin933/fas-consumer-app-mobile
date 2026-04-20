@@ -26,7 +26,7 @@
     "preview": {
       "distribution": "internal",
       "channel": "preview",
-      "ios": { "simulator": true, "resourceClass": "m-medium" },
+      "ios": { "resourceClass": "m-medium", "image": "latest" },
       "android": { "buildType": "apk" },
       "env": {
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
@@ -37,6 +37,9 @@
     },
     "production": {
       "channel": "production",
+      "ios": {
+        "image": "latest"
+      },
       "env": {
         "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
         "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY",
