@@ -1,10 +1,11 @@
 import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Image, StyleSheet, Text, View } from 'react-native';
 
 import {
   useHomeServiceCategories,
   type HomeServiceItem,
 } from '@/features/home/hooks/useHomeServiceCategories';
+import { transportIconSource } from '@/features/home/utils/transportIconSources';
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
@@ -39,6 +40,10 @@ function createStyles(colors: ThemeColors) {
       fontWeight: typography.fontWeight.bold,
       fontSize: typography.fontSize.md,
     },
+    iconImage: {
+      width: 40,
+      height: 40,
+    },
     label: {
       textAlign: 'center',
       fontSize: typography.fontSize.sm,
@@ -49,10 +54,15 @@ function createStyles(colors: ThemeColors) {
 }
 
 function IconSlot({ item, styles }: { item: HomeServiceItem; styles: ReturnType<typeof createStyles> }) {
+  const source = transportIconSource(item.assetKey);
   const glyph = item.label.trim().charAt(0).toUpperCase();
   return (
-    <View style={styles.iconBox} accessibilityLabel={`${item.label} icon placeholder`}>
-      <Text style={styles.iconGlyph}>{glyph}</Text>
+    <View style={styles.iconBox} accessibilityLabel={`${item.label}`}>
+      {source ? (
+        <Image source={source} style={styles.iconImage} resizeMode="contain" accessibilityIgnoresInvertColors />
+      ) : (
+        <Text style={styles.iconGlyph}>{glyph}</Text>
+      )}
     </View>
   );
 }

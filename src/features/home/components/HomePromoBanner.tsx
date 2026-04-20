@@ -1,17 +1,21 @@
-import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useCallback, useMemo } from 'react';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
+import { HOME_PROMO_ILLUSTRATION } from '@/features/home/utils/homeScreenArtAssets';
 import { useHomePromo } from '@/features/home/hooks/useHomePromo';
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
+import type { MainTabParamList } from '@/types/navigation.types';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     wrap: {
       paddingHorizontal: spacing.md,
-      paddingBottom: spacing.md,
+      paddingBottom: spacing.lg,
     },
     card: {
       backgroundColor: colors.primary,
@@ -20,6 +24,7 @@ function createStyles(colors: ThemeColors) {
       flexDirection: 'row',
       alignItems: 'center',
       gap: spacing.md,
+      overflow: 'visible',
     },
     copy: { flex: 1, gap: spacing.sm },
     title: {
@@ -40,15 +45,22 @@ function createStyles(colors: ThemeColors) {
       fontWeight: typography.fontWeight.bold,
       fontSize: typography.fontSize.sm,
     },
+    /** Fixed 88×88 layout column only; larger art draws below via `artBurst`. */
     art: {
-      width: 88,
-      height: 88,
-      borderRadius: 12,
-      backgroundColor: 'rgba(255,255,255,0.2)',
-      alignItems: 'center',
-      justifyContent: 'center',
+      position: 'relative',
+      width: 90,
+      height: 90,
+      overflow: 'visible',
     },
-    artHint: { color: colors.onPrimary, fontSize: 12, opacity: 0.85 },
+    artBurst: {
+      position: 'absolute',
+      /** Centers a wider bitmap on the 88px-wide slot: (88 − 112) / 2 */
+      left: -12,
+      bottom: -18,
+      width: 112,
+      height: 126,
+    },
+    artImage: { width: '100%', height: '100%' },
   });
 }
 
@@ -56,18 +68,35 @@ export function HomePromoBanner() {
   const { title, cta } = useHomePromo();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+
+  const onStartNow = useCallback(() => {
+    navigation.navigate('Map', { initialSnapIndex: 1 });
+  }, [navigation]);
 
   return (
     <View style={styles.wrap}>
       <View style={styles.card}>
         <View style={styles.copy}>
           <Text style={styles.title}>{title}</Text>
-          <Pressable style={styles.cta} accessibilityRole="button">
+          <Pressable
+            style={styles.cta}
+            accessibilityRole="button"
+            accessibilityLabel={cta}
+            onPress={onStartNow}
+          >
             <Text style={styles.ctaText}>{cta}</Text>
           </Pressable>
         </View>
-        <View style={styles.art} accessibilityLabel="Promo illustration placeholder">
-          <Text style={styles.artHint}>Art</Text>
+        <View style={styles.art} accessibilityLabel="Delivery illustration">
+          <View style={styles.artBurst}>
+            <Image
+              source={HOME_PROMO_ILLUSTRATION}
+              style={styles.artImage}
+              resizeMode="contain"
+              accessibilityIgnoresInvertColors
+            />
+          </View>
         </View>
       </View>
     </View>

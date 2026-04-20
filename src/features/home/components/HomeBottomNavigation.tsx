@@ -3,10 +3,10 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useContext, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useContext, useMemo } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import {
-  Animated,
+  Platform,
   Pressable,
   StyleSheet,
   Text,
@@ -15,86 +15,194 @@ import {
 } from 'react-native';
 
 import { LiquidTabBarLayer } from '@/features/home/components/LiquidTabBarLayer';
-import type { MainTabParamList } from '@/types/navigation.types';
 import { useTheme } from '@/hooks/useTheme';
 import { lightColors, type ThemeColors } from '@/shared/theme/colors';
+import type { MainTabParamList } from '@/types/navigation.types';
 import { debugLog } from '@/utils/debugLog';
 
-const BAR_H = 64;
+// ─── Layout constants ────────────────────────────────────────────────────────
+const BAR_H = 72;          // visible bar height
+const FAB_SIZE = 64;       // floating action button diameter
+const FAB_R = FAB_SIZE / 2; // 32
+/** Notch depth (must satisfy: notchR ≥ FAB_R + vertical_overlap). */
+const NOTCH_R = 30;
+/** FAB protrudes (FAB_R − (NOTCH_R − FAB_R)) = 2*FAB_R − NOTCH_R = 28 px above bar top. */
+const FAB_TOP = NOTCH_R - FAB_SIZE; // −28
 
+const INACTIVE_COLOR = '#6B7280';
+
+// ─── Tab metadata ─────────────────────────────────────────────────────────────
 const TAB_META: {
   name: keyof MainTabParamList;
-  icon: keyof typeof Ionicons.glyphMap;
+  iconActive: keyof typeof Ionicons.glyphMap;
+  iconInactive: keyof typeof Ionicons.glyphMap;
+  label: string;
   badge?: number;
 }[] = [
-  { name: 'HomeMain', icon: 'home-outline' },
-  { name: 'Bookings', icon: 'calendar-outline' },
-  { name: 'Map', icon: 'map-outline' },
-  { name: 'Notifications', icon: 'notifications-outline', badge: 3 },
-  { name: 'Settings', icon: 'person-outline' },
+  {
+    name: 'HomeMain',
+    iconActive: 'home',
+    iconInactive: 'home-outline',
+    label: 'Home',
+  },
+  {
+    name: 'Bookings',
+    iconActive: 'calendar',
+    iconInactive: 'calendar-outline',
+    label: 'Schedule',
+  },
+  {
+    name: 'Map',
+    iconActive: 'location',
+    iconInactive: 'location-outline',
+    label: 'Map',
+  },
+  {
+    name: 'Notifications',
+    iconActive: 'notifications',
+    iconInactive: 'notifications-outline',
+    label: 'Notifications',
+    badge: 3,
+  },
+  {
+    name: 'Settings',
+    iconActive: 'person',
+    iconInactive: 'person-outline',
+    label: 'Profile',
+  },
 ];
 
+const CENTER_IDX = 2; // Map
+
+// ─── Styles factory ───────────────────────────────────────────────────────────
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
+    /**
+     * Outer wrapper — transparent so the curved SVG corners and the notch
+     * show the screen content behind them.
+     */
     wrap: {
-      backgroundColor: colors.background,
-      borderTopWidth: StyleSheet.hairlineWidth,
-      borderColor: colors.border,
+      backgroundColor: 'transparent',
+      overflow: 'visible',
       zIndex: 10,
       elevation: 10,
-      overflow: 'visible',
     },
+    /**
+     * The bar itself.  overflow:visible lets the FAB escape the clipping rect.
+     * The white background is provided entirely by the SVG inside LiquidTabBarLayer.
+     */
     bar: {
-      position: 'relative',
+      height: BAR_H,
       overflow: 'visible',
+      position: 'relative',
+      ...Platform.select({
+        ios: {
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.07,
+          shadowRadius: 10,
+        },
+      }),
     },
-    icons: {
+    /**
+     * Absolute row that holds the four regular tab buttons.
+     * A centerSpacer at index 2 reserves space for the FAB.
+     */
+    tabRow: {
       ...StyleSheet.absoluteFillObject,
       flexDirection: 'row',
       alignItems: 'center',
       zIndex: 2,
-      elevation: 4,
+      elevation: 2,
     },
-    cell: {
+    tabCell: {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      height: BAR_H,
+      paddingTop: 12,
+      paddingBottom: 6,
+      gap: 3,
     },
-    iconSlot: {
-      position: 'relative',
-      height: 40,
-      width: 40,
+    /** Empty flex slot that reserves the same width as a tab cell for the FAB. */
+    centerSpacer: {
+      flex: 1,
+    },
+    label: {
+      fontSize: 10.5,
+      letterSpacing: 0.15,
+      textAlign: 'center',
+    },
+    iconWrap: {
       alignItems: 'center',
       justifyContent: 'center',
+      width: 28,
+      height: 28,
+      position: 'relative',
     },
+    /** Notification badge dot. */
     badge: {
       position: 'absolute',
-      right: -2,
+      right: -7,
       top: -4,
       minWidth: 16,
       height: 16,
       borderRadius: 8,
-      backgroundColor: colors.danger,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 4,
       zIndex: 6,
-      elevation: 0,
     },
-    badgeTxt: { color: colors.onPrimary, fontSize: 9, fontWeight: '700' },
+    badgeTxt: {
+      color: '#ffffff',
+      fontSize: 9,
+      fontWeight: '700',
+    },
+    /** Floating action button — lifts above the bar via negative top. */
+    fab: {
+      position: 'absolute',
+      width: FAB_SIZE,
+      height: FAB_SIZE,
+      borderRadius: FAB_R,
+      alignItems: 'center',
+      justifyContent: 'center',
+      top: FAB_TOP,
+      zIndex: 4,
+      elevation: 12,
+      ...Platform.select({
+        ios: {
+          shadowColor: '#16a34a',
+          shadowOffset: { width: 0, height: 6 },
+          shadowOpacity: 0.38,
+          shadowRadius: 14,
+        },
+      }),
+    },
+    /** White fill below the bar that covers the device safe-area strip. */
+    safeAreaFill: {
+      backgroundColor: colors.surface,
+    },
+    homeIndicatorWrap: {
+      flex: 1,
+      alignItems: 'center',
+      justifyContent: 'center',
+    },
+    homeIndicator: {
+      width: 134,
+      height: 5,
+      borderRadius: 3,
+      backgroundColor: '#1a1a1a',
+      opacity: 0.18,
+    },
   });
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBarProps) {
   const { width } = useWindowDimensions();
   const tabBarOnHeightChange = useContext(BottomTabBarHeightCallbackContext);
   const { colors: themeColors } = useTheme();
   const colors = themeColors ?? lightColors;
   const styles = useMemo(() => createStyles(colors), [colors]);
-  const indexAnim = useRef(new Animated.Value(state.index)).current;
-
-  const bottomInset = insets.bottom;
 
   const onTabBarLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -103,68 +211,150 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
     [tabBarOnHeightChange],
   );
 
-  useEffect(() => {
-    Animated.spring(indexAnim, {
-      toValue: state.index,
-      useNativeDriver: false,
-      friction: 14,
-      tension: 38,
-    }).start();
-  }, [state.index, indexAnim]);
+  const handleTabPress = useCallback(
+    (routeKey: string, routeName: string) => {
+      debugLog('BottomNav', `tab: ${routeName}`);
+      const e = navigation.emit({
+        type: 'tabPress',
+        target: routeKey,
+        canPreventDefault: true,
+      });
+      if (!e.defaultPrevented) {
+        navigation.navigate(routeName);
+      }
+    },
+    [navigation],
+  );
+
+  const centerRoute = state.routes[CENTER_IDX];
+  const isCenterActive = state.index === CENTER_IDX;
 
   return (
-    <View
-      style={[styles.wrap, { paddingBottom: bottomInset }]}
-      onLayout={onTabBarLayout}
-    >
-      <View style={[styles.bar, { height: BAR_H }]}>
-        <LiquidTabBarLayer
-          width={width}
-          height={BAR_H}
-          indexAnim={indexAnim}
-          initialTabIndex={state.index}
-        />
-        <View style={styles.icons}>
-          {state.routes.map((route, i) => {
-            const on = state.index === i;
+    <View onLayout={onTabBarLayout} style={styles.wrap}>
+      {/* ── Main bar ────────────────────────────────────────────────────── */}
+      <View style={styles.bar}>
+        {/* White notch-shaped background */}
+        <LiquidTabBarLayer width={width} height={BAR_H} />
+
+        {/* Left (Home, Schedule) + spacer + Right (Notifications, Profile) */}
+        <View style={styles.tabRow}>
+          {([0, 1] as const).map((i) => {
+            const route = state.routes[i];
             const meta = TAB_META[i];
-            const badge = meta?.badge;
-            const icon = meta?.icon ?? 'ellipse-outline';
+            const active = state.index === i;
             return (
               <Pressable
                 key={route.key}
-                style={styles.cell}
-                onPress={() => {
-                  debugLog('BottomNav', `tab: ${route.name}`);
-                  const e = navigation.emit({
-                    type: 'tabPress',
-                    target: route.key,
-                    canPreventDefault: true,
-                  });
-                  if (!e.defaultPrevented) {
-                    navigation.navigate(route.name);
-                  }
-                }}
+                style={styles.tabCell}
+                onPress={() => handleTabPress(route.key, route.name)}
                 accessibilityRole="button"
-                accessibilityState={{ selected: on }}
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={meta.label}
               >
-                <View style={styles.iconSlot}>
+                <View style={styles.iconWrap}>
                   <Ionicons
-                    name={icon}
+                    name={active ? meta.iconActive : meta.iconInactive}
                     size={24}
-                    color={on ? colors.onPrimary : colors.muted}
+                    color={active ? colors.primary : INACTIVE_COLOR}
                   />
-                  {badge != null && badge > 0 ? (
-                    <View style={styles.badge}>
-                      <Text style={styles.badgeTxt}>{badge > 9 ? '9+' : badge}</Text>
-                    </View>
-                  ) : null}
                 </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.label,
+                    {
+                      color: active ? colors.primary : INACTIVE_COLOR,
+                      fontWeight: active ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {meta.label}
+                </Text>
+              </Pressable>
+            );
+          })}
+
+          {/* Reserve the center slot for the FAB */}
+          <View style={styles.centerSpacer} />
+
+          {([3, 4] as const).map((i) => {
+            const route = state.routes[i];
+            const meta = TAB_META[i];
+            const active = state.index === i;
+            return (
+              <Pressable
+                key={route.key}
+                style={styles.tabCell}
+                onPress={() => handleTabPress(route.key, route.name)}
+                accessibilityRole="button"
+                accessibilityState={{ selected: active }}
+                accessibilityLabel={meta.label}
+              >
+                <View style={styles.iconWrap}>
+                  <Ionicons
+                    name={active ? meta.iconActive : meta.iconInactive}
+                    size={24}
+                    color={active ? colors.primary : INACTIVE_COLOR}
+                  />
+                  {meta.badge != null && meta.badge > 0 && (
+                    <View style={[styles.badge, { backgroundColor: colors.danger }]}>
+                      <Text style={styles.badgeTxt}>
+                        {meta.badge > 9 ? '9+' : meta.badge}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text
+                  numberOfLines={1}
+                  style={[
+                    styles.label,
+                    {
+                      color: active ? colors.primary : INACTIVE_COLOR,
+                      fontWeight: active ? '700' : '500',
+                    },
+                  ]}
+                >
+                  {meta.label}
+                </Text>
               </Pressable>
             );
           })}
         </View>
+
+        {/* ── Floating Map button ─────────────────────────────────────── */}
+        <Pressable
+          style={[
+            styles.fab,
+            {
+              left: width / 2 - FAB_R,
+              backgroundColor: isCenterActive
+                ? colors.primaryPressed
+                : colors.primary,
+            },
+          ]}
+          onPress={() => handleTabPress(centerRoute.key, centerRoute.name)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: isCenterActive }}
+          accessibilityLabel={TAB_META[CENTER_IDX].label}
+        >
+          <Ionicons
+            name={isCenterActive ? 'location' : 'location-outline'}
+            size={30}
+            color="#ffffff"
+          />
+        </Pressable>
       </View>
+
+      {/* ── Safe-area fill + iOS home indicator ─────────────────────── */}
+      {insets.bottom > 0 && (
+        <View style={[styles.safeAreaFill, { height: insets.bottom }]}>
+          {Platform.OS === 'ios' && (
+            <View style={styles.homeIndicatorWrap}>
+              <View style={styles.homeIndicator} />
+            </View>
+          )}
+        </View>
+      )}
     </View>
   );
 }
