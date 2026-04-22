@@ -23,12 +23,12 @@ export const env = {
   /** Stripe publishable key — required for Payment Sheet (`@stripe/stripe-react-native`). */
   stripePublishableKey: (process.env.EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY ?? '').trim(),
   /**
-   * When true, `POST /payment/create-intent` sends `amount` in **major** units (e.g. `319.2` for £319.20).
-   * When false (default), `amount` is **minor** (pence). Set true if the server already multiplies by 100
-   * to reach Stripe’s smallest unit — otherwise you get ~100× the displayed price on the Stripe sheet.
+   * When true (default), `POST /payment/create-intent` sends `amount` in **major** units (e.g. `319.2` for £319.20).
+   * The backend converts to Stripe’s smallest unit. Set `EXPO_PUBLIC_PAYMENT_CREATE_INTENT_AMOUNT_MAJOR=false`
+   * only if the API expects **minor** units (pence) with no server-side conversion.
    */
   paymentCreateIntentAmountInMajorUnits:
-    process.env.EXPO_PUBLIC_PAYMENT_CREATE_INTENT_AMOUNT_MAJOR === 'true',
+    process.env.EXPO_PUBLIC_PAYMENT_CREATE_INTENT_AMOUNT_MAJOR !== 'false',
   /**
    * Socket.IO server origin (no `/api/v1`, no trailing `/`). Example: `https://api.dropyou.co.uk`
    * — used for load-quote events (`subscribe_to_load`, `dropyou_quote_received`).

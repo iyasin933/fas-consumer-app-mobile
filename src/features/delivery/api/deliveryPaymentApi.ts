@@ -18,7 +18,10 @@ import { env } from '@/shared/config/env';
 const CREATE_INTENT_PATH = '/payment/create-intent';
 
 export type CreateDeliveryPaymentIntentBody = {
-  /** Amount in the smallest currency unit (e.g. pence for GBP) — from the accepted quote (`ChooseQuotes` → `DeliveryPayment`). */
+  /**
+   * Amount in **minor** units (e.g. pence) as used in-app / navigation params.
+   * The create-intent request converts to major units when `env.paymentCreateIntentAmountInMajorUnits` is true (default).
+   */
   amount: number;
   currency?: string;
   loadId?: string | number;
@@ -137,7 +140,7 @@ export function paymentIntentIdFromClientSecret(clientSecret: string): string {
  * the sheet succeeds (if your backend still expects this call).
  */
 export async function confirmPaymentIntentMobile(paymentIntentId: string): Promise<void> {
-  const { data } = await api.post<unknown>(`/payment/confirm/${paymentIntentId}?source=mobile`);
+  const { data } = await api.post<unknown>(`/payment/confirm/${paymentIntentId}?source=ios`);
   if (__DEV__) {
     try {
       console.log(
@@ -151,7 +154,6 @@ export async function confirmPaymentIntentMobile(paymentIntentId: string): Promi
     }
   }
 }
-
 function truncate(s: string, max: number): string {
   if (s.length <= max) return s;
   return `${s.slice(0, max)}…`;
