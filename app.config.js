@@ -23,6 +23,7 @@ module.exports = () => {
 
   return {
     expo: {
+      owner: 'immi911',
       name: 'DropYou',
       slug: 'dropyou',
       scheme: 'dropyou',
@@ -44,6 +45,8 @@ module.exports = () => {
             'DropYou needs your location to find nearby pickups and plan deliveries.',
           NSLocationAlwaysAndWhenInUseUsageDescription:
             'DropYou needs your location to find nearby pickups and plan deliveries.',
+          NSCameraUsageDescription:
+            'DropYou may use the camera so you can add delivery item photos or scan card details during secure checkout.',
           // Declares the app uses only standard/exempt encryption (skips yearly
           // export-compliance wizard when submitting to App Store Connect).
           ITSAppUsesNonExemptEncryption: false,
@@ -51,6 +54,7 @@ module.exports = () => {
         ...(iosConfig ? { config: iosConfig } : {}),
       },
       android: {
+        package: 'co.uk.dropyou.app',
         adaptiveIcon: {
           foregroundImage: './assets/generated/icon.png',
           backgroundColor: '#ffffff',
@@ -67,6 +71,7 @@ module.exports = () => {
         'expo-web-browser',
         'expo-secure-store',
         'expo-dev-client',
+        'expo-font',
         [
           'expo-location',
           {

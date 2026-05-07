@@ -15,36 +15,30 @@
       "android": {
         "buildType": "apk",
         "gradleCommand": ":app:assembleDebug"
+      }
+    },
+    "development-device": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development",
+      "ios": {
+        "resourceClass": "m-medium"
       },
-      "env": {
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-        "GOOGLE_MAPS_IOS_API_KEY": "$GOOGLE_MAPS_IOS_API_KEY",
-        "GOOGLE_MAPS_ANDROID_API_KEY": "$GOOGLE_MAPS_ANDROID_API_KEY"
+      "android": {
+        "buildType": "apk",
+        "gradleCommand": ":app:assembleDebug"
       }
     },
     "preview": {
       "distribution": "internal",
       "channel": "preview",
       "ios": { "resourceClass": "m-medium", "image": "latest" },
-      "android": { "buildType": "apk" },
-      "env": {
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-        "GOOGLE_MAPS_IOS_API_KEY": "$GOOGLE_MAPS_IOS_API_KEY",
-        "GOOGLE_MAPS_ANDROID_API_KEY": "$GOOGLE_MAPS_ANDROID_API_KEY"
-      }
+      "android": { "buildType": "apk" }
     },
     "production": {
       "channel": "production",
       "ios": {
         "image": "latest"
-      },
-      "env": {
-        "EXPO_PUBLIC_GOOGLE_MAPS_API_KEY": "$EXPO_PUBLIC_GOOGLE_MAPS_API_KEY",
-        "EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY": "$EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY",
-        "GOOGLE_MAPS_IOS_API_KEY": "$GOOGLE_MAPS_IOS_API_KEY",
-        "GOOGLE_MAPS_ANDROID_API_KEY": "$GOOGLE_MAPS_ANDROID_API_KEY"
       }
     }
   },
