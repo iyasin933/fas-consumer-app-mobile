@@ -58,6 +58,19 @@ export type AppStackParamList = {
     loadId?: string | number;
     /** DropYou consumer booking UUID (`result.bookingId`); also in `deliveryOrderDraftStore`. */
     bookingId?: string;
+    quoteId?: string;
+    carrierName?: string;
+    quoteOwnerId?: string;
+    quoteOwnerPhone?: string;
+    agreedRate?: number;
+  };
+  DeliveryTracking: {
+    loadId: string;
+    bookingId?: string;
+    vehicleName: string;
+    amountPence: number;
+    carrierName?: string;
+    quoteId?: string;
   };
 };
 

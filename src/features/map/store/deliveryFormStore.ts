@@ -13,10 +13,27 @@ const genId = () => Math.random().toString(36).slice(2, 10);
 export const PICKUP_ID = 'pickup';
 export const DROPOFF_ID = 'dropoff';
 
-const makeRow = (kind: DeliveryStop['kind']): DeliveryStop => ({
+function calendarDateISO(d: Date): string {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0, 0).toISOString();
+}
+
+function currentPickupSchedule(): Pick<DeliveryStop, 'dateISO' | 'window'> {
+  const now = new Date();
+  const fromISO = now.toISOString();
+  return {
+    dateISO: calendarDateISO(now),
+    window: {
+      fromISO,
+      toISO: fromISO,
+    },
+  };
+}
+
+const makeRow = (kind: DeliveryStop['kind'], withSchedule = true): DeliveryStop => ({
   id: kind === 'pickup' ? PICKUP_ID : kind === 'dropoff' ? DROPOFF_ID : genId(),
   kind,
   place: null,
+  ...(withSchedule && kind === 'pickup' ? currentPickupSchedule() : {}),
 });
 
 type State = {
@@ -68,8 +85,9 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
       routeDistanceM: null,
       rows: s.rows.map((r) => ({
         ...r,
-        window: undefined,
-        dateISO: undefined,
+        ...(tab === 'scheduled' && r.kind === 'pickup'
+          ? currentPickupSchedule()
+          : { window: undefined, dateISO: undefined }),
         isAlsoDropoff: false,
         extraDropoff: null,
       })),
@@ -77,7 +95,13 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
   },
 
   resetForm: () =>
-    set({ rows: initialRows(), toast: null, routeDurationSec: null, routeDistanceM: null }),
+    set({
+      tab: 'scheduled',
+      rows: initialRows(),
+      toast: null,
+      routeDurationSec: null,
+      routeDistanceM: null,
+    }),
 
   setPlace: (rowId, place) =>
     set((s) => ({
@@ -124,7 +148,7 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
     const dropoffIdx = rows.findIndex((r) => r.kind === 'dropoff');
     const next = [...rows];
     const insertAt = dropoffIdx >= 0 ? dropoffIdx : rows.length;
-    next.splice(insertAt, 0, makeRow('stop'));
+    next.splice(insertAt, 0, makeRow('stop', get().tab === 'scheduled'));
     set({ rows: next });
     return { ok: true };
   },

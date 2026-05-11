@@ -2,14 +2,11 @@ import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
 import { StyleSheet, View } from 'react-native';
 
-import { AddStopButton } from '@/features/map/components/AddStopButton';
 import { DeliveryRowCard } from '@/features/map/components/DeliveryRowCard';
 import { DeliveryTabs } from '@/features/map/components/DeliveryTabs';
-import { ProceedButton } from '@/features/map/components/ProceedButton';
-import { canProceed, getStopLabel, useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
+import { getStopLabel, useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { DeliveryStop, PlacesTarget } from '@/features/map/types';
-import { MAX_STOPS } from '@/features/map/types';
 
 type BottomSheetInstance = React.ElementRef<typeof BottomSheet>;
 
@@ -23,12 +20,9 @@ type Props = {
   onOpenPlaces: (target: PlacesTarget) => void;
   onClearPlace: (target: PlacesTarget) => void;
   onPickupGps: () => void;
-  onProceed: () => void;
   /** Fires once when the sheet's snap index settles (used to sync map insets). */
   onChange?: (index: number) => void;
   initialSnapIndex?: 0 | 1 | 2;
-  /** Extra bottom padding so content clears the floating tab bar. */
-  bottomInset?: number;
   /** Called when the user edits dropoff date/time so ETA does not overwrite their choice. */
   onDropoffScheduleEdited?: () => void;
 };
@@ -37,8 +31,9 @@ type Props = {
  * Bottom sheet hosting the delivery form. Three snap points:
  * 35 % (tabs only) → 65 % (default) → 95 % (expanded).
  *
- * Tabs + delivery-type toggles and the Add Stop / Proceed row stay fixed; only
- * the pickup / stop / dropoff cards sit in `BottomSheetScrollView`.
+ * This sheet owns only the delivery-type tabs and address/schedule cards. The
+ * map action footer is a separate overlay in `MapScreen`, so sheet motion and
+ * footer motion stay independent.
  * `enableContentPanningGesture={false}` keeps vertical pans on that area from
  * moving the sheet — use the handle (or empty map) to change snap.
  *
@@ -50,11 +45,9 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
       onOpenPlaces,
       onClearPlace,
       onPickupGps,
-      onProceed,
       onDropoffScheduleEdited,
       onChange,
       initialSnapIndex = 1,
-      bottomInset = 0,
     },
     ref,
   ) {
@@ -74,15 +67,12 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
     const tab = useDeliveryFormStore((s) => s.tab);
     const rows = useDeliveryFormStore((s) => s.rows);
     const setTab = useDeliveryFormStore((s) => s.setTab);
-    const addStop = useDeliveryFormStore((s) => s.addStop);
     const removeStop = useDeliveryFormStore((s) => s.removeStop);
     const toggleStopIsAlsoDropoff = useDeliveryFormStore((s) => s.toggleStopIsAlsoDropoff);
     const setWindow = useDeliveryFormStore((s) => s.setWindow);
     const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
 
     const snapPoints = useMemo(() => ['35%', '65%', '95%'], []);
-    const proceedEnabled = canProceed(rows, tab);
-    const stopCount = rows.filter((r) => r.kind === 'stop').length;
 
     const renderRow = useCallback(
       (item: DeliveryStop) => {
@@ -189,34 +179,6 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
               ))}
             </View>
           </BottomSheetScrollView>
-
-          <View
-            style={[
-              styles.stickyFooter,
-              {
-                borderTopColor: c.hairline,
-                backgroundColor: c.surface,
-                paddingBottom: 12 + bottomInset,
-              },
-            ]}
-          >
-            <View style={styles.footerActionsRow}>
-              <View style={styles.footerActionCellAdd}>
-                <AddStopButton
-                  onPress={() => addStop()}
-                  disabled={stopCount >= MAX_STOPS}
-                  style={styles.footerActionFill}
-                />
-              </View>
-              <View style={styles.footerActionCellProceed}>
-                <ProceedButton
-                  enabled={proceedEnabled}
-                  onPress={onProceed}
-                  style={styles.footerActionFill}
-                />
-              </View>
-            </View>
-          </View>
         </View>
       </BottomSheet>
     );
@@ -254,34 +216,10 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 12,
+    paddingBottom: 104,
   },
   cardsColumn: {
     gap: 12,
   },
   cardWrap: {},
-  stickyFooter: {
-    flexShrink: 0,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
-  footerActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 10,
-  },
-  /** ~30% / ~70% of the row (after gap), excluding the fixed 10px gutter. */
-  footerActionCellAdd: {
-    flex: 4,
-    minWidth: 0,
-  },
-  footerActionCellProceed: {
-    flex: 7,
-    minWidth: 0,
-  },
-  footerActionFill: {
-    alignSelf: 'stretch',
-    width: '100%',
-  },
 });

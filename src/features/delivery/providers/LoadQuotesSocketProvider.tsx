@@ -36,12 +36,28 @@ type LoadQuotesSocketContextValue = {
   subscribeToLoad: (loadId: string) => void;
   /** Stop receiving updates for this load (local + optional server leave). */
   unsubscribeFromLoad: (loadId: string) => void;
+  subscribeToVehicle: (vehicleId: string) => void;
+  unsubscribeFromVehicle: (vehicleId: string) => void;
+  vehicleLocations: Record<string, VehicleLocation>;
+};
+
+type VehicleLocation = {
+  vehicleId: string;
+  location: {
+    lat: number;
+    lng: number;
+  };
+  address?: string;
+  timestamp?: string;
 };
 
 const LoadQuotesSocketContext = createContext<LoadQuotesSocketContextValue>({
   isConnected: false,
   subscribeToLoad: () => {},
   unsubscribeFromLoad: () => {},
+  subscribeToVehicle: () => {},
+  unsubscribeFromVehicle: () => {},
+  vehicleLocations: {},
 });
 
 export function useLoadQuotesSocket(): LoadQuotesSocketContextValue {
@@ -64,7 +80,9 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
 
   const socketRef = useRef<Socket | null>(null);
   const subscribedLoadsRef = useRef<Set<string>>(new Set());
+  const subscribedVehiclesRef = useRef<Set<string>>(new Set());
   const [connected, setConnected] = useState(false);
+  const [vehicleLocations, setVehicleLocations] = useState<Record<string, VehicleLocation>>({});
 
   const attachQuoteListeners = useCallback((socket: Socket) => {
     const logPayload = (event: string, data: unknown) => {
@@ -84,11 +102,32 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
       logPayload('teg_quotes', data);
       useLoadQuotesStore.getState().ingestQuote(data, 'teg_quotes');
     };
+    const onVehicleLocation = (data: unknown) => {
+      logPayload('vehicle_location_updates', data);
+      if (!data || typeof data !== 'object') return;
+      const raw = data as Record<string, unknown>;
+      const vehicleIdRaw = raw.vehicleId ?? raw.vehicle_id ?? raw.id;
+      const locationRaw = raw.location;
+      if (!vehicleIdRaw || !locationRaw || typeof locationRaw !== 'object') return;
+      const loc = locationRaw as Record<string, unknown>;
+      const lat = typeof loc.lat === 'number' ? loc.lat : Number(loc.lat);
+      const lng = typeof loc.lng === 'number' ? loc.lng : Number(loc.lng);
+      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
+      const normalized: VehicleLocation = {
+        vehicleId: String(vehicleIdRaw),
+        location: { lat, lng },
+        address: typeof raw.address === 'string' ? raw.address : undefined,
+        timestamp: typeof raw.timestamp === 'string' ? raw.timestamp : undefined,
+      };
+      setVehicleLocations((prev) => ({ ...prev, [normalized.vehicleId]: normalized }));
+    };
     socket.on('dropyou_quote_received', onDropyou);
     socket.on('teg_quotes', onTeg);
+    socket.on('vehicle_location_updates', onVehicleLocation);
     return () => {
       socket.off('dropyou_quote_received', onDropyou);
       socket.off('teg_quotes', onTeg);
+      socket.off('vehicle_location_updates', onVehicleLocation);
     };
   }, []);
 
@@ -103,6 +142,9 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
         console.log('[LoadQuotesSocket] emit subscribe_to_load (after connect / reconnect)', { loadId });
       }
       socket.emit('subscribe_to_load', { loadId });
+    }
+    for (const vehicleId of subscribedVehiclesRef.current) {
+      socket.emit('subscribe_to_vehicle', { vehicleId });
     }
   }, []);
 
@@ -241,13 +283,32 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
     }
   }, []);
 
+  const subscribeToVehicle = useCallback((vehicleId: string) => {
+    const id = String(vehicleId).trim();
+    if (!id) return;
+    subscribedVehiclesRef.current.add(id);
+    const s = socketRef.current;
+    if (s?.connected) s.emit('subscribe_to_vehicle', { vehicleId: id });
+  }, []);
+
+  const unsubscribeFromVehicle = useCallback((vehicleId: string) => {
+    const id = String(vehicleId).trim();
+    if (!id) return;
+    subscribedVehiclesRef.current.delete(id);
+    const s = socketRef.current;
+    if (s?.connected) s.emit('unsubscribe_from_vehicle', { vehicleId: id });
+  }, []);
+
   const value = useMemo<LoadQuotesSocketContextValue>(
     () => ({
       isConnected: connected,
       subscribeToLoad,
       unsubscribeFromLoad,
+      subscribeToVehicle,
+      unsubscribeFromVehicle,
+      vehicleLocations,
     }),
-    [connected, subscribeToLoad, unsubscribeFromLoad],
+    [connected, subscribeToLoad, subscribeToVehicle, unsubscribeFromLoad, unsubscribeFromVehicle, vehicleLocations],
   );
 
   return <LoadQuotesSocketContext.Provider value={value}>{children}</LoadQuotesSocketContext.Provider>;

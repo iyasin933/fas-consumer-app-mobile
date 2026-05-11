@@ -1,19 +1,30 @@
 import type { LoadQuoteRow } from '@/features/delivery/socket/loadQuotesSocket.types';
 
 export type DropyouQuoteCardModel = {
-  quoteId: number;
+  quoteId: string;
   loadId: string;
   bookingId: string;
   companyName: string;
   createdOn: string;
+  status: string;
   price: number;
   currency: string;
   vehicleType: string;
   savingsPercentage: number | null;
   isCheaper: boolean;
+  isExpensive: boolean;
+  showDeal: boolean;
   originalPrice: number | null;
   /** Positive amount in major units (e.g. GBP) when cheaper vs original list price. */
   savingsAmountMajor: number | null;
+  dealScore: number | null;
+  dealLabel: string | null;
+  dealColor: string | null;
+  dealDeltaAmountMajor: number | null;
+  dealDeltaDirection: 'cheaper' | 'more' | null;
+  quoteOwnerId: string | null;
+  quoteOwnerPhone: string | null;
+  agreedRate: number | null;
 };
 
 function num(v: unknown): number | null {
@@ -30,103 +41,198 @@ function str(v: unknown): string | null {
   return null;
 }
 
-/** Currencies where the API may send integer amounts in minor units (pence/cents). */
-function isTwoMinorDigitCurrency(currency: string): boolean {
-  const c = currency.toUpperCase();
-  if (c.length !== 3) return true;
-  const zeroDecimal = new Set([
-    'BIF',
-    'CLP',
-    'DJF',
-    'GNF',
-    'JPY',
-    'KMF',
-    'KRW',
-    'MGA',
-    'PYG',
-    'RWF',
-    'UGX',
-    'VND',
-    'VUV',
-    'XAF',
-    'XOF',
-    'XPF',
-  ]);
-  return !zeroDecimal.has(c);
+function bool(v: unknown): boolean {
+  if (v === true || v === 1 || v === '1') return true;
+  if (typeof v === 'string' && v.trim().toLowerCase() === 'true') return true;
+  return false;
 }
 
-/**
- * Socket/API amounts: decimals are major units (e.g. GBP `940.8` = £940.80).
- * Whole numbers are treated as minor units (pence), e.g. `1680` → £16.80, `94080` → £940.80.
- * Whole-pound jobs should be sent as floats (e.g. `150.0`) to avoid ambiguity.
- */
-export function normalizeMinorOrMajorToMajor(raw: number, currency: string): number {
-  if (!Number.isFinite(raw)) return raw;
-  if (!isTwoMinorDigitCurrency(currency)) return raw;
-  if (!Number.isInteger(raw)) return raw;
-  return raw / 100;
+function asRecord(v: unknown): Record<string, unknown> | null {
+  return v != null && typeof v === 'object' ? (v as Record<string, unknown>) : null;
+}
+
+function scalarString(v: unknown): string | null {
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return null;
+}
+
+function pickString(o: Record<string, unknown>, keys: readonly string[]): string | null {
+  for (const key of keys) {
+    const value = scalarString(o[key]);
+    if (value) return value;
+  }
+  return null;
+}
+
+function pickNumber(o: Record<string, unknown>, keys: readonly string[]): number | null {
+  for (const key of keys) {
+    const value = num(o[key]);
+    if (value != null) return value;
+  }
+  return null;
+}
+
+function pickBool(o: Record<string, unknown> | null, keys: readonly string[]): boolean | null {
+  if (!o) return null;
+  for (const key of keys) {
+    if (o[key] != null) return bool(o[key]);
+  }
+  return null;
+}
+
+function clamp(n: number, min: number, max: number): number {
+  return Math.max(min, Math.min(n, max));
+}
+
+function quoteDealLabel(score: number): { label: string; color: string } {
+  if (score >= 90) return { label: 'Great Deal', color: '#2ECC71' };
+  if (score >= 75) return { label: 'Good Deal', color: '#2ECC71' };
+  if (score >= 45) return { label: 'Fair Price', color: '#F1C40F' };
+  if (score >= 30) return { label: 'Expensive', color: '#EC3B35' };
+  return { label: 'Very Expensive', color: '#EC3B35' };
+}
+
+/** Driver quote payloads match the web app: `totalPrice`, `price`, and `finalQuotePrice` are major units. */
+function quoteAmountToMajor(raw: number): number {
+  return raw;
 }
 
 /**
  * Maps a stored socket row into UI fields for the DropYou quote card.
- * Returns null for non-DropYou sources or malformed payloads.
+ * Returns null for malformed payloads.
  *
  * @param fallbackBookingId — screen `route.params.bookingId` when the socket payload omits it.
  */
 export function parseDropyouQuoteCardModel(
   row: LoadQuoteRow,
   fallbackBookingId?: string,
+  selectedVehiclePriceMajor?: number,
 ): DropyouQuoteCardModel | null {
-  if (row.source !== 'dropyou_quote_received') return null;
   if (row.raw == null || typeof row.raw !== 'object') return null;
   const top = row.raw as Record<string, unknown>;
   const quote = top.quote && typeof top.quote === 'object' ? (top.quote as Record<string, unknown>) : null;
-  if (!quote) return null;
+  const payload = quote ?? top;
+  const quoteOwner = asRecord(payload.quoteOwner) ?? asRecord(payload.quote_owner);
+  const priceComparison = asRecord(payload.priceComparison) ?? asRecord(payload.price_comparison);
 
-  const quoteId = num(quote.quoteId);
-  if (quoteId == null) return null;
+  const quoteId = pickString(payload, ['quoteId', 'quote_id']) ?? scalarString(row.quoteId);
+  if (!quoteId) return null;
 
-  const loadId = str(quote.loadId) ?? str(quote.load_id) ?? row.loadId;
+  const loadId = pickString(payload, ['loadId', 'load_id']) ?? row.loadId;
   const bookingId =
-    str(quote.bookingId) ??
-    str(quote.booking_id) ??
-    str(row.bookingId) ??
+    pickString(payload, ['bookingId', 'booking_id']) ??
+    scalarString(row.bookingId) ??
     (fallbackBookingId?.trim() || '');
   if (!loadId || !bookingId) return null;
 
   const companyName =
-    str(quote.quoteOwner && typeof quote.quoteOwner === 'object'
-      ? (quote.quoteOwner as Record<string, unknown>).companyName
-      : null) ??
-    str(quote.quote_owner_company_name) ??
+    str(quoteOwner?.companyName) ??
+    str(quoteOwner?.company_name) ??
+    str(payload.quote_owner_company_name) ??
+    str(payload.companyName) ??
+    str(payload.company_name) ??
+    str(payload.carrierName) ??
+    str(payload.carrier_name) ??
     'Carrier';
 
-  const createdOn = str(quote.createdOn) ?? str(quote.eventTime) ?? row.receivedAt;
+  const createdOn = str(payload.createdOn) ?? str(payload.created_on) ?? str(payload.eventTime) ?? row.receivedAt;
+  const status = str(payload.status) ?? 'POSTED';
+  /** Match web: selectedDriver.quote.quoteOwner.id first, then flat quoteOwnerId. */
+  const quoteOwnerId =
+    pickString(quoteOwner ?? {}, ['id', 'uuid', 'userId', 'user_id']) ??
+    pickString(payload, ['quoteOwnerId', 'quote_owner_id', 'subcontractorId', 'subcontractor_id']);
+  const quoteOwnerPhone =
+    pickString(payload, ['quoteOwnerPhone', 'quote_owner_phone', 'driverPhoneNumber', 'driver_phone_number']) ??
+    pickString(quoteOwner ?? {}, ['phone', 'phoneNumber', 'phone_number']);
 
-  const rawTotal = num(quote.totalPrice);
-  const rawPrice = num(quote.price);
-  const currency = str(quote.currency) ?? 'GBP';
+  const rawTotal = pickNumber(payload, ['totalPrice', 'total_price', 'total', 'amount']);
+  const rawPrice = pickNumber(payload, ['price']);
+  const rawFinal = pickNumber(priceComparison ?? {}, ['finalQuotePrice', 'final_quote_price']);
+  const currency = str(payload.currency) ?? 'GBP';
 
   const priceMajor =
     rawTotal != null
-      ? normalizeMinorOrMajorToMajor(rawTotal, currency)
+      ? quoteAmountToMajor(rawTotal)
       : rawPrice != null
-        ? normalizeMinorOrMajorToMajor(rawPrice, currency)
-        : null;
+        ? quoteAmountToMajor(rawPrice)
+        : rawFinal != null
+          ? quoteAmountToMajor(rawFinal)
+          : null;
   if (priceMajor == null) return null;
 
-  const vehicleType = str(quote.vehicleType) ?? '—';
+  const vehicleType = str(payload.vehicleType) ?? str(payload.vehicle_type) ?? '—';
 
-  const originalRaw = num(quote.originalPrice);
-  const originalMajor =
-    originalRaw != null ? normalizeMinorOrMajorToMajor(originalRaw, currency) : null;
-  const isCheaper = quote.isCheaper === true;
-  const savingsPct = num(quote.savingsPercentage);
+  const originalComparisonRaw = pickNumber(priceComparison ?? {}, [
+    'originalVehiclePrice',
+    'original_vehicle_price',
+    'originalPrice',
+    'original_price',
+  ]);
+  const quoteOriginalRate = pickNumber(payload, ['originalPrice', 'original_price', 'agreedRate', 'agreed_rate']);
+  const originalMajor = originalComparisonRaw != null ? originalComparisonRaw : null;
+  const finalComparisonRaw = pickNumber(priceComparison ?? {}, [
+    'finalQuotePrice',
+    'final_quote_price',
+    'totalPrice',
+    'total_price',
+  ]);
+  const finalPayloadRaw = pickNumber(payload, ['finalQuotePrice', 'final_quote_price']);
+  const finalMajor =
+    finalComparisonRaw != null
+      ? finalComparisonRaw
+      : finalPayloadRaw != null
+        ? quoteAmountToMajor(finalPayloadRaw)
+        : priceMajor;
+  const hasComparablePrices = originalMajor != null && originalMajor > 0 && finalMajor > 0;
+  const cheaperFlag =
+    pickBool(priceComparison, ['isCheaper', 'is_cheaper']) ??
+    pickBool(payload, ['isCheaper', 'is_cheaper']) ??
+    false;
+  const expensiveFlag =
+    pickBool(priceComparison, ['isExpensive', 'is_expensive']) ??
+    pickBool(payload, ['isExpensive', 'is_expensive']) ??
+    false;
+  const isCheaper = hasComparablePrices ? finalMajor < originalMajor : cheaperFlag;
+  const isExpensive = hasComparablePrices ? finalMajor > originalMajor : expensiveFlag;
+  const showDeal = cheaperFlag || expensiveFlag;
+  const savingsPct =
+    pickNumber(priceComparison ?? {}, [
+      'savingsPercentage',
+      'savingPercentage',
+      'savings_percentage',
+      'saving_percentage',
+    ]) ?? pickNumber(payload, ['savingsPercentage', 'savingPercentage', 'savings_percentage', 'saving_percentage']);
+
+  let dealScore: number | null = null;
+  let dealLabel: string | null = null;
+  let dealColor: string | null = null;
+  if (showDeal) {
+    let adjusted = 50;
+    if (hasComparablePrices) {
+      const signedDeltaPct = ((originalMajor - finalMajor) / originalMajor) * 100;
+      adjusted = 50 + signedDeltaPct / 2;
+    } else {
+      const magnitude = clamp(savingsPct ?? 0, 0, 100);
+      if (isCheaper) adjusted = 50 + magnitude / 2;
+      else if (isExpensive) adjusted = 50 - magnitude / 2;
+    }
+    dealScore = Math.round(clamp(adjusted, 0, 100));
+    const deal = quoteDealLabel(dealScore);
+    dealLabel = deal.label;
+    dealColor = deal.color;
+  }
 
   let savingsAmountMajor: number | null = null;
   if (isCheaper && originalMajor != null && originalMajor > priceMajor) {
     savingsAmountMajor = Math.round((originalMajor - priceMajor) * 100) / 100;
   }
+  const dealDeltaAmountMajor =
+    selectedVehiclePriceMajor != null && selectedVehiclePriceMajor > 0 && showDeal
+      ? Math.round(Math.abs(selectedVehiclePriceMajor - priceMajor) * 100) / 100
+      : hasComparablePrices && showDeal
+      ? Math.round(Math.abs(originalMajor - finalMajor) * 100) / 100
+      : savingsAmountMajor;
 
   return {
     quoteId,
@@ -134,13 +240,24 @@ export function parseDropyouQuoteCardModel(
     bookingId,
     companyName,
     createdOn,
+    status,
     price: priceMajor,
     currency,
     vehicleType,
     savingsPercentage: savingsPct != null ? Math.min(999, Math.max(0, Math.round(savingsPct))) : null,
     isCheaper,
+    isExpensive,
+    showDeal,
     originalPrice: originalMajor,
     savingsAmountMajor: savingsAmountMajor != null && savingsAmountMajor > 0 ? savingsAmountMajor : null,
+    dealScore,
+    dealLabel,
+    dealColor,
+    dealDeltaAmountMajor: dealDeltaAmountMajor != null && dealDeltaAmountMajor > 0 ? dealDeltaAmountMajor : null,
+    dealDeltaDirection: isExpensive ? 'more' : isCheaper ? 'cheaper' : null,
+    quoteOwnerId,
+    quoteOwnerPhone,
+    agreedRate: quoteOriginalRate ?? originalMajor ?? priceMajor,
   };
 }
 

@@ -4,6 +4,7 @@ import { AddDeliveryContentsScreen } from '@/features/delivery/screens/AddDelive
 import { ChooseQuotesScreen } from '@/features/delivery/screens/ChooseQuotesScreen';
 import { ChooseVehicleScreen } from '@/features/delivery/screens/ChooseVehicleScreen';
 import { DeliveryPaymentScreen } from '@/features/delivery/screens/DeliveryPaymentScreen';
+import { DeliveryTrackingScreen } from '@/features/delivery/screens/DeliveryTrackingScreen';
 import { RecipientDetailsScreen } from '@/features/delivery/screens/RecipientDetailsScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { MainTabNavigator } from '@/navigation/MainTabNavigator';
@@ -38,6 +39,7 @@ export function AppNavigator() {
       <Stack.Screen name="ChooseVehicle" component={ChooseVehicleScreen} options={{ title: 'Choose vehicle' }} />
       <Stack.Screen name="ChooseQuotes" component={ChooseQuotesScreen} options={{ title: 'Quotes' }} />
       <Stack.Screen name="DeliveryPayment" component={DeliveryPaymentScreen} options={{ title: 'Pay' }} />
+      <Stack.Screen name="DeliveryTracking" component={DeliveryTrackingScreen} options={{ title: 'Tracking' }} />
     </Stack.Navigator>
   );
 }

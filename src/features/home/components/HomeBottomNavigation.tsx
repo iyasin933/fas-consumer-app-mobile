@@ -3,7 +3,7 @@ import {
   type BottomTabBarProps,
 } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useContext, useMemo } from 'react';
+import { useCallback, useContext, useEffect, useMemo } from 'react';
 import type { LayoutChangeEvent } from 'react-native';
 import {
   Platform,
@@ -13,6 +13,12 @@ import {
   useWindowDimensions,
   View,
 } from 'react-native';
+import Animated, {
+  Easing,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { LiquidTabBarLayer } from '@/features/home/components/LiquidTabBarLayer';
 import { useTheme } from '@/hooks/useTheme';
@@ -203,6 +209,8 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
   const { colors: themeColors } = useTheme();
   const colors = themeColors ?? lightColors;
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const shouldHideForMapFlow = state.routes[state.index]?.name === 'Map';
+  const visibility = useSharedValue(shouldHideForMapFlow ? 0 : 1);
 
   const onTabBarLayout = useCallback(
     (e: LayoutChangeEvent) => {
@@ -210,6 +218,19 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
     },
     [tabBarOnHeightChange],
   );
+
+  useEffect(() => {
+    visibility.value = withTiming(shouldHideForMapFlow ? 0 : 1, {
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [shouldHideForMapFlow, visibility]);
+
+  const animatedWrapStyle = useAnimatedStyle(() => ({
+    height: visibility.value * (BAR_H + insets.bottom),
+    opacity: visibility.value,
+    transform: [{ translateY: (1 - visibility.value) * (BAR_H + insets.bottom + 18) }],
+  }));
 
   const handleTabPress = useCallback(
     (routeKey: string, routeName: string) => {
@@ -230,7 +251,11 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
   const isCenterActive = state.index === CENTER_IDX;
 
   return (
-    <View onLayout={onTabBarLayout} style={styles.wrap}>
+    <Animated.View
+      onLayout={onTabBarLayout}
+      pointerEvents={shouldHideForMapFlow ? 'none' : 'auto'}
+      style={[styles.wrap, animatedWrapStyle]}
+    >
       {/* ── Main bar ────────────────────────────────────────────────────── */}
       <View style={styles.bar}>
         {/* White notch-shaped background */}
@@ -355,6 +380,6 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
           )}
         </View>
       )}
-    </View>
+    </Animated.View>
   );
 }

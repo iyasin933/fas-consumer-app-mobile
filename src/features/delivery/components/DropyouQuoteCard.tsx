@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Ionicons } from '@expo/vector-icons';
 import {
   ActivityIndicator,
   Platform,
@@ -32,20 +33,41 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
     () => formatMajorCurrency(quote.price, quote.currency),
     [quote.price, quote.currency],
   );
-  const savingsLabel = useMemo(
+  const dealDeltaLabel = useMemo(
     () =>
-      quote.savingsAmountMajor != null
-        ? `${formatMajorCurrency(quote.savingsAmountMajor, quote.currency)} cheaper`
+      quote.dealDeltaAmountMajor != null && quote.dealDeltaDirection
+        ? `${formatMajorCurrency(quote.dealDeltaAmountMajor, quote.currency)} ${
+            quote.dealDeltaDirection === 'more' ? 'More' : 'cheaper'
+          }`
         : null,
-    [quote.currency, quote.savingsAmountMajor],
+    [quote.currency, quote.dealDeltaAmountMajor, quote.dealDeltaDirection],
   );
+  const showDeal = quote.showDeal && quote.dealScore != null && quote.dealLabel != null;
+  const dealColor = quote.dealColor ?? (quote.isExpensive ? '#EC3B35' : '#2ECC71');
+  const isWarningDeal = quote.isExpensive || dealColor === '#EC3B35';
+  const dealIcon = quote.isExpensive
+    ? 'trending-up'
+    : quote.dealColor === '#F1C40F'
+      ? 'remove'
+      : 'trending-down';
+  const dealBg = quote.isExpensive
+    ? isDark
+      ? 'rgba(236, 59, 53, 0.18)'
+      : '#FFF1F1'
+    : dealColor === '#F1C40F'
+      ? isDark
+        ? 'rgba(241, 196, 15, 0.18)'
+        : '#FFF9E6'
+      : isDark
+        ? 'rgba(46, 204, 113, 0.18)'
+        : '#ECFDF3';
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
         card: {
           backgroundColor: colors.surface,
-          borderRadius: 16,
+          borderRadius: 18,
           padding: spacing.md,
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
@@ -53,11 +75,11 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           ...Platform.select({
             ios: {
               shadowColor: '#000',
-              shadowOffset: { width: 0, height: 2 },
-              shadowOpacity: 0.08,
-              shadowRadius: 10,
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.1,
+              shadowRadius: 18,
             },
-            android: { elevation: 3 },
+            android: { elevation: 4 },
             default: {},
           }),
         },
@@ -67,18 +89,21 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           width: 44,
           height: 44,
           borderRadius: 22,
-          backgroundColor: colors.primary + '28',
+          backgroundColor: colors.primary + '20',
           alignItems: 'center',
           justifyContent: 'center',
+          borderWidth: StyleSheet.hairlineWidth,
+          borderColor: colors.primary + '55',
         },
         avatarTxt: {
           fontSize: typography.fontSize.sm,
-          fontWeight: '700',
+          fontWeight: '900',
           color: colors.primary,
         },
         name: {
           fontSize: typography.fontSize.md,
-          fontWeight: '700',
+          lineHeight: 20,
+          fontWeight: '900',
           color: colors.textPrimary,
         },
         time: {
@@ -86,10 +111,11 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           color: colors.textSecondary,
           marginTop: 2,
         },
-        priceBlock: { alignItems: 'flex-end' },
+        priceBlock: { alignItems: 'flex-end', flexShrink: 0 },
         price: {
-          fontSize: typography.fontSize.xl,
-          fontWeight: '800',
+          fontSize: 28,
+          lineHeight: 32,
+          fontWeight: '900',
           color: colors.textPrimary,
         },
         vatNote: {
@@ -101,49 +127,62 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
-          gap: spacing.md,
+          gap: spacing.sm,
         },
         dealPill: {
           flexDirection: 'row',
           alignItems: 'center',
-          flexShrink: 1,
-          backgroundColor: '#d1fae5',
-          borderRadius: 999,
-          paddingVertical: 6,
-          paddingHorizontal: spacing.sm,
-          gap: spacing.sm,
+          flex: 1,
+          minWidth: 0,
+          maxWidth: '62%',
+          borderRadius: 14,
+          paddingVertical: 7,
+          paddingHorizontal: 8,
+          gap: 6,
+          borderWidth: StyleSheet.hairlineWidth,
         },
-        dealPillDark: {
-          backgroundColor: isDark ? 'rgba(34, 197, 94, 0.18)' : '#d1fae5',
-        },
-        pctCircle: {
-          minWidth: 36,
-          height: 36,
-          borderRadius: 18,
-          backgroundColor: '#15803d',
+        dealIconWrap: {
+          width: 26,
+          height: 26,
+          borderRadius: 13,
           alignItems: 'center',
           justifyContent: 'center',
-          paddingHorizontal: 6,
+          flexShrink: 0,
         },
-        pctTxt: { color: '#fff', fontSize: 11, fontWeight: '800' },
-        greatDeal: { fontSize: typography.fontSize.sm, fontWeight: '800', color: '#15803d' },
-        savingsAmt: { fontSize: typography.fontSize.sm, color: colors.textPrimary, fontWeight: '500' },
+        dealMetaRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+          minWidth: 0,
+        },
+        pctTxt: { fontSize: 12, fontWeight: '900' },
+        dealText: { flexShrink: 1, minWidth: 0, fontSize: 13, fontWeight: '900' },
+        savingsAmt: { fontSize: 12, color: colors.textSecondary, fontWeight: '700', marginTop: 1 },
         acceptBtn: {
           backgroundColor: colors.primary,
-          paddingVertical: spacing.sm + 2,
-          paddingHorizontal: spacing.lg,
-          borderRadius: 10,
-          minWidth: 100,
+          minHeight: 44,
+          paddingHorizontal: spacing.sm + 2,
+          borderRadius: 14,
+          minWidth: 104,
           alignItems: 'center',
           justifyContent: 'center',
+          flexDirection: 'row',
+          gap: 7,
+          shadowColor: colors.primary,
+          shadowOffset: { width: 0, height: 5 },
+          shadowOpacity: 0.22,
+          shadowRadius: 9,
+          elevation: 3,
         },
-        acceptBtnPressed: { backgroundColor: colors.primaryPressed },
-        acceptTxt: { color: colors.onPrimary, fontSize: typography.fontSize.sm, fontWeight: '700' },
+        acceptBtnPressed: { backgroundColor: colors.primaryPressed, transform: [{ scale: 0.98 }] },
+        disabledBtn: { backgroundColor: '#FECACA' },
+        disabledTxt: { color: '#DC2626' },
+        acceptTxt: { color: colors.onPrimary, fontSize: typography.fontSize.sm, fontWeight: '900' },
+        dealTextBlock: { flex: 1, minWidth: 0 },
       }),
-    [colors, isDark],
+    [colors],
   );
-
-  const showDeal = quote.isCheaper;
+  const isCancelled = quote.status.toUpperCase() === 'CANCELLED';
 
   return (
     <View style={styles.card}>
@@ -169,31 +208,63 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
 
       <View style={styles.footerRow}>
         {showDeal ? (
-          <View style={[styles.dealPill, styles.dealPillDark]}>
-            {quote.savingsPercentage != null ? (
-              <View style={styles.pctCircle}>
-                <Text style={styles.pctTxt} numberOfLines={1}>
-                  {quote.savingsPercentage}%
-                </Text>
-              </View>
-            ) : null}
-            <View style={{ flexShrink: 1 }}>
-              <Text style={styles.greatDeal}>Great Deal</Text>
-              {savingsLabel ? <Text style={styles.savingsAmt}>{savingsLabel}</Text> : null}
+          <View style={[styles.dealPill, { backgroundColor: dealBg, borderColor: dealColor + '33' }]}>
+            <View style={[styles.dealIconWrap, { backgroundColor: dealColor }]}>
+              <Ionicons name={dealIcon} size={14} color="#ffffff" />
             </View>
+            {quote.dealScore != null ? (
+              <View style={styles.dealTextBlock}>
+                <View style={styles.dealMetaRow}>
+                  <Text
+                    style={[styles.dealText, { color: dealColor }]}
+                    numberOfLines={1}
+                    ellipsizeMode="tail"
+                  >
+                    {quote.dealLabel}
+                  </Text>
+                  <Text
+                    style={[styles.pctTxt, { color: isWarningDeal ? dealColor : colors.primary }]}
+                    numberOfLines={1}
+                  >
+                    {quote.dealScore}%
+                  </Text>
+                </View>
+                {dealDeltaLabel ? <Text style={styles.savingsAmt}>{dealDeltaLabel}</Text> : null}
+              </View>
+            ) : (
+              <View style={styles.dealTextBlock}>
+                <Text
+                  style={[styles.dealText, { color: dealColor }]}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
+                >
+                  {quote.dealLabel}
+                </Text>
+                {dealDeltaLabel ? <Text style={styles.savingsAmt} numberOfLines={1}>{dealDeltaLabel}</Text> : null}
+              </View>
+            )}
           </View>
         ) : (
           <View style={{ flex: 1 }} />
         )}
         <Pressable
-          style={({ pressed }) => [styles.acceptBtn, pressed && styles.acceptBtnPressed]}
+          style={({ pressed }) => [
+            styles.acceptBtn,
+            isCancelled && styles.disabledBtn,
+            pressed && !isCancelled && styles.acceptBtnPressed,
+          ]}
           onPress={onAccept}
-          disabled={busy}
+          disabled={busy || isCancelled}
         >
           {busy ? (
             <ActivityIndicator color={colors.onPrimary} size="small" />
           ) : (
-            <Text style={styles.acceptTxt}>Accept</Text>
+            <>
+              {!isCancelled ? <Ionicons name="checkmark" size={17} color={colors.onPrimary} /> : null}
+              <Text style={[styles.acceptTxt, isCancelled && styles.disabledTxt]}>
+                {isCancelled ? 'Cancelled' : 'Accept'}
+              </Text>
+            </>
           )}
         </Pressable>
       </View>

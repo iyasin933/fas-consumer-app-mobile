@@ -1,11 +1,19 @@
-import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, FadeOut } from 'react-native-reanimated';
+import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Animated, {
+  Easing,
+  FadeIn,
+  FadeOut,
+  useAnimatedStyle,
+  useSharedValue,
+  withTiming,
+} from 'react-native-reanimated';
 
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 
+import { AddStopButton } from '@/features/map/components/AddStopButton';
 import {
   DeliveryBottomSheet,
   type DeliveryBottomSheetHandle,
@@ -13,6 +21,7 @@ import {
 import { FloatingMapButtons } from '@/features/map/components/FloatingMapButtons';
 import { MapLayer, type MapLayerHandle } from '@/features/map/components/MapLayer';
 import { PlacesAutocompleteModal } from '@/features/map/components/PlacesAutocompleteModal';
+import { ProceedButton } from '@/features/map/components/ProceedButton';
 import { ScheduleDateTimePickerProvider } from '@/features/map/components/ScheduleDateTimePickerProvider';
 import { useCurrentLocation } from '@/features/map/hooks/useCurrentLocation';
 import { useDirectionsEta } from '@/features/map/hooks/useDirectionsEta';
@@ -35,6 +44,7 @@ import {
 } from '@/features/map/utils/deliverySchedule';
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { PlaceValue, PlacesTarget } from '@/features/map/types';
+import { MAX_STOPS } from '@/features/map/types';
 import type { MainTabParamList, MapTabScreenNavigationProp } from '@/types/navigation.types';
 
 /**
@@ -71,7 +81,7 @@ type MapRoute = RouteProp<MainTabParamList, 'Map'>;
 export function MapScreen() {
   const navigation = useNavigation<MapTabScreenNavigationProp>();
   const route = useRoute<MapRoute>();
-  const tabBarHeight = useBottomTabBarHeight();
+  const insets = useSafeAreaInsets();
   const c = useMapColors();
 
   const rows = useDeliveryFormStore((s) => s.rows);
@@ -84,6 +94,7 @@ export function MapScreen() {
   const setRouteMetrics = useDeliveryFormStore((s) => s.setRouteMetrics);
   const toast = useDeliveryFormStore((s) => s.toast);
   const setToast = useDeliveryFormStore((s) => s.setToast);
+  const addStop = useDeliveryFormStore((s) => s.addStop);
 
   const { coords, refresh } = useCurrentLocation(true);
   const { reverse } = useReverseGeocode();
@@ -133,6 +144,10 @@ export function MapScreen() {
   // or route changes clear the guard via `etaDepsKey`.
   const pickupRow = rows.find((r) => r.kind === 'pickup');
   const dropoffRow = rows.find((r) => r.kind === 'dropoff');
+  const bottomNavInset = 0;
+  const proceedEnabled = canProceed(rows, tab);
+  const stopCount = rows.filter((r) => r.kind === 'stop').length;
+  const footerBottom = useSharedValue(bottomNavInset);
   const pickupKey = pickupRow?.place ? `${pickupRow.place.lat},${pickupRow.place.lng}` : '';
   const dropoffKey = dropoffRow?.place ? `${dropoffRow.place.lat},${dropoffRow.place.lng}` : '';
   const stopsKey = rows
@@ -146,6 +161,17 @@ export function MapScreen() {
   useEffect(() => {
     dropoffScheduleUserEditedRef.current = false;
   }, [etaDepsKey]);
+
+  useEffect(() => {
+    footerBottom.value = withTiming(bottomNavInset, {
+      duration: 240,
+      easing: Easing.out(Easing.cubic),
+    });
+  }, [bottomNavInset, footerBottom]);
+
+  const actionFooterStyle = useAnimatedStyle(() => ({
+    bottom: footerBottom.value,
+  }));
 
   useEffect(() => {
     if (!pickupRow?.place || !dropoffRow?.place) {
@@ -367,17 +393,43 @@ export function MapScreen() {
           onOpenPlaces={openPlaces}
           onClearPlace={handleClearPlace}
           onPickupGps={handlePickupGps}
-          onProceed={handleProceed}
           onDropoffScheduleEdited={onDropoffScheduleEdited}
-          // Reserve space so AddStop / Proceed clear the floating tab bar.
-          bottomInset={tabBarHeight}
         />
+
+        <Animated.View
+          style={[
+            styles.actionFooter,
+            {
+              backgroundColor: c.surface,
+              borderTopColor: c.hairline,
+              paddingBottom: insets.bottom + 12,
+            },
+            actionFooterStyle,
+          ]}
+        >
+          <View style={styles.footerActionsRow}>
+            <View style={styles.footerActionCellAdd}>
+              <AddStopButton
+                onPress={() => addStop()}
+                disabled={stopCount >= MAX_STOPS}
+                style={styles.footerActionFill}
+              />
+            </View>
+            <View style={styles.footerActionCellProceed}>
+              <ProceedButton
+                enabled={proceedEnabled}
+                onPress={handleProceed}
+                style={styles.footerActionFill}
+              />
+            </View>
+          </View>
+        </Animated.View>
 
         {toast && (
           <Animated.View
             entering={FadeIn.duration(150)}
             exiting={FadeOut.duration(150)}
-            style={[styles.toast, { backgroundColor: c.toastBg, bottom: tabBarHeight + 24 }]}
+            style={[styles.toast, { backgroundColor: c.toastBg, bottom: bottomNavInset + 24 }]}
             pointerEvents="none"
           >
             <Text style={[styles.toastTxt, { color: c.toastText }]}>{toast}</Text>
@@ -408,6 +460,43 @@ function placesTargetTitle(t: PlacesTarget | null): string {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  actionFooter: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    zIndex: 30,
+    elevation: 30,
+    paddingHorizontal: 16,
+    paddingTop: 10,
+    paddingBottom: 12,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    ...Platform.select({
+      ios: {
+        shadowColor: '#000000',
+        shadowOffset: { width: 0, height: -2 },
+        shadowOpacity: 0.06,
+        shadowRadius: 8,
+      },
+      default: {},
+    }),
+  },
+  footerActionsRow: {
+    flexDirection: 'row',
+    alignItems: 'stretch',
+    gap: 10,
+  },
+  footerActionCellAdd: {
+    flex: 4,
+    minWidth: 0,
+  },
+  footerActionCellProceed: {
+    flex: 7,
+    minWidth: 0,
+  },
+  footerActionFill: {
+    alignSelf: 'stretch',
+    width: '100%',
+  },
   toast: {
     position: 'absolute',
     left: 20,

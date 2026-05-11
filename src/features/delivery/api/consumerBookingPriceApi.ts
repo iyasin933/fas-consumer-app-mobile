@@ -40,10 +40,10 @@ export type DeliveryVehicleDto = {
 };
 
 export type ConsumerBookingPriceParams = {
-  /** Route distance — sent as **kilometres** (see backend contract if you need metres). */
-  distanceKm: number;
-  /** Route duration in **seconds**. */
-  durationSec: number;
+  /** Route distance in miles, matching the web app / booking-price API contract. */
+  distanceMiles: number;
+  /** Route duration in minutes, matching the web app / booking-price API contract. */
+  durationMinutes: number;
   /** Total declared load in **kilograms**. */
   loadCapacityKg: number;
   /** Top surface / capacity hint in **square metres** (L×W from cm inputs). */
@@ -69,20 +69,22 @@ export function bookingPriceDeliveryTypeFromMapTab(tab: DeliveryTab): BookingPri
 }
 
 /**
- * Builds query inputs from map + draft state. Clamps `distance` to API minimum **0.1** km.
+ * Builds query inputs from map + draft state. The booking-price endpoint expects
+ * the same units as the web app: miles for `distance` and minutes for `duration`.
  */
 export function buildConsumerBookingPriceParams(input: BuildConsumerBookingPriceInput): ConsumerBookingPriceParams {
   let distanceKm = (input.routeDistanceM ?? 0) / 1000;
   if (!Number.isFinite(distanceKm) || distanceKm <= 0) {
     distanceKm = haversineKm(input.pickup, input.dropoff);
   }
-  distanceKm = Math.max(0.1, Number(distanceKm.toFixed(4)));
+  distanceKm = Math.max(0.1, distanceKm);
+  const distanceMiles = Math.max(0.1, Number((distanceKm * 0.621371).toFixed(2)));
 
   let durationSec = input.routeDurationSec;
   if (durationSec == null || durationSec <= 0) {
     durationSec = durationSecFromHaversineKm(distanceKm);
   }
-  durationSec = Math.max(1, Math.round(durationSec));
+  const durationMinutes = Math.max(1, Math.round(durationSec / 60));
 
   let loadKg = 0;
   for (const p of input.pallets) {
@@ -97,8 +99,8 @@ export function buildConsumerBookingPriceParams(input: BuildConsumerBookingPrice
   if (!Number.isFinite(surfaceM2) || surfaceM2 <= 0) surfaceM2 = 0.01;
 
   return {
-    distanceKm,
-    durationSec,
+    distanceMiles,
+    durationMinutes,
     loadCapacityKg: Math.round(loadKg),
     surfaceAreaM2: Number(surfaceM2.toFixed(4)),
     pickupRegion: extractRegionHint(input.pickup.address),
@@ -110,8 +112,8 @@ export function buildConsumerBookingPriceParams(input: BuildConsumerBookingPrice
 /** Exact query object sent to axios (for debugging / error UI). */
 export function consumerBookingPriceQueryRecord(params: ConsumerBookingPriceParams): Record<string, number | string> {
   return {
-    distance: params.distanceKm,
-    duration: params.durationSec,
+    distance: params.distanceMiles,
+    duration: params.durationMinutes,
     loadCapacity: params.loadCapacityKg,
     surfaceAreaCapacity: params.surfaceAreaM2,
     pickupRegion: params.pickupRegion,

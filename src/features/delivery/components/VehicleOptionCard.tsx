@@ -16,7 +16,7 @@ function priceLabel(v: DeliveryVehicleDto): string {
   if (v.priceWithVat != null && Number.isFinite(v.priceWithVat)) {
     const hi = v.priceWithVat;
     const lo = Math.max(0, hi - 50);
-    return `£${lo.toFixed(2)} - £${hi.toFixed(2)}`;
+    return `£${lo.toFixed(0)} - £${Math.max(hi, 0).toFixed(0)}`;
   }
   const { minPrice, maxPrice } = v;
   if (minPrice != null && maxPrice != null && minPrice !== maxPrice) {

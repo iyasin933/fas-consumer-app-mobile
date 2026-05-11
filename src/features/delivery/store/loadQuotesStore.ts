@@ -33,8 +33,13 @@ export const useLoadQuotesStore = create<State & Actions>((set, get) => ({
       source,
     };
     const key = quoteKey(row);
-    const exists = get().quotes.some((q) => quoteKey(q) === key);
-    if (exists) return false;
+    const existingIndex = get().quotes.findIndex((q) => quoteKey(q) === key);
+    if (existingIndex >= 0) {
+      set((s) => ({
+        quotes: s.quotes.map((q, index) => (index === existingIndex ? row : q)),
+      }));
+      return false;
+    }
     set((s) => ({ quotes: [...s.quotes, row] }));
     return true;
   },
