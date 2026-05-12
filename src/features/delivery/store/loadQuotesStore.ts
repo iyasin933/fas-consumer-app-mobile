@@ -5,7 +5,7 @@ import type { LoadQuoteRow, LoadQuoteSocketSource } from '@/features/delivery/so
 import { normalizeQuoteSocketPayload } from '@/features/delivery/socket/loadQuotesSocket.types';
 
 type State = {
-  /** Append-only list of quotes received over the socket (deduped by loadId + quoteId). */
+  /** Newest-first list of quotes received over the socket (deduped by loadId + quoteId). */
   quotes: LoadQuoteRow[];
 };
 
@@ -40,7 +40,7 @@ export const useLoadQuotesStore = create<State & Actions>((set, get) => ({
       }));
       return false;
     }
-    set((s) => ({ quotes: [...s.quotes, row] }));
+    set((s) => ({ quotes: [row, ...s.quotes] }));
     return true;
   },
 

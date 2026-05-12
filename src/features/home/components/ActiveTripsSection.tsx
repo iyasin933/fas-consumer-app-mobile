@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useActiveTrips } from '@/features/home/hooks/useActiveTrips';
@@ -8,7 +8,8 @@ import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, width: number) {
+  const slideWidth = Math.max(260, Math.min(320, width - spacing.md * 2));
   return StyleSheet.create({
     section: { paddingBottom: spacing.xl, gap: spacing.sm },
     header: {
@@ -22,7 +23,7 @@ function createStyles(colors: ThemeColors) {
       color: colors.textPrimary,
     },
     hScroll: { paddingLeft: spacing.md, paddingRight: spacing.sm, gap: spacing.sm },
-    slide: { width: 320 },
+    slide: { width: slideWidth },
     empty: { paddingHorizontal: spacing.md, color: colors.textSecondary },
     errBox: { paddingHorizontal: spacing.md },
     err: { color: colors.danger, textDecorationLine: 'underline' },
@@ -32,7 +33,8 @@ function createStyles(colors: ThemeColors) {
 export function ActiveTripsSection() {
   const { trips, isLoading, isError, refetch } = useActiveTrips();
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const styles = useMemo(() => createStyles(colors, width), [colors, width]);
 
   return (
     <View style={styles.section}>

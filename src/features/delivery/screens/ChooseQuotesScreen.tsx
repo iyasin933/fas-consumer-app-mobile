@@ -27,7 +27,6 @@ import MapView, {
   type Region,
 } from 'react-native-maps';
 import Animated, {
-  BounceInRight,
   Easing,
   LinearTransition,
   interpolate,
@@ -36,7 +35,7 @@ import Animated, {
   withRepeat,
   withTiming,
 } from 'react-native-reanimated';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { acceptDropyouQuote } from '@/features/delivery/api/dropyouAcceptQuoteApi';
 import { cancelDropyouBooking } from '@/features/delivery/api/dropyouCancelBookingApi';
@@ -196,9 +195,12 @@ function regionForPickup(
 
 export function ChooseQuotesScreen({ route }: Props) {
   const { colors } = useTheme();
-  const { height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const mapRef = useRef<MapView | null>(null);
+  const quoteListRef = useRef<FlatList<LoadQuoteRow> | null>(null);
+  const latestQuoteKeyRef = useRef<string | null>(null);
   const { loadId, bookingId: routeBookingId, vehicleName, amountPence } = route.params;
   const baselinePriceMajor = amountPence / 100;
   const pickup = useDeliveryOrderDraftStore((s) => s.pickup);
@@ -248,12 +250,16 @@ export function ChooseQuotesScreen({ route }: Props) {
       }),
     [baselinePriceMajor, quotes, routeBookingId],
   );
+  const latestQuoteKey = sortedQuotes[0]
+    ? `${sortedQuotes[0].loadId}:${sortedQuotes[0].quoteId}:${sortedQuotes[0].receivedAt}`
+    : null;
+  const drawerSidePadding = windowWidth < 380 ? spacing.md : spacing.lg;
   const sheetSnaps = useMemo(() => {
     const collapsed = Math.max(176, Math.min(212, windowHeight * 0.22));
     const normal = sortedQuotes.length > 0
-      ? Math.max(270, Math.min(315, windowHeight * 0.34))
+      ? Math.max(330, Math.min(420, windowHeight * 0.44))
       : Math.max(300, Math.min(350, windowHeight * 0.39));
-    const expanded = Math.max(normal + 80, windowHeight * 0.74);
+    const expanded = Math.max(normal + 100, windowHeight * 0.78);
     return { collapsed, normal, expanded };
   }, [sortedQuotes.length, windowHeight]);
 
@@ -324,6 +330,19 @@ export function ChooseQuotesScreen({ route }: Props) {
     );
   }, [progress]);
 
+  useEffect(() => {
+    if (!latestQuoteKey) {
+      latestQuoteKeyRef.current = null;
+      return;
+    }
+    if (latestQuoteKeyRef.current && latestQuoteKeyRef.current !== latestQuoteKey) {
+      requestAnimationFrame(() => {
+        quoteListRef.current?.scrollToOffset({ offset: 0, animated: true });
+      });
+    }
+    latestQuoteKeyRef.current = latestQuoteKey;
+  }, [latestQuoteKey]);
+
   const progressFillStyle = useAnimatedStyle(() => ({
     transform: [
       { translateX: `${interpolate(progress.value, [0, 1], [-100, 170])}%` },
@@ -338,20 +357,23 @@ export function ChooseQuotesScreen({ route }: Props) {
           flex: 1,
           backgroundColor: '#EEF2F7',
           overflow: 'hidden',
+          zIndex: 0,
         },
         map: { ...StyleSheet.absoluteFillObject },
         quoteOverlay: {
           position: 'absolute',
-          top: spacing.sm,
+          top: spacing.md,
           left: 0,
           right: 0,
-          maxHeight: 238,
-          zIndex: 20,
+          bottom: 0,
+          zIndex: 8,
+          elevation: 8,
         },
         quoteOverlayContent: {
-          paddingHorizontal: spacing.lg,
+          paddingHorizontal: drawerSidePadding,
+          paddingTop: spacing.xs,
+          paddingBottom: sheetSnaps.collapsed + 96 + Math.max(insets.bottom, spacing.lg),
           gap: spacing.sm,
-          paddingBottom: spacing.sm,
         },
         pickupCenterButton: {
           position: 'absolute',
@@ -382,6 +404,8 @@ export function ChooseQuotesScreen({ route }: Props) {
           borderTopRightRadius: 28,
           backgroundColor: colors.background,
           overflow: 'hidden',
+          zIndex: 20,
+          elevation: 20,
         },
         handle: {
           alignSelf: 'center',
@@ -399,8 +423,8 @@ export function ChooseQuotesScreen({ route }: Props) {
         },
         statusTitle: {
           color: colors.textPrimary,
-          fontSize: 22,
-          fontWeight: '900',
+          fontSize: 21,
+          fontWeight: '700',
           letterSpacing: 0,
         },
         statusBody: {
@@ -427,7 +451,7 @@ export function ChooseQuotesScreen({ route }: Props) {
           flex: 1,
           color: colors.textPrimary,
           fontSize: typography.fontSize.sm,
-          fontWeight: '700',
+          fontWeight: '600',
         },
         disabledInputMuted: {
           color: colors.textSecondary,
@@ -450,7 +474,7 @@ export function ChooseQuotesScreen({ route }: Props) {
         cancelText: {
           color: '#DC2626',
           fontSize: typography.fontSize.md,
-          fontWeight: '900',
+          fontWeight: '700',
         },
         progressTrack: {
           height: 5,
@@ -466,8 +490,8 @@ export function ChooseQuotesScreen({ route }: Props) {
           backgroundColor: colors.primary,
         },
         drawerContent: {
-          paddingHorizontal: spacing.lg,
-          paddingBottom: 96,
+          paddingHorizontal: drawerSidePadding,
+          paddingBottom: 96 + insets.bottom,
           gap: spacing.sm,
         },
         stickyCancelFooter: {
@@ -477,10 +501,12 @@ export function ChooseQuotesScreen({ route }: Props) {
           bottom: 0,
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.sm,
-          paddingBottom: spacing.md,
+          paddingBottom: Math.max(insets.bottom, spacing.md),
           backgroundColor: colors.background,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
+          zIndex: 40,
+          elevation: 40,
         },
         empty: {
           alignItems: 'center',
@@ -506,7 +532,7 @@ export function ChooseQuotesScreen({ route }: Props) {
           borderColor: colors.border,
           gap: spacing.sm,
         },
-        cardTitle: { fontSize: typography.fontSize.md, fontWeight: '700', color: colors.textPrimary },
+        cardTitle: { fontSize: typography.fontSize.md, fontWeight: '600', color: colors.textPrimary },
         cardLine: { fontSize: typography.fontSize.sm, color: colors.textSecondary },
         sourcePill: {
           alignSelf: 'flex-start',
@@ -517,7 +543,7 @@ export function ChooseQuotesScreen({ route }: Props) {
         },
         sourceTxt: { fontSize: 12, fontWeight: '600', color: colors.primary },
       }),
-    [colors, sortedQuotes.length],
+    [colors, drawerSidePadding, insets.bottom, sheetSnaps.collapsed],
   );
 
   const onAcceptQuote = useCallback(
@@ -602,12 +628,12 @@ export function ChooseQuotesScreen({ route }: Props) {
   }, [cancelBookingNow]);
 
   const renderQuote = useCallback(
-    ({ item }: { item: LoadQuoteRow }) => {
+    (item: LoadQuoteRow) => {
       const parsed = parseDropyouQuoteCardModel(item, routeBookingId, baselinePriceMajor);
       if (parsed) {
         const busy = acceptingKey === `${parsed.loadId}:${parsed.quoteId}`;
         return (
-          <Animated.View entering={BounceInRight.springify().damping(13).stiffness(120)} layout={LinearTransition.springify()}>
+          <Animated.View layout={LinearTransition.springify()}>
             <DropyouQuoteCard quote={parsed} onAccept={() => void onAcceptQuote(parsed)} busy={busy} />
           </Animated.View>
         );
@@ -615,7 +641,6 @@ export function ChooseQuotesScreen({ route }: Props) {
       const summary = quoteSummaryLine(item.raw);
       return (
         <Animated.View
-          entering={BounceInRight.springify().damping(13).stiffness(120)}
           layout={LinearTransition.springify()}
           style={styles.card}
         >
@@ -629,6 +654,11 @@ export function ChooseQuotesScreen({ route }: Props) {
       );
     },
     [acceptingKey, baselinePriceMajor, onAcceptQuote, routeBookingId, styles],
+  );
+
+  const renderOverlayQuote = useCallback(
+    ({ item }: { item: LoadQuoteRow }) => renderQuote(item),
+    [renderQuote],
   );
 
   return (
@@ -687,17 +717,23 @@ export function ChooseQuotesScreen({ route }: Props) {
         >
           <Ionicons name="locate" size={22} color={colors.primary} />
         </Pressable>
-        {sortedQuotes.length > 0 ? (
-          <FlatList
-            style={styles.quoteOverlay}
-            data={sortedQuotes}
-            keyExtractor={(item) => `${item.loadId}:${item.quoteId}:${item.receivedAt}`}
-            renderItem={renderQuote}
-            contentContainerStyle={styles.quoteOverlayContent}
-            showsVerticalScrollIndicator={false}
-          />
-        ) : null}
       </View>
+
+      {sortedQuotes.length > 0 ? (
+        <FlatList
+          ref={quoteListRef}
+          style={styles.quoteOverlay}
+          data={sortedQuotes}
+          keyExtractor={(item) => `${item.loadId}:${item.quoteId}:${item.receivedAt}`}
+          renderItem={renderOverlayQuote}
+          contentContainerStyle={styles.quoteOverlayContent}
+          showsVerticalScrollIndicator={false}
+          bounces={false}
+          alwaysBounceVertical={false}
+          overScrollMode="never"
+          contentInsetAdjustmentBehavior="never"
+        />
+      ) : null}
 
       <Animated.View style={[styles.sheet, sheetStyle]}>
         <GestureDetector gesture={drawerPan}>

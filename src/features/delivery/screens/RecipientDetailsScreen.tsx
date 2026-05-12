@@ -1,7 +1,6 @@
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   Keyboard,
@@ -12,6 +11,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -23,8 +23,6 @@ import { useTheme } from '@/hooks/useTheme';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
-
-const DISCLAIMER_STORAGE_KEY = 'dropyou_prohibited_items_disclaimer_dismissed_v1';
 
 const PROHIBITED_DISCLAIMER_BODY =
   'For safety and legal reasons, certain items cannot be transported, including: substances under the UK Misuse of Drugs Act; live animals (mammals, reptiles, fish, insects); pressurised containers (e.g. fire extinguishers, aerosols); and sharp instruments (e.g. scissors, knives, garden tools). By continuing you confirm your shipment does not contain prohibited goods.';
@@ -45,6 +43,7 @@ const SUGGESTED_NOTES = [
 export function RecipientDetailsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
 
   const recipientName = useDeliveryOrderDraftStore((s) => s.recipientName);
@@ -52,33 +51,21 @@ export function RecipientDetailsScreen() {
   const recipientDialCode = useDeliveryOrderDraftStore((s) => s.recipientDialCode);
   const recipientPhoneLocal = useDeliveryOrderDraftStore((s) => s.recipientPhoneLocal);
   const recipientNotes = useDeliveryOrderDraftStore((s) => s.recipientNotes);
+  const prohibitedItemsDisclaimerDismissed = useDeliveryOrderDraftStore((s) => s.prohibitedItemsDisclaimerDismissed);
   const setRecipient = useDeliveryOrderDraftStore((s) => s.setRecipient);
+  const dismissProhibitedItemsDisclaimer = useDeliveryOrderDraftStore((s) => s.dismissProhibitedItemsDisclaimer);
 
   const [showCountryPicker, setShowCountryPicker] = useState(false);
-  const [disclaimerVisible, setDisclaimerVisible] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    void (async () => {
-      try {
-        const v = await AsyncStorage.getItem(DISCLAIMER_STORAGE_KEY);
-        if (!cancelled && v !== '1') {
-          setDisclaimerVisible(true);
-        }
-      } catch {
-        if (!cancelled) setDisclaimerVisible(true);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const isCompactHeight = windowHeight < 760;
+  const isNarrowWidth = windowWidth < 390;
+  const modalHorizontalPadding = isNarrowWidth ? spacing.md : spacing.lg;
+  const modalVerticalPadding = isCompactHeight ? spacing.md : spacing.lg;
+  const modalMaxHeight = Math.max(320, windowHeight - insets.top - insets.bottom - modalVerticalPadding * 2);
 
   const dismissDisclaimer = useCallback(() => {
     Keyboard.dismiss();
-    setDisclaimerVisible(false);
-    void AsyncStorage.setItem(DISCLAIMER_STORAGE_KEY, '1').catch(() => {});
-  }, []);
+    dismissProhibitedItemsDisclaimer();
+  }, [dismissProhibitedItemsDisclaimer]);
 
   const appendSuggestedNote = useCallback(
     (note: string) => {
@@ -187,7 +174,8 @@ export function RecipientDetailsScreen() {
           flex: 1,
           backgroundColor: 'rgba(0,0,0,0.45)',
           justifyContent: 'center',
-          padding: spacing.lg,
+          paddingHorizontal: modalHorizontalPadding,
+          paddingVertical: modalVerticalPadding,
         },
         overlayCardWrap: {
           width: '100%',
@@ -195,23 +183,33 @@ export function RecipientDetailsScreen() {
           alignSelf: 'center',
         },
         modalCard: {
-          maxHeight: '88%',
+          maxHeight: modalMaxHeight,
           backgroundColor: colors.surface,
           borderRadius: 16,
-          padding: spacing.lg,
+          padding: isNarrowWidth ? spacing.md : spacing.lg,
           elevation: 16,
         },
-        modalTitle: { fontSize: typography.fontSize.lg, fontWeight: '800', color: colors.textPrimary },
-        modalBody: {
-          fontSize: typography.fontSize.md,
-          color: colors.textSecondary,
-          lineHeight: 22,
+        modalTitle: {
+          fontSize: isNarrowWidth ? typography.fontSize.md : typography.fontSize.lg,
+          fontWeight: '800',
+          color: colors.textPrimary,
+        },
+        modalBodyScroll: {
+          flexShrink: 1,
           marginTop: spacing.sm,
         },
+        modalBodyScrollContent: {
+          paddingBottom: 2,
+        },
+        modalBody: {
+          fontSize: isNarrowWidth || isCompactHeight ? typography.fontSize.sm : typography.fontSize.md,
+          color: colors.textSecondary,
+          lineHeight: isNarrowWidth || isCompactHeight ? 20 : 22,
+        },
         modalClose: {
-          marginTop: spacing.lg,
+          marginTop: isCompactHeight ? spacing.md : spacing.lg,
           backgroundColor: colors.primary,
-          minHeight: 48,
+          minHeight: isCompactHeight ? 46 : 52,
           paddingVertical: spacing.md,
           borderRadius: 12,
           alignItems: 'center',
@@ -219,7 +217,14 @@ export function RecipientDetailsScreen() {
         },
         modalCloseTxt: { color: colors.onPrimary, fontWeight: '700', fontSize: typography.fontSize.md },
       }),
-    [colors],
+    [
+      colors,
+      isCompactHeight,
+      isNarrowWidth,
+      modalHorizontalPadding,
+      modalMaxHeight,
+      modalVerticalPadding,
+    ],
   );
 
   return (
@@ -314,7 +319,7 @@ export function RecipientDetailsScreen() {
         />
       ) : null}
 
-      {disclaimerVisible ? (
+      {!prohibitedItemsDisclaimerDismissed ? (
         <View
           style={styles.overlayHost}
           pointerEvents="auto"
@@ -331,7 +336,14 @@ export function RecipientDetailsScreen() {
                   style={styles.modalCard}
                 >
                   <Text style={styles.modalTitle}>Prohibited items disclaimer</Text>
-                  <Text style={styles.modalBody}>{PROHIBITED_DISCLAIMER_BODY}</Text>
+                  <ScrollView
+                    style={styles.modalBodyScroll}
+                    contentContainerStyle={styles.modalBodyScrollContent}
+                    showsVerticalScrollIndicator={false}
+                    bounces={false}
+                  >
+                    <Text style={styles.modalBody}>{PROHIBITED_DISCLAIMER_BODY}</Text>
+                  </ScrollView>
                   <Pressable
                     style={styles.modalClose}
                     onPress={dismissDisclaimer}

@@ -14,7 +14,7 @@ import ConfettiCannon from 'react-native-confetti-cannon';
 import { isAxiosError } from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useStripe } from '@stripe/stripe-react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
   confirmPaymentIntentMobile,
@@ -45,6 +45,7 @@ function normalizePhoneForAllocation(phone?: string): string {
 export function DeliveryPaymentScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
+  const insets = useSafeAreaInsets();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
   const {
     amountPence,
@@ -78,7 +79,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
         body: {
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.lg,
-          paddingBottom: 118,
+          paddingBottom: 118 + insets.bottom,
           gap: spacing.md,
         },
         eyebrow: {
@@ -116,6 +117,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
         },
         amountRow: {
           flexDirection: 'row',
+          flexWrap: 'wrap',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
           gap: spacing.md,
@@ -135,7 +137,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           fontSize: typography.fontSize.sm,
           fontWeight: typography.fontWeight.bold,
         },
-        amountBlock: { alignItems: 'flex-end' },
+        amountBlock: { alignItems: 'flex-end', marginLeft: 'auto' },
         amountLabel: {
           color: colors.textSecondary,
           fontSize: 12,
@@ -185,7 +187,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           bottom: 0,
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.sm,
-          paddingBottom: spacing.md,
+          paddingBottom: Math.max(insets.bottom, spacing.md),
           backgroundColor: colors.background,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
@@ -213,7 +215,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           letterSpacing: 0.5,
         },
       }),
-    [colors],
+    [colors, insets.bottom],
   );
 
   const pay = useCallback(async () => {
@@ -320,10 +322,13 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
   }, [
     agreedRate,
     amountPence,
+    bookingId,
     busy,
+    carrierName,
     initPaymentSheet,
     loadId,
     presentPaymentSheet,
+    quoteId,
     quoteOwnerId,
     quoteOwnerPhone,
     vehicleName,

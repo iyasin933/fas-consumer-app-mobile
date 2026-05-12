@@ -11,7 +11,7 @@
 ## 1) Go to project folder
 
 ```bash
-cd "/Users/imranyasin/Documents/fas/iOS/fas-mobile"
+cd "/Users/imranyasin/Documents/fas/fas-consumer-app-mobile"
 ```
 
 ## 2) Start Simulator first
@@ -72,7 +72,7 @@ open -a Simulator
 After simulator is fully booted:
 
 ```bash
-cd "/Users/imranyasin/Documents/fas/iOS/fas-mobile"
+cd "/Users/imranyasin/Documents/fas/fas-consumer-app-mobile"
 npm run start
 ```
 
@@ -85,8 +85,35 @@ Press `i`.
 If the terminal still shows an old warning (for example about `SafeAreaView`) or the bundle looks cached:
 
 ```bash
-cd "/Users/imranyasin/Documents/fas/iOS/fas-mobile"
+cd "/Users/imranyasin/Documents/fas/fas-consumer-app-mobile"
 npx expo start -c
 ```
 
 Then press `i` again.
+
+---
+
+## If native dependency versions mismatch
+
+If you see a native/JavaScript mismatch such as Worklets `0.5.1 vs 0.8.1`,
+the installed EAS development build is stale. Create and install a fresh EAS
+development build.
+
+For a physical registered iPhone:
+
+```bash
+npx eas-cli@latest build -p ios --profile development-device --clear-cache
+npx expo start --dev-client -c
+```
+
+For an iOS Simulator EAS build:
+
+```bash
+npx eas-cli@latest build -p ios --profile development --clear-cache
+npx eas-cli@latest build:run -p ios --profile development --latest
+npx expo start --dev-client -c
+```
+
+Metro cache clearing alone is not enough because native dependency versions are
+baked into the installed app binary. Install the new EAS development build
+before opening the dev client again.

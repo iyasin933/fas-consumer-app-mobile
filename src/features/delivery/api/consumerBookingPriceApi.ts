@@ -356,14 +356,31 @@ function mergeVehicleList(best: unknown, vehicles: unknown): DeliveryVehicleDto[
 export async function fetchConsumerBookingPriceVehicles(
   params: ConsumerBookingPriceParams,
 ): Promise<DeliveryVehicleDto[]> {
-  const { data } = await api.get<unknown>(CONSUMER_BOOKING_PRICE_PATH, {
-    params: consumerBookingPriceQueryRecord(params),
-  });
+  const query = consumerBookingPriceQueryRecord(params);
+  try {
+    const { data } = await api.get<unknown>(CONSUMER_BOOKING_PRICE_PATH, {
+      params: query,
+    });
 
-  const root = asRecord(data);
-  const bucket = asRecord(root?.data) ?? root;
-  const result = asRecord(bucket?.result) ?? bucket;
-  const bestVehicle = result?.bestVehicle;
-  const vehicles = result?.vehicles;
-  return mergeVehicleList(bestVehicle, vehicles);
+    const root = asRecord(data);
+    const bucket = asRecord(root?.data) ?? root;
+    const result = asRecord(bucket?.result) ?? bucket;
+    const bestVehicle = result?.bestVehicle;
+    const vehicles = result?.vehicles;
+    const list = mergeVehicleList(bestVehicle, vehicles);
+    console.warn('[ChooseVehicle] booking price vehicles loaded', { count: list.length });
+    return list;
+  } catch (error) {
+    if (isAxiosError(error)) {
+      console.warn('[ChooseVehicle] booking price failed', {
+        status: error.response?.status,
+        message: error.message,
+        query,
+        data: error.response?.data,
+      });
+    } else {
+      console.warn('[ChooseVehicle] booking price failed', error);
+    }
+    throw error;
+  }
 }

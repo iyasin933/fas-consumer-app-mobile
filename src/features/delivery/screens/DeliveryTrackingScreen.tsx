@@ -8,6 +8,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import MapView, {
@@ -86,6 +87,7 @@ function TrackingMarker({
 
 export function DeliveryTrackingScreen({ navigation, route }: Props) {
   const { colors } = useTheme();
+  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const { loadId, bookingId, vehicleName, amountPence, carrierName } = route.params;
   const pickup = useDeliveryOrderDraftStore((s) => s.pickup);
   const dropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
@@ -169,11 +171,13 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
   }, [loadId]);
 
   const styles = useMemo(
-    () =>
-      StyleSheet.create({
+    () => {
+      const mapHeight = Math.max(220, Math.min(330, windowHeight * 0.34));
+      const narrow = windowWidth < 380;
+      return StyleSheet.create({
         safe: { flex: 1, backgroundColor: colors.background },
         mapWrap: {
-          height: 310,
+          height: mapHeight,
           backgroundColor: '#EEF2F7',
           overflow: 'hidden',
         },
@@ -200,10 +204,10 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
           gap: spacing.md,
         },
         headerRow: {
-          flexDirection: 'row',
+          flexDirection: narrow ? 'column' : 'row',
           alignItems: 'flex-start',
           justifyContent: 'space-between',
-          gap: spacing.md,
+          gap: narrow ? spacing.sm : spacing.md,
         },
         title: {
           color: colors.textPrimary,
@@ -286,8 +290,9 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
           fontSize: typography.fontSize.md,
           fontWeight: typography.fontWeight.bold,
         },
-      }),
-    [colors],
+      });
+    },
+    [colors, windowHeight, windowWidth],
   );
 
   return (

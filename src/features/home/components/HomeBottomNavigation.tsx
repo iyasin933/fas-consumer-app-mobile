@@ -26,15 +26,6 @@ import { lightColors, type ThemeColors } from '@/shared/theme/colors';
 import type { MainTabParamList } from '@/types/navigation.types';
 import { debugLog } from '@/utils/debugLog';
 
-// ─── Layout constants ────────────────────────────────────────────────────────
-const BAR_H = 72;          // visible bar height
-const FAB_SIZE = 64;       // floating action button diameter
-const FAB_R = FAB_SIZE / 2; // 32
-/** Notch depth (must satisfy: notchR ≥ FAB_R + vertical_overlap). */
-const NOTCH_R = 30;
-/** FAB protrudes (FAB_R − (NOTCH_R − FAB_R)) = 2*FAB_R − NOTCH_R = 28 px above bar top. */
-const FAB_TOP = NOTCH_R - FAB_SIZE; // −28
-
 const INACTIVE_COLOR = '#6B7280';
 
 // ─── Tab metadata ─────────────────────────────────────────────────────────────
@@ -80,8 +71,59 @@ const TAB_META: {
 
 const CENTER_IDX = 2; // Map
 
+type TabBarMetrics = {
+  barHeight: number;
+  fabSize: number;
+  fabRadius: number;
+  fabTop: number;
+  fabIconSize: number;
+  iconSize: number;
+  iconBoxSize: number;
+  labelFontSize: number;
+  tabPaddingTop: number;
+  tabPaddingBottom: number;
+  tabGap: number;
+  badgeSize: number;
+  badgeFontSize: number;
+  cornerRadius: number;
+  notchRadius: number;
+  notchControlLength: number;
+};
+
+function tabBarMetrics(width: number, height: number): TabBarMetrics {
+  const shortestSide = Math.min(width, height);
+  const compactWidth = width < 360;
+  const compactHeight = height < 720;
+  const roomyWidth = width >= 430;
+
+  const barHeight = compactHeight ? 66 : roomyWidth ? 76 : 72;
+  const fabSize = compactWidth || compactHeight ? 56 : roomyWidth ? 68 : 64;
+  const fabRadius = fabSize / 2;
+  const notchRadius = Math.max(30, Math.min(38, fabRadius + (roomyWidth ? 4 : 3)));
+  const fabTop = notchRadius - fabSize;
+
+  return {
+    barHeight,
+    fabSize,
+    fabRadius,
+    fabTop,
+    fabIconSize: compactWidth ? 26 : roomyWidth ? 32 : 30,
+    iconSize: compactWidth ? 22 : roomyWidth ? 25 : 24,
+    iconBoxSize: compactWidth ? 26 : roomyWidth ? 30 : 28,
+    labelFontSize: shortestSide < 360 ? 9.5 : roomyWidth ? 11 : 10.5,
+    tabPaddingTop: compactHeight ? 9 : 12,
+    tabPaddingBottom: compactHeight ? 5 : 6,
+    tabGap: compactWidth ? 2 : 3,
+    badgeSize: compactWidth ? 15 : 16,
+    badgeFontSize: compactWidth ? 8 : 9,
+    cornerRadius: compactWidth ? 20 : 24,
+    notchRadius,
+    notchControlLength: compactWidth ? 18 : roomyWidth ? 24 : 22,
+  };
+}
+
 // ─── Styles factory ───────────────────────────────────────────────────────────
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
   return StyleSheet.create({
     /**
      * Outer wrapper — transparent so the curved SVG corners and the notch
@@ -98,7 +140,7 @@ function createStyles(colors: ThemeColors) {
      * The white background is provided entirely by the SVG inside LiquidTabBarLayer.
      */
     bar: {
-      height: BAR_H,
+      height: metrics.barHeight,
       overflow: 'visible',
       position: 'relative',
       ...Platform.select({
@@ -125,34 +167,34 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       alignItems: 'center',
       justifyContent: 'center',
-      paddingTop: 12,
-      paddingBottom: 6,
-      gap: 3,
+      paddingTop: metrics.tabPaddingTop,
+      paddingBottom: metrics.tabPaddingBottom,
+      gap: metrics.tabGap,
     },
     /** Empty flex slot that reserves the same width as a tab cell for the FAB. */
     centerSpacer: {
       flex: 1,
     },
     label: {
-      fontSize: 10.5,
+      fontSize: metrics.labelFontSize,
       letterSpacing: 0.15,
       textAlign: 'center',
     },
     iconWrap: {
       alignItems: 'center',
       justifyContent: 'center',
-      width: 28,
-      height: 28,
+      width: metrics.iconBoxSize,
+      height: metrics.iconBoxSize,
       position: 'relative',
     },
     /** Notification badge dot. */
     badge: {
       position: 'absolute',
-      right: -7,
-      top: -4,
-      minWidth: 16,
-      height: 16,
-      borderRadius: 8,
+      right: -metrics.badgeSize * 0.42,
+      top: -metrics.badgeSize * 0.25,
+      minWidth: metrics.badgeSize,
+      height: metrics.badgeSize,
+      borderRadius: metrics.badgeSize / 2,
       alignItems: 'center',
       justifyContent: 'center',
       paddingHorizontal: 4,
@@ -160,18 +202,18 @@ function createStyles(colors: ThemeColors) {
     },
     badgeTxt: {
       color: '#ffffff',
-      fontSize: 9,
+      fontSize: metrics.badgeFontSize,
       fontWeight: '700',
     },
     /** Floating action button — lifts above the bar via negative top. */
     fab: {
       position: 'absolute',
-      width: FAB_SIZE,
-      height: FAB_SIZE,
-      borderRadius: FAB_R,
+      width: metrics.fabSize,
+      height: metrics.fabSize,
+      borderRadius: metrics.fabRadius,
       alignItems: 'center',
       justifyContent: 'center',
-      top: FAB_TOP,
+      top: metrics.fabTop,
       zIndex: 4,
       elevation: 12,
       ...Platform.select({
@@ -187,28 +229,17 @@ function createStyles(colors: ThemeColors) {
     safeAreaFill: {
       backgroundColor: colors.surface,
     },
-    homeIndicatorWrap: {
-      flex: 1,
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    homeIndicator: {
-      width: 134,
-      height: 5,
-      borderRadius: 3,
-      backgroundColor: '#1a1a1a',
-      opacity: 0.18,
-    },
   });
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBarProps) {
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const tabBarOnHeightChange = useContext(BottomTabBarHeightCallbackContext);
   const { colors: themeColors } = useTheme();
   const colors = themeColors ?? lightColors;
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const metrics = useMemo(() => tabBarMetrics(width, height), [height, width]);
+  const styles = useMemo(() => createStyles(colors, metrics), [colors, metrics]);
   const shouldHideForMapFlow = state.routes[state.index]?.name === 'Map';
   const visibility = useSharedValue(shouldHideForMapFlow ? 0 : 1);
 
@@ -227,9 +258,9 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
   }, [shouldHideForMapFlow, visibility]);
 
   const animatedWrapStyle = useAnimatedStyle(() => ({
-    height: visibility.value * (BAR_H + insets.bottom),
+    height: visibility.value * (metrics.barHeight + insets.bottom),
     opacity: visibility.value,
-    transform: [{ translateY: (1 - visibility.value) * (BAR_H + insets.bottom + 18) }],
+    transform: [{ translateY: (1 - visibility.value) * (metrics.barHeight + insets.bottom + 18) }],
   }));
 
   const handleTabPress = useCallback(
@@ -259,7 +290,13 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
       {/* ── Main bar ────────────────────────────────────────────────────── */}
       <View style={styles.bar}>
         {/* White notch-shaped background */}
-        <LiquidTabBarLayer width={width} height={BAR_H} />
+        <LiquidTabBarLayer
+          width={width}
+          height={metrics.barHeight}
+          cornerRadius={metrics.cornerRadius}
+          notchRadius={metrics.notchRadius}
+          notchControlLength={metrics.notchControlLength}
+        />
 
         {/* Left (Home, Schedule) + spacer + Right (Notifications, Profile) */}
         <View style={styles.tabRow}>
@@ -279,7 +316,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
                 <View style={styles.iconWrap}>
                   <Ionicons
                     name={active ? meta.iconActive : meta.iconInactive}
-                    size={24}
+                    size={metrics.iconSize}
                     color={active ? colors.primary : INACTIVE_COLOR}
                   />
                 </View>
@@ -318,7 +355,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
                 <View style={styles.iconWrap}>
                   <Ionicons
                     name={active ? meta.iconActive : meta.iconInactive}
-                    size={24}
+                    size={metrics.iconSize}
                     color={active ? colors.primary : INACTIVE_COLOR}
                   />
                   {meta.badge != null && meta.badge > 0 && (
@@ -351,7 +388,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
           style={[
             styles.fab,
             {
-              left: width / 2 - FAB_R,
+              left: width / 2 - metrics.fabRadius,
               backgroundColor: isCenterActive
                 ? colors.primaryPressed
                 : colors.primary,
@@ -364,22 +401,14 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
         >
           <Ionicons
             name={isCenterActive ? 'location' : 'location-outline'}
-            size={30}
+            size={metrics.fabIconSize}
             color="#ffffff"
           />
         </Pressable>
       </View>
 
-      {/* ── Safe-area fill + iOS home indicator ─────────────────────── */}
-      {insets.bottom > 0 && (
-        <View style={[styles.safeAreaFill, { height: insets.bottom }]}>
-          {Platform.OS === 'ios' && (
-            <View style={styles.homeIndicatorWrap}>
-              <View style={styles.homeIndicator} />
-            </View>
-          )}
-        </View>
-      )}
+      {/* ── Safe-area fill; iOS draws the real home indicator itself. ── */}
+      {insets.bottom > 0 && <View style={[styles.safeAreaFill, { height: insets.bottom }]} />}
     </Animated.View>
   );
 }

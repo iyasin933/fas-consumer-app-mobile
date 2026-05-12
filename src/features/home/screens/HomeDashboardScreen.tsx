@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import { useBottomTabBarHeight, type BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -23,6 +23,7 @@ import type { MainTabParamList, MapScreenPickedPlace } from '@/types/navigation.
 export function HomeDashboardScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const tabBarHeight = useBottomTabBarHeight();
   const { coords, refresh } = useCurrentLocation(false);
   const { reverse } = useReverseGeocode();
 
@@ -103,7 +104,7 @@ export function HomeDashboardScreen() {
         />
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.content}
+          contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 16 }]}
           showsVerticalScrollIndicator={false}
         >
           <HomePromoBanner />
@@ -129,5 +130,5 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   scroll: { flex: 1 },
-  content: { paddingBottom: 8 },
+  content: {},
 });

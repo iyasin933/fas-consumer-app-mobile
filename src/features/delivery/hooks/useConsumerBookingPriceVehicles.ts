@@ -9,13 +9,18 @@ import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOr
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 
 export function useConsumerBookingPriceVehicles() {
-  const pickup = useDeliveryOrderDraftStore((s) => s.pickup);
-  const dropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
+  const draftPickup = useDeliveryOrderDraftStore((s) => s.pickup);
+  const draftDropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
   const pallets = useDeliveryOrderDraftStore((s) => s.pallets);
   const dimensions = useDeliveryOrderDraftStore((s) => s.dimensions);
+  const rows = useDeliveryFormStore((s) => s.rows);
   const routeDurationSec = useDeliveryFormStore((s) => s.routeDurationSec);
   const routeDistanceM = useDeliveryFormStore((s) => s.routeDistanceM);
   const tab = useDeliveryFormStore((s) => s.tab);
+  const rowPickup = rows.find((r) => r.kind === 'pickup')?.place ?? null;
+  const rowDropoff = rows.find((r) => r.kind === 'dropoff')?.place ?? null;
+  const pickup = draftPickup ?? rowPickup;
+  const dropoff = draftDropoff ?? rowDropoff;
 
   const queryKey = useMemo(
     () => [
@@ -39,6 +44,15 @@ export function useConsumerBookingPriceVehicles() {
     [tab, routeDurationSec, routeDistanceM, pickup, dropoff, dimensions, pallets],
   );
 
+  const enabled = Boolean(
+    pickup?.address &&
+      dropoff?.address &&
+      Number.isFinite(pickup.lat) &&
+      Number.isFinite(pickup.lng) &&
+      Number.isFinite(dropoff.lat) &&
+      Number.isFinite(dropoff.lng),
+  );
+
   return useQuery({
     queryKey,
     queryFn: async () => {
@@ -52,9 +66,11 @@ export function useConsumerBookingPriceVehicles() {
         pallets,
         dimensions,
       });
+      console.warn('[ChooseVehicle] fetch booking price params', params);
       return fetchConsumerBookingPriceVehicles(params);
     },
-    enabled: Boolean(pickup?.address && dropoff?.address),
+    enabled,
     staleTime: 30_000,
+    retry: false,
   });
 }

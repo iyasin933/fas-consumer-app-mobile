@@ -1,6 +1,6 @@
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
@@ -51,16 +51,22 @@ export function ChooseVehicleScreen() {
   const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
   const [loadErrorText, setLoadErrorText] = useState<string | null>(null);
-  const { data, isPending, isError, error, refetch, isRefetching } = useConsumerBookingPriceVehicles();
+  const { data, isLoading, isError, error, refetch, isRefetching } = useConsumerBookingPriceVehicles();
   const selectedVehicleId = useDeliveryOrderDraftStore((s) => s.selectedVehicleId);
   const setSelectedVehicleId = useDeliveryOrderDraftStore((s) => s.setSelectedVehicleId);
-  const pickup = useDeliveryOrderDraftStore((s) => s.pickup);
-  const dropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
+  const draftPickup = useDeliveryOrderDraftStore((s) => s.pickup);
+  const draftDropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
+  const syncLocationsFromRows = useDeliveryOrderDraftStore((s) => s.syncLocationsFromRows);
   const pallets = useDeliveryOrderDraftStore((s) => s.pallets);
   const dimensions = useDeliveryOrderDraftStore((s) => s.dimensions);
+  const rows = useDeliveryFormStore((s) => s.rows);
   const routeDurationSec = useDeliveryFormStore((s) => s.routeDurationSec);
   const routeDistanceM = useDeliveryFormStore((s) => s.routeDistanceM);
   const tab = useDeliveryFormStore((s) => s.tab);
+  const rowPickup = rows.find((r) => r.kind === 'pickup')?.place ?? null;
+  const rowDropoff = rows.find((r) => r.kind === 'dropoff')?.place ?? null;
+  const pickup = draftPickup ?? rowPickup;
+  const dropoff = draftDropoff ?? rowDropoff;
 
   const queryParamsPreview = useMemo(() => {
     if (!pickup || !dropoff) return null;
@@ -75,6 +81,20 @@ export function ChooseVehicleScreen() {
     });
     return consumerBookingPriceQueryRecord(params);
   }, [pickup, dropoff, routeDistanceM, routeDurationSec, tab, pallets, dimensions]);
+
+  const routeReady = Boolean(
+    pickup?.address &&
+      dropoff?.address &&
+      Number.isFinite(pickup.lat) &&
+      Number.isFinite(pickup.lng) &&
+      Number.isFinite(dropoff.lat) &&
+      Number.isFinite(dropoff.lng),
+  );
+
+  useEffect(() => {
+    if ((draftPickup && draftDropoff) || !rowPickup || !rowDropoff) return;
+    syncLocationsFromRows(rows, tab);
+  }, [draftDropoff, draftPickup, rowDropoff, rowPickup, rows, syncLocationsFromRows, tab]);
 
   const errorDetail = useMemo(() => (error ? summarizeConsumerBookingPriceError(error) : ''), [error]);
 
@@ -273,7 +293,21 @@ export function ChooseVehicleScreen() {
     [selectedVehicleId, setSelectedVehicleId],
   );
 
-  if (isPending && !data) {
+  if (!routeReady) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <View style={styles.center}>
+          <Text style={styles.err}>Delivery route is missing.</Text>
+          <Text style={styles.err}>Go back to the map, select pickup and dropoff again, then continue.</Text>
+          <Pressable style={styles.retry} onPress={() => navigation.goBack()}>
+            <Text style={styles.retryTxt}>Back</Text>
+          </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (isLoading && !data) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.center}>

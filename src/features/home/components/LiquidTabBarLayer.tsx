@@ -8,17 +8,20 @@ import { lightColors } from '@/shared/theme/colors';
 type Props = {
   width: number;
   height: number;
+  cornerRadius: number;
+  notchRadius: number;
+  notchControlLength: number;
 };
 
 /**
  * Renders the white bar background with rounded top corners and a
  * smooth curved notch at the centre for the floating action button.
  */
-export function LiquidTabBarLayer({ width, height }: Props) {
+export function LiquidTabBarLayer({ width, height, cornerRadius, notchRadius, notchControlLength }: Props) {
   const { colors: themeColors } = useTheme();
   const colors = themeColors ?? lightColors;
   const w = Math.max(1, width);
-  const d = buildNotchBarPath(w, height);
+  const d = buildNotchBarPath(w, height, cornerRadius, notchRadius, notchControlLength);
 
   return (
     <View pointerEvents="none" style={StyleSheet.absoluteFill}>

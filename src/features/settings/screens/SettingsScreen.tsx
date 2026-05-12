@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useMemo } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
@@ -21,7 +22,6 @@ function createStyles(colors: ThemeColors) {
     scroll: { flex: 1 },
     scrollContent: {
       padding: spacing.lg,
-      paddingBottom: spacing.xl * 2,
       gap: spacing.lg,
     },
     title: {
@@ -99,6 +99,7 @@ export function SettingsScreen() {
   const { signOut } = useAuth();
   const { colors, appearancePreference, setAppearancePreference } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const tabBarHeight = useBottomTabBarHeight();
   const navigation = useNavigation();
   const goUsers = () => {
     const parent = navigation.getParent();
@@ -110,7 +111,7 @@ export function SettingsScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + spacing.lg }]}
         keyboardShouldPersistTaps="handled"
       >
         <Text style={styles.title}>Settings</Text>

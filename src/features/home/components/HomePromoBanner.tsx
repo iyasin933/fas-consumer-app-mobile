@@ -1,7 +1,7 @@
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useCallback, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { HOME_PROMO_ILLUSTRATION } from '@/features/home/utils/homeScreenArtAssets';
 import { useHomePromo } from '@/features/home/hooks/useHomePromo';
@@ -11,7 +11,11 @@ import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { MainTabParamList } from '@/types/navigation.types';
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, width: number) {
+  const isNarrow = width < 370;
+  const artSlot = isNarrow ? 70 : 90;
+  const artWidth = isNarrow ? 88 : 112;
+  const artHeight = isNarrow ? 100 : 126;
   return StyleSheet.create({
     wrap: {
       paddingHorizontal: spacing.md,
@@ -23,13 +27,13 @@ function createStyles(colors: ThemeColors) {
       padding: spacing.md,
       flexDirection: 'row',
       alignItems: 'center',
-      gap: spacing.md,
+      gap: isNarrow ? spacing.sm : spacing.md,
       overflow: 'visible',
     },
     copy: { flex: 1, gap: spacing.sm },
     title: {
       color: colors.onPrimary,
-      fontSize: typography.fontSize.lg,
+      fontSize: isNarrow ? typography.fontSize.md : typography.fontSize.lg,
       fontWeight: typography.fontWeight.bold,
       lineHeight: 26,
     },
@@ -48,17 +52,17 @@ function createStyles(colors: ThemeColors) {
     /** Fixed 88×88 layout column only; larger art draws below via `artBurst`. */
     art: {
       position: 'relative',
-      width: 90,
-      height: 90,
+      width: artSlot,
+      height: artSlot,
       overflow: 'visible',
     },
     artBurst: {
       position: 'absolute',
       /** Centers a wider bitmap on the 88px-wide slot: (88 − 112) / 2 */
-      left: -12,
-      bottom: -18,
-      width: 112,
-      height: 126,
+      left: (artSlot - artWidth) / 2,
+      bottom: isNarrow ? -12 : -18,
+      width: artWidth,
+      height: artHeight,
     },
     artImage: { width: '100%', height: '100%' },
   });
@@ -67,7 +71,8 @@ function createStyles(colors: ThemeColors) {
 export function HomePromoBanner() {
   const { title, cta } = useHomePromo();
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
+  const styles = useMemo(() => createStyles(colors, width), [colors, width]);
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
 
   const onStartNow = useCallback(() => {

@@ -24,6 +24,7 @@ type State = {
   /** National number only (no dial code). */
   recipientPhoneLocal: string;
   recipientNotes: string;
+  prohibitedItemsDisclaimerDismissed: boolean;
   /** Set after successful load create — TEG / exchange id (`result.id`); cleared on new trip. */
   createdLoadId: string | null;
   /** Same response — DropYou booking UUID (`result.bookingId`); use for consumer-facing flows. */
@@ -51,6 +52,7 @@ type Actions = {
   removePalletLine: (palletId: string) => void;
   setSelectedVehicleId: (id: string | null) => void;
   setRecipient: (patch: Partial<Pick<State, 'recipientName' | 'recipientCompany' | 'recipientDialCode' | 'recipientPhoneLocal' | 'recipientNotes'>>) => void;
+  dismissProhibitedItemsDisclaimer: () => void;
   setCreatedLoadIds: (payload: { loadId: string; bookingId: string | null }) => void;
   resetDraft: () => void;
 };
@@ -77,6 +79,7 @@ const initialState = (): State => ({
   recipientDialCode: '+44',
   recipientPhoneLocal: '',
   recipientNotes: '',
+  prohibitedItemsDisclaimerDismissed: false,
   createdLoadId: null,
   createdBookingId: null,
 });
@@ -142,6 +145,8 @@ export const useDeliveryOrderDraftStore = create<State & Actions>((set, get) => 
   setSelectedVehicleId: (selectedVehicleId) => set({ selectedVehicleId }),
 
   setRecipient: (patch) => set((s) => ({ ...s, ...patch })),
+
+  dismissProhibitedItemsDisclaimer: () => set({ prohibitedItemsDisclaimerDismissed: true }),
 
   setCreatedLoadIds: ({ loadId, bookingId }) =>
     set({ createdLoadId: loadId, createdBookingId: bookingId }),

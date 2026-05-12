@@ -10,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -37,7 +38,9 @@ import type { AppStackParamList } from '@/types/navigation.types';
 export function AddDeliveryContentsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const isNarrow = width < 380;
   const syncLocationsFromRows = useDeliveryOrderDraftStore((s) => s.syncLocationsFromRows);
   const setPlace = useDeliveryFormStore((s) => s.setPlace);
   const setPickup = useDeliveryOrderDraftStore((s) => s.setPickup);
@@ -86,7 +89,7 @@ export function AddDeliveryContentsScreen() {
         },
         sub: { fontSize: typography.fontSize.md, color: colors.textSecondary, lineHeight: 22 },
         sectionHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
-        dimRow: { flexDirection: 'row', gap: spacing.sm },
+        dimRow: { flexDirection: isNarrow ? 'column' : 'row', gap: spacing.sm },
         dimCell: { flex: 1 },
         palletHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
         palletTitle: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
@@ -131,7 +134,7 @@ export function AddDeliveryContentsScreen() {
         },
         ghostBtnTxt: { fontWeight: '600', color: colors.primary },
       }),
-    [colors],
+    [colors, isNarrow],
   );
 
   const openPlacesFor = useCallback((kind: 'pickup' | 'dropoff') => {

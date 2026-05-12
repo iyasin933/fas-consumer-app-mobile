@@ -97,13 +97,13 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
         },
         avatarTxt: {
           fontSize: typography.fontSize.sm,
-          fontWeight: '900',
+          fontWeight: '700',
           color: colors.primary,
         },
         name: {
           fontSize: typography.fontSize.md,
           lineHeight: 20,
-          fontWeight: '900',
+          fontWeight: '700',
           color: colors.textPrimary,
         },
         time: {
@@ -111,11 +111,11 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           color: colors.textSecondary,
           marginTop: 2,
         },
-        priceBlock: { alignItems: 'flex-end', flexShrink: 0 },
+        priceBlock: { alignItems: 'flex-end', flexShrink: 0, minWidth: 92 },
         price: {
-          fontSize: 28,
-          lineHeight: 32,
-          fontWeight: '900',
+          fontSize: 24,
+          lineHeight: 29,
+          fontWeight: '800',
           color: colors.textPrimary,
         },
         vatNote: {
@@ -155,9 +155,9 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           gap: 4,
           minWidth: 0,
         },
-        pctTxt: { fontSize: 12, fontWeight: '900' },
-        dealText: { flexShrink: 1, minWidth: 0, fontSize: 13, fontWeight: '900' },
-        savingsAmt: { fontSize: 12, color: colors.textSecondary, fontWeight: '700', marginTop: 1 },
+        pctTxt: { fontSize: 12, fontWeight: '700' },
+        dealText: { flexShrink: 1, minWidth: 0, fontSize: 13, fontWeight: '700' },
+        savingsAmt: { fontSize: 12, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
         acceptBtn: {
           backgroundColor: colors.primary,
           minHeight: 44,
@@ -177,7 +177,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
         acceptBtnPressed: { backgroundColor: colors.primaryPressed, transform: [{ scale: 0.98 }] },
         disabledBtn: { backgroundColor: '#FECACA' },
         disabledTxt: { color: '#DC2626' },
-        acceptTxt: { color: colors.onPrimary, fontSize: typography.fontSize.sm, fontWeight: '900' },
+        acceptTxt: { color: colors.onPrimary, fontSize: typography.fontSize.sm, fontWeight: '700' },
         dealTextBlock: { flex: 1, minWidth: 0 },
       }),
     [colors],
@@ -201,7 +201,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           </View>
         </View>
         <View style={styles.priceBlock}>
-          <Text style={styles.price}>{priceLabel}</Text>
+          <Text style={styles.price} numberOfLines={1}>{priceLabel}</Text>
           <Text style={styles.vatNote}>Inc. VAT</Text>
         </View>
       </View>
