@@ -51,15 +51,17 @@ export function startOfDay(d: Date): Date {
 
 /**
  * Earliest allowed dropoff instant: pickup datetime + drive duration + buffer.
- * If `routeDurationSec` is null, drive leg is treated as 0 (still enforces buffer after pickup).
+ * Dropoff scheduling is route-aware, so it is unavailable until pickup,
+ * dropoff, and route duration are all known.
  */
 export function computeMinDropoffAt(
   rows: DeliveryStop[],
   routeDurationSec: number | null,
 ): Date | undefined {
   const pickup = rows.find((r) => r.kind === 'pickup');
-  if (!pickup) return undefined;
+  const dropoff = rows.find((r) => r.kind === 'dropoff');
+  if (!pickup?.place || !dropoff?.place || routeDurationSec == null) return undefined;
   const pickupAt = mergeStopDateTime(pickup.dateISO, pickup.window?.fromISO);
-  const driveMs = Math.max(0, (routeDurationSec ?? 0) * 1000);
+  const driveMs = Math.max(0, routeDurationSec * 1000);
   return new Date(pickupAt.getTime() + driveMs + DROPOFF_BUFFER_MS);
 }

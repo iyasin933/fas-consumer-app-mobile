@@ -45,6 +45,7 @@ export function AddressField({
         pressed && styles.pressed,
       ]}
       onPress={onPress}
+      hitSlop={{ top: 6, bottom: 6, left: 2, right: 2 }}
       accessibilityRole="button"
       accessibilityLabel={placeholder}
     >
@@ -70,7 +71,7 @@ export function AddressField({
         // the modal.
         <View>
           <Pressable
-            hitSlop={10}
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
             onPress={onClear}
             accessibilityLabel={`Clear ${placeholder}`}
             style={({ pressed }) => [
@@ -85,7 +86,7 @@ export function AddressField({
       )}
       {showGps && (
         <Pressable
-          hitSlop={8}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           onPress={onGpsPress}
           style={[styles.gpsBtn, { backgroundColor: c.brandGreenSoft }]}
           accessibilityLabel="Use current location"
@@ -102,6 +103,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
+    minHeight: 48,
     borderWidth: 1,
     borderRadius: 10,
     paddingHorizontal: 12,

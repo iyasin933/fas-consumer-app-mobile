@@ -19,6 +19,8 @@ type Props = {
   onWindowChange: (w: TimeWindow | undefined) => void;
   onDateChange: (iso: string | undefined) => void;
   scheduleRole: ScheduleRole;
+  disabled?: boolean;
+  disabledReason?: string;
   /**
    * For dropoff: earliest instant allowed (pickup + route ETA + 1h buffer).
    * Drives date minimum and post-pick validation.
@@ -57,6 +59,8 @@ export function ScheduledPills({
   onWindowChange,
   onDateChange,
   scheduleRole,
+  disabled,
+  disabledReason,
   minDropoffAt,
 }: Props) {
   const c = useMapColors();
@@ -86,10 +90,11 @@ export function ScheduledPills({
   }, [window, dateISO, isDropoff, minDropoffAt, noPast]);
 
   const timeLabel = useMemo(() => {
+    if (disabled) return isDropoff ? 'ETA pending' : 'Select time';
     if (!window) return 'Select time';
     if (isPickup) return fmtTime(window.fromISO);
     return `${fmtTime(window.fromISO)} – ${fmtTime(window.toISO)}`;
-  }, [window, isPickup]);
+  }, [disabled, isDropoff, window, isPickup]);
 
   const handleTimeConfirm = useCallback(
     (picked: Date) => {
@@ -176,6 +181,7 @@ export function ScheduledPills({
   );
 
   const dateLabel = dateISO ? fmtDate(dateISO) : 'Select Date';
+  const effectiveDateLabel = disabled && isDropoff ? 'After route' : dateLabel;
 
   const pillBase = {
     borderColor: c.border,
@@ -185,31 +191,46 @@ export function ScheduledPills({
     borderColor: c.brandGreen,
     backgroundColor: c.brandGreenSoft,
   };
+  const pillDisabled = {
+    borderColor: c.border,
+    backgroundColor: c.surfaceMuted,
+    opacity: 0.72,
+  };
+
+  const showDisabledReason = useCallback(() => {
+    if (disabledReason) setToast(disabledReason);
+  }, [disabledReason, setToast]);
 
   return (
     <View style={styles.row}>
       <Pressable
-        style={[styles.pill, window ? pillActive : pillBase]}
-        onPress={() =>
+        style={[styles.pill, window ? pillActive : pillBase, disabled && pillDisabled]}
+        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+        onPress={() => {
+          if (disabled) {
+            showDisabledReason();
+            return;
+          }
           openPicker({
             mode: 'time',
             value: timePickerValue,
             title: 'Pick a time',
             onCancel: () => {},
             onConfirm: handleTimeConfirm,
-          })
-        }
+          });
+        }}
         accessibilityLabel="Select time"
+        accessibilityState={{ disabled: !!disabled }}
       >
         <Ionicons
           name="time-outline"
           size={14}
-          color={window ? c.brandGreen : c.textSecondary}
+          color={disabled ? c.textSecondary : window ? c.brandGreen : c.textSecondary}
         />
         <Text
           style={[
             styles.pillTxt,
-            { color: window ? c.brandGreen : c.textSecondary },
+            { color: disabled ? c.textSecondary : window ? c.brandGreen : c.textSecondary },
           ]}
           numberOfLines={1}
         >
@@ -217,8 +238,13 @@ export function ScheduledPills({
         </Text>
       </Pressable>
       <Pressable
-        style={[styles.pill, dateISO ? pillActive : pillBase]}
-        onPress={() =>
+        style={[styles.pill, dateISO ? pillActive : pillBase, disabled && pillDisabled]}
+        hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
+        onPress={() => {
+          if (disabled) {
+            showDisabledReason();
+            return;
+          }
           openPicker({
             mode: 'date',
             value: dateISO ? new Date(dateISO) : datePickerMin,
@@ -226,23 +252,24 @@ export function ScheduledPills({
             title: 'Pick a date',
             onCancel: () => {},
             onConfirm: handleDateConfirm,
-          })
-        }
+          });
+        }}
         accessibilityLabel="Select date"
+        accessibilityState={{ disabled: !!disabled }}
       >
         <Ionicons
           name="calendar-outline"
           size={14}
-          color={dateISO ? c.brandGreen : c.textSecondary}
+          color={disabled ? c.textSecondary : dateISO ? c.brandGreen : c.textSecondary}
         />
         <Text
           style={[
             styles.pillTxt,
-            { color: dateISO ? c.brandGreen : c.textSecondary },
+            { color: disabled ? c.textSecondary : dateISO ? c.brandGreen : c.textSecondary },
           ]}
           numberOfLines={1}
         >
-          {dateLabel}
+          {effectiveDateLabel}
         </Text>
       </Pressable>
     </View>
@@ -253,6 +280,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', gap: 8, marginTop: 12 },
   pill: {
     flex: 1,
+    minHeight: 44,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,3 +1,4 @@
+import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useCallback, useMemo } from 'react';
 import {
   ActivityIndicator,
@@ -34,7 +35,6 @@ function createStyles(colors: ThemeColors) {
     subtitle: { fontSize: typography.fontSize.sm, color: colors.textSecondary },
     listContent: {
       paddingHorizontal: spacing.md,
-      paddingBottom: spacing.xl * 2,
     },
     list: { flex: 1 },
     center: {
@@ -50,6 +50,7 @@ function createStyles(colors: ThemeColors) {
 export function BookingsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const tabBarHeight = useBottomTabBarHeight();
   const {
     bookings,
     isLoading,
@@ -125,6 +126,7 @@ export function BookingsScreen() {
           ItemSeparatorComponent={ListSeparator}
           contentContainerStyle={[
             styles.listContent,
+            { paddingBottom: tabBarHeight + spacing.lg },
             bookings.length === 0 && { flexGrow: 1, justifyContent: 'center' },
           ]}
           refreshControl={

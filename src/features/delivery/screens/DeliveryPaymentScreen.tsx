@@ -33,6 +33,10 @@ import type { AppStackParamList } from '@/types/navigation.types';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'DeliveryPayment'>;
 
+const PAYMENT_FOOTER_TOP_PADDING = spacing.sm;
+const PAYMENT_CTA_MIN_HEIGHT = 56;
+const PAYMENT_SCROLL_FOOTER_GAP = spacing.lg;
+
 function formatGbpFromPence(pence: number): string {
   return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(pence / 100);
 }
@@ -65,6 +69,9 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
   const [busy, setBusy] = useState(false);
   const [showSuccessConfetti, setShowSuccessConfetti] = useState(false);
   const amountLabel = useMemo(() => formatGbpFromPence(amountPence), [amountPence]);
+  const footerBottomPadding = Math.max(insets.bottom, spacing.md);
+  const scrollFooterInset =
+    PAYMENT_FOOTER_TOP_PADDING + PAYMENT_CTA_MIN_HEIGHT + footerBottomPadding + PAYMENT_SCROLL_FOOTER_GAP;
 
   const styles = useMemo(
     () =>
@@ -79,7 +86,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
         body: {
           paddingHorizontal: spacing.lg,
           paddingTop: spacing.lg,
-          paddingBottom: 118 + insets.bottom,
+          paddingBottom: scrollFooterInset,
           gap: spacing.md,
         },
         eyebrow: {
@@ -186,15 +193,15 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           right: 0,
           bottom: 0,
           paddingHorizontal: spacing.lg,
-          paddingTop: spacing.sm,
-          paddingBottom: Math.max(insets.bottom, spacing.md),
+          paddingTop: PAYMENT_FOOTER_TOP_PADDING,
+          paddingBottom: footerBottomPadding,
           backgroundColor: colors.background,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
         },
         cta: {
           backgroundColor: colors.primary,
-          minHeight: 56,
+          minHeight: PAYMENT_CTA_MIN_HEIGHT,
           borderRadius: 12,
           alignItems: 'center',
           justifyContent: 'center',
@@ -215,7 +222,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           letterSpacing: 0.5,
         },
       }),
-    [colors, insets.bottom],
+    [colors, footerBottomPadding, scrollFooterInset],
   );
 
   const pay = useCallback(async () => {

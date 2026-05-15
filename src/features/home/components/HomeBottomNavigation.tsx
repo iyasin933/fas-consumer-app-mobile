@@ -4,7 +4,6 @@ import {
 } from '@react-navigation/bottom-tabs';
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useContext, useEffect, useMemo } from 'react';
-import type { LayoutChangeEvent } from 'react-native';
 import {
   Platform,
   Pressable,
@@ -165,6 +164,7 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
     },
     tabCell: {
       flex: 1,
+      minHeight: metrics.barHeight,
       alignItems: 'center',
       justifyContent: 'center',
       paddingTop: metrics.tabPaddingTop,
@@ -174,6 +174,7 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
     /** Empty flex slot that reserves the same width as a tab cell for the FAB. */
     centerSpacer: {
       flex: 1,
+      minHeight: metrics.barHeight,
     },
     label: {
       fontSize: metrics.labelFontSize,
@@ -241,14 +242,10 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
   const metrics = useMemo(() => tabBarMetrics(width, height), [height, width]);
   const styles = useMemo(() => createStyles(colors, metrics), [colors, metrics]);
   const shouldHideForMapFlow = state.routes[state.index]?.name === 'Map';
+  const logicalTabBarHeight = metrics.barHeight + insets.bottom;
+  const contentWidth = Math.max(1, width - insets.left - insets.right);
+  const fabLeft = insets.left + contentWidth / 2 - metrics.fabRadius;
   const visibility = useSharedValue(shouldHideForMapFlow ? 0 : 1);
-
-  const onTabBarLayout = useCallback(
-    (e: LayoutChangeEvent) => {
-      tabBarOnHeightChange?.(e.nativeEvent.layout.height);
-    },
-    [tabBarOnHeightChange],
-  );
 
   useEffect(() => {
     visibility.value = withTiming(shouldHideForMapFlow ? 0 : 1, {
@@ -257,10 +254,14 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
     });
   }, [shouldHideForMapFlow, visibility]);
 
+  useEffect(() => {
+    tabBarOnHeightChange?.(shouldHideForMapFlow ? 0 : logicalTabBarHeight);
+  }, [logicalTabBarHeight, shouldHideForMapFlow, tabBarOnHeightChange]);
+
   const animatedWrapStyle = useAnimatedStyle(() => ({
-    height: visibility.value * (metrics.barHeight + insets.bottom),
+    height: visibility.value * logicalTabBarHeight,
     opacity: visibility.value,
-    transform: [{ translateY: (1 - visibility.value) * (metrics.barHeight + insets.bottom + 18) }],
+    transform: [{ translateY: (1 - visibility.value) * (logicalTabBarHeight + 18) }],
   }));
 
   const handleTabPress = useCallback(
@@ -283,8 +284,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
 
   return (
     <Animated.View
-      onLayout={onTabBarLayout}
-      pointerEvents={shouldHideForMapFlow ? 'none' : 'auto'}
+      pointerEvents={shouldHideForMapFlow ? 'none' : 'box-none'}
       style={[styles.wrap, animatedWrapStyle]}
     >
       {/* ── Main bar ────────────────────────────────────────────────────── */}
@@ -299,7 +299,16 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
         />
 
         {/* Left (Home, Schedule) + spacer + Right (Notifications, Profile) */}
-        <View style={styles.tabRow}>
+        <View
+          style={[
+            styles.tabRow,
+            {
+              paddingLeft: insets.left,
+              paddingRight: insets.right,
+            },
+          ]}
+          pointerEvents="box-none"
+        >
           {([0, 1] as const).map((i) => {
             const route = state.routes[i];
             const meta = TAB_META[i];
@@ -309,6 +318,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
                 key={route.key}
                 style={styles.tabCell}
                 onPress={() => handleTabPress(route.key, route.name)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={meta.label}
@@ -337,7 +347,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
           })}
 
           {/* Reserve the center slot for the FAB */}
-          <View style={styles.centerSpacer} />
+          <View style={styles.centerSpacer} pointerEvents="none" />
 
           {([3, 4] as const).map((i) => {
             const route = state.routes[i];
@@ -348,6 +358,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
                 key={route.key}
                 style={styles.tabCell}
                 onPress={() => handleTabPress(route.key, route.name)}
+                hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
                 accessibilityRole="button"
                 accessibilityState={{ selected: active }}
                 accessibilityLabel={meta.label}
@@ -388,13 +399,14 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
           style={[
             styles.fab,
             {
-              left: width / 2 - metrics.fabRadius,
+              left: fabLeft,
               backgroundColor: isCenterActive
                 ? colors.primaryPressed
                 : colors.primary,
             },
           ]}
           onPress={() => handleTabPress(centerRoute.key, centerRoute.name)}
+          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
           accessibilityRole="button"
           accessibilityState={{ selected: isCenterActive }}
           accessibilityLabel={TAB_META[CENTER_IDX].label}
@@ -408,7 +420,9 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
       </View>
 
       {/* ── Safe-area fill; iOS draws the real home indicator itself. ── */}
-      {insets.bottom > 0 && <View style={[styles.safeAreaFill, { height: insets.bottom }]} />}
+      {insets.bottom > 0 && (
+        <View pointerEvents="none" style={[styles.safeAreaFill, { height: insets.bottom }]} />
+      )}
     </Animated.View>
   );
 }

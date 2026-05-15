@@ -68,6 +68,11 @@ function haversineKm(
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 const AVG_URBAN_SPEED_KMH = 35;
+const ACTION_FOOTER_HORIZONTAL_PADDING = 16;
+const ACTION_FOOTER_TOP_PADDING = 10;
+const ACTION_FOOTER_MIN_BOTTOM_PADDING = 12;
+const ACTION_FOOTER_BUTTON_HEIGHT = 52;
+const ACTION_FOOTER_TOAST_GAP = 24;
 
 type MapRoute = RouteProp<MainTabParamList, 'Map'>;
 
@@ -145,6 +150,9 @@ export function MapScreen() {
   const pickupRow = rows.find((r) => r.kind === 'pickup');
   const dropoffRow = rows.find((r) => r.kind === 'dropoff');
   const bottomNavInset = 0;
+  const actionFooterBottomPadding = Math.max(insets.bottom, ACTION_FOOTER_MIN_BOTTOM_PADDING);
+  const actionFooterReservedHeight =
+    ACTION_FOOTER_TOP_PADDING + ACTION_FOOTER_BUTTON_HEIGHT + actionFooterBottomPadding;
   const proceedEnabled = canProceed(rows, tab);
   const stopCount = rows.filter((r) => r.kind === 'stop').length;
   const footerBottom = useSharedValue(bottomNavInset);
@@ -176,6 +184,10 @@ export function MapScreen() {
   useEffect(() => {
     if (!pickupRow?.place || !dropoffRow?.place) {
       setRouteMetrics(null, null);
+      if (tab === 'scheduled') {
+        setWindow(DROPOFF_ID, undefined);
+        setDateISO(DROPOFF_ID, undefined);
+      }
       return;
     }
 
@@ -390,6 +402,7 @@ export function MapScreen() {
         <DeliveryBottomSheet
           ref={sheetRef}
           initialSnapIndex={initialSnapIndex}
+          bottomContentInset={actionFooterReservedHeight + ACTION_FOOTER_TOAST_GAP}
           onOpenPlaces={openPlaces}
           onClearPlace={handleClearPlace}
           onPickupGps={handlePickupGps}
@@ -402,7 +415,7 @@ export function MapScreen() {
             {
               backgroundColor: c.surface,
               borderTopColor: c.hairline,
-              paddingBottom: insets.bottom + 12,
+              paddingBottom: actionFooterBottomPadding,
             },
             actionFooterStyle,
           ]}
@@ -429,7 +442,13 @@ export function MapScreen() {
           <Animated.View
             entering={FadeIn.duration(150)}
             exiting={FadeOut.duration(150)}
-            style={[styles.toast, { backgroundColor: c.toastBg, bottom: bottomNavInset + 24 }]}
+            style={[
+              styles.toast,
+              {
+                backgroundColor: c.toastBg,
+                bottom: bottomNavInset + actionFooterReservedHeight + ACTION_FOOTER_TOAST_GAP,
+              },
+            ]}
             pointerEvents="none"
           >
             <Text style={[styles.toastTxt, { color: c.toastText }]}>{toast}</Text>
@@ -466,9 +485,9 @@ const styles = StyleSheet.create({
     right: 0,
     zIndex: 30,
     elevation: 30,
-    paddingHorizontal: 16,
-    paddingTop: 10,
-    paddingBottom: 12,
+    paddingHorizontal: ACTION_FOOTER_HORIZONTAL_PADDING,
+    paddingTop: ACTION_FOOTER_TOP_PADDING,
+    paddingBottom: ACTION_FOOTER_MIN_BOTTOM_PADDING,
     borderTopWidth: StyleSheet.hairlineWidth,
     ...Platform.select({
       ios: {

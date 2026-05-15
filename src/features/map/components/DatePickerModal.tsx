@@ -84,59 +84,58 @@ export function DatePickerModal({
   return (
     <View
       style={styles.overlayHost}
-      pointerEvents="auto"
+      pointerEvents="box-none"
       accessibilityViewIsModal
       collapsable={false}
     >
       <GestureHandlerRootView style={styles.ghRoot}>
         <Pressable
-          style={[styles.backdrop, { backgroundColor: c.surfaceOverlay }]}
+          style={[styles.backdropFill, { backgroundColor: c.surfaceOverlay }]}
           onPress={onCancel}
           accessibilityLabel="Dismiss"
-        >
-          <View style={styles.sheetWrap} pointerEvents="box-none">
-            <Pressable onPress={(e) => e.stopPropagation()} style={styles.sheetInner}>
-              <SafeAreaView edges={['bottom']} style={{ backgroundColor: c.surface }}>
-                <View style={[styles.sheet, { backgroundColor: c.surface }]}>
-                  <View style={[styles.header, { borderBottomColor: c.border }]}>
-                    <TouchableOpacity
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      onPress={onCancel}
-                      accessibilityRole="button"
-                      accessibilityLabel="Cancel"
-                    >
-                      <Text style={[styles.headerSecondary, { color: c.textSecondary }]}>
-                        Cancel
-                      </Text>
-                    </TouchableOpacity>
-                    {!!title && (
-                      <Text style={[styles.headerTitle, { color: c.textPrimary }]}>{title}</Text>
-                    )}
-                    <TouchableOpacity
-                      hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
-                      onPress={handleDone}
-                      accessibilityRole="button"
-                      accessibilityLabel="Done"
-                    >
-                      <Text style={[styles.headerDone, { color: c.brandGreen }]}>Done</Text>
-                    </TouchableOpacity>
-                  </View>
-                  <DateTimePicker
-                    mode={mode}
-                    value={tempValue}
-                    minimumDate={mode === 'date' ? minimumDate : undefined}
-                    display="spinner"
-                    themeVariant={c.isDark ? 'dark' : 'light'}
-                    onChange={(_: DateTimePickerEvent, picked?: Date) => {
-                      if (picked) setTempValue(new Date(picked.getTime()));
-                    }}
-                    style={styles.picker}
-                  />
+        />
+        <View style={styles.sheetWrap} pointerEvents="box-none">
+          <Pressable onPress={(e) => e.stopPropagation()} style={styles.sheetInner}>
+            <SafeAreaView edges={['bottom']} style={{ backgroundColor: c.surface }}>
+              <View style={[styles.sheet, { backgroundColor: c.surface }]}>
+                <View style={[styles.header, { borderBottomColor: c.border }]}>
+                  <TouchableOpacity
+                    hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                    onPress={onCancel}
+                    accessibilityRole="button"
+                    accessibilityLabel="Cancel"
+                  >
+                    <Text style={[styles.headerSecondary, { color: c.textSecondary }]}>
+                      Cancel
+                    </Text>
+                  </TouchableOpacity>
+                  {!!title && (
+                    <Text style={[styles.headerTitle, { color: c.textPrimary }]}>{title}</Text>
+                  )}
+                  <TouchableOpacity
+                    hitSlop={{ top: 14, bottom: 14, left: 14, right: 14 }}
+                    onPress={handleDone}
+                    accessibilityRole="button"
+                    accessibilityLabel="Done"
+                  >
+                    <Text style={[styles.headerDone, { color: c.brandGreen }]}>Done</Text>
+                  </TouchableOpacity>
                 </View>
-              </SafeAreaView>
-            </Pressable>
-          </View>
-        </Pressable>
+                <DateTimePicker
+                  mode={mode}
+                  value={tempValue}
+                  minimumDate={mode === 'date' ? minimumDate : undefined}
+                  display="spinner"
+                  themeVariant={c.isDark ? 'dark' : 'light'}
+                  onChange={(_: DateTimePickerEvent, picked?: Date) => {
+                    if (picked) setTempValue(new Date(picked.getTime()));
+                  }}
+                  style={styles.picker}
+                />
+              </View>
+            </SafeAreaView>
+          </Pressable>
+        </View>
       </GestureHandlerRootView>
     </View>
   );
@@ -153,12 +152,13 @@ const styles = StyleSheet.create({
     }),
   },
   ghRoot: { flex: 1 },
-  backdrop: {
-    flex: 1,
-    justifyContent: 'flex-end',
+  backdropFill: {
+    ...StyleSheet.absoluteFillObject,
   },
   sheetWrap: {
+    flex: 1,
     width: '100%',
+    justifyContent: 'flex-end',
   },
   sheetInner: {
     width: '100%',

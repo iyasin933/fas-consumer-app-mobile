@@ -72,6 +72,8 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
   );
   const isStop = row.kind === 'stop';
   const isPickup = row.kind === 'pickup';
+  const dropoffScheduleNeedsRoute =
+    tab === 'scheduled' && row.kind === 'dropoff' && !minDropoffAt;
 
   const color = useMemo(() => {
     if (row.kind === 'pickup') return c.brandGreen;
@@ -177,6 +179,8 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
           window={row.window}
           dateISO={row.dateISO}
           minDropoffAt={minDropoffAt}
+          disabled={dropoffScheduleNeedsRoute}
+          disabledReason="Select pickup and dropoff first — we calculate dropoff time from route ETA."
           onWindowChange={onWindowChange}
           onDateChange={onDateChange}
         />

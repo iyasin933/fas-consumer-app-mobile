@@ -25,6 +25,7 @@ type Props = {
   initialSnapIndex?: 0 | 1 | 2;
   /** Called when the user edits dropoff date/time so ETA does not overwrite their choice. */
   onDropoffScheduleEdited?: () => void;
+  bottomContentInset?: number;
 };
 
 /**
@@ -48,6 +49,7 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
       onDropoffScheduleEdited,
       onChange,
       initialSnapIndex = 1,
+      bottomContentInset = 0,
     },
     ref,
   ) {
@@ -167,7 +169,10 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
 
           <BottomSheetScrollView
             style={styles.cardScroll}
-            contentContainerStyle={styles.cardScrollContent}
+            contentContainerStyle={[
+              styles.cardScrollContent,
+              { paddingBottom: bottomContentInset },
+            ]}
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator
           >
@@ -216,7 +221,6 @@ const styles = StyleSheet.create({
     flexGrow: 1,
     paddingHorizontal: 16,
     paddingTop: 12,
-    paddingBottom: 104,
   },
   cardsColumn: {
     gap: 12,

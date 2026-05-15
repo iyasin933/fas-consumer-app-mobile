@@ -22,6 +22,7 @@ function Tab({ label, active, onPress }: { label: string; active: boolean; onPre
   return (
     <Pressable
       onPress={onPress}
+      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
       style={styles.tab}
       accessibilityRole="tab"
       accessibilityState={{ selected: active }}
@@ -48,7 +49,7 @@ function Tab({ label, active, onPress }: { label: string; active: boolean; onPre
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', paddingHorizontal: 16, marginTop: 4 },
-  tab: { flex: 1, alignItems: 'center', paddingVertical: 12 },
+  tab: { flex: 1, minHeight: 48, alignItems: 'center', justifyContent: 'center', paddingVertical: 12 },
   txt: { fontSize: 14 },
   underline: { marginTop: 10, width: '80%', height: 3, borderRadius: 2, backgroundColor: 'transparent' },
 });
