@@ -1,10 +1,22 @@
 import { memo, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import {
+  Image,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
 import type { DeliveryVehicleDto } from '@/features/delivery/api/consumerBookingPriceApi';
 import { vehicleNameToIconAssetKey } from '@/features/delivery/utils/vehicleToIconAsset';
-import { TRANSPORT_ICON_SOURCES, transportIconSource } from '@/features/home/utils/transportIconSources';
+import {
+  TRANSPORT_ICON_SOURCES,
+  transportIconSource,
+} from '@/features/home/utils/transportIconSources';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
@@ -33,8 +45,15 @@ function capacityLabel(v: DeliveryVehicleDto): string | null {
     parts.push(`Carries up to ${Math.round(v.loadCapacity).toLocaleString('en-GB')} kg`);
   }
 
-  if (v.surfaceAreaCapacity != null && Number.isFinite(v.surfaceAreaCapacity) && v.surfaceAreaCapacity > 0) {
-    const areaM2 = v.surfaceAreaCapacity > 100 ? v.surfaceAreaCapacity / 10_000 : v.surfaceAreaCapacity;
+  if (
+    v.surfaceAreaCapacity != null &&
+    Number.isFinite(v.surfaceAreaCapacity) &&
+    v.surfaceAreaCapacity > 0
+  ) {
+    const areaM2 =
+      v.surfaceAreaCapacity > 100
+        ? v.surfaceAreaCapacity / 10_000
+        : v.surfaceAreaCapacity;
     parts.push(`${areaM2.toLocaleString('en-GB', { maximumFractionDigits: 2 })} m²`);
   }
 
@@ -47,7 +66,11 @@ type Props = {
   onPress: () => void;
 };
 
-export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, selected, onPress }: Props) {
+export const VehicleOptionCard = memo(function VehicleOptionCard({
+  vehicle,
+  selected,
+  onPress,
+}: Props) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const isNarrow = width < 370;
@@ -59,35 +82,111 @@ export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, sele
     () =>
       StyleSheet.create({
         card: {
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: isNarrow ? spacing.sm : spacing.md,
+          minHeight: isNarrow ? 186 : 168,
+          borderRadius: 18,
           padding: spacing.md,
-          borderRadius: 12,
           backgroundColor: colors.surface,
-          borderWidth: 2,
+          borderWidth: selected ? 2 : 1,
           borderColor: selected ? colors.primary : colors.border,
+          overflow: 'hidden',
+          justifyContent: 'center',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 8 },
+              shadowOpacity: 0.08,
+              shadowRadius: 16,
+            },
+            android: { elevation: selected ? 3 : 1 },
+            default: {},
+          }),
         },
-        art: { width: isNarrow ? 58 : 72, height: isNarrow ? 40 : 48, resizeMode: 'contain' },
-        body: { flex: 1, minWidth: 0, gap: 5 },
-        name: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
+        cardPressed: {
+          opacity: 0.9,
+          transform: [{ scale: 0.99 }],
+        },
+        copy: {
+          width: isNarrow ? '72%' : '64%',
+          gap: spacing.xs,
+          zIndex: 2,
+        },
+        pricePill: {
+          alignSelf: 'flex-start',
+          borderRadius: 999,
+          paddingHorizontal: spacing.sm,
+          paddingVertical: 5,
+          backgroundColor: colors.primary + '12',
+        },
+        price: {
+          color: colors.primary,
+          fontSize: typography.fontSize.sm,
+          fontWeight: '800',
+        },
+        name: {
+          marginTop: spacing.xs,
+          fontSize: isNarrow ? typography.fontSize.lg : 27,
+          lineHeight: isNarrow ? 25 : 32,
+          fontWeight: typography.fontWeight.bold,
+          color: colors.textPrimary,
+        },
         capacity: {
           fontSize: typography.fontSize.sm,
-          lineHeight: 18,
+          lineHeight: 20,
           color: colors.textSecondary,
-          fontWeight: '600',
+          fontWeight: '500',
         },
-        price: { fontSize: typography.fontSize.md, fontWeight: '700', color: colors.textPrimary },
         disc: {
           fontSize: typography.fontSize.sm,
           fontStyle: 'italic',
           color: colors.danger,
+        },
+        cornerGraphic: {
+          position: 'absolute',
+          right: -30,
+          bottom: -44,
+          width: isNarrow ? 132 : 150,
+          height: isNarrow ? 132 : 150,
+          borderRadius: isNarrow ? 66 : 75,
+          backgroundColor: colors.primary + '10',
+          pointerEvents: 'none',
+        },
+        routeLine: {
+          position: 'absolute',
+          left: 18,
+          right: -16,
+          top: isNarrow ? 46 : 54,
+          height: 4,
+          borderRadius: 99,
+          backgroundColor: colors.primary + '22',
+          transform: [{ rotate: '-18deg' }],
+        },
+        vehicleImage: {
+          position: 'absolute',
+          right: isNarrow ? 54 : 62,
+          bottom: isNarrow ? 70 : 76,
+          width: isNarrow ? 70 : 82,
+          height: isNarrow ? 46 : 54,
+          resizeMode: 'contain',
+        },
+        arrowBubble: {
+          position: 'absolute',
+          right: isNarrow ? 30 : 34,
+          bottom: isNarrow ? 48 : 52,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: colors.primaryPressed,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 3,
+          borderColor: colors.surface,
         },
       }),
     [
       colors.border,
       colors.danger,
       colors.primary,
+      colors.primaryPressed,
       colors.surface,
       colors.textPrimary,
       colors.textSecondary,
@@ -97,17 +196,37 @@ export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, sele
   );
 
   return (
-    <Pressable style={styles.card} onPress={onPress}>
-      <Image source={src} style={styles.art} accessibilityIgnoresInvertColors />
-      <View style={styles.body}>
-        <Text style={styles.name} numberOfLines={2}>{vehicle.name}</Text>
-        {capacity ? (
-          <Text style={styles.capacity} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
-            {capacity}
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${vehicle.name} vehicle option`}
+      accessibilityState={{ selected }}
+      onPress={onPress}
+      style={({ pressed }) => [styles.card, pressed && styles.cardPressed]}
+    >
+      <View style={styles.cornerGraphic} pointerEvents="none">
+        <View style={styles.routeLine} />
+        <Image source={src} style={styles.vehicleImage} accessibilityIgnoresInvertColors />
+        <View style={styles.arrowBubble}>
+          <Ionicons name="arrow-forward" size={17} color="#ffffff" />
+        </View>
+      </View>
+
+      <View style={styles.copy}>
+        <View style={styles.pricePill}>
+          <Text style={styles.price} numberOfLines={1}>
+            {priceLabel(vehicle)}
           </Text>
-        ) : null}
-        <Text style={styles.price} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
-          {priceLabel(vehicle)}
+        </View>
+        <Text style={styles.name} numberOfLines={2}>
+          {vehicle.name}
+        </Text>
+        <Text
+          style={styles.capacity}
+          numberOfLines={2}
+          adjustsFontSizeToFit
+          minimumFontScale={0.86}
+        >
+          {capacity ?? 'Ready for your delivery route.'}
         </Text>
         <Text style={styles.disc}>Prices can vary</Text>
       </View>

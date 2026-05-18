@@ -29,11 +29,11 @@ module.exports = () => {
       scheme: 'dropyou',
       version: '1.0.0',
       orientation: 'portrait',
-      icon: './assets/generated/icon.png',
+      icon: './assets/images/D-app-logo.png',
       userInterfaceStyle: 'automatic',
       newArchEnabled: true,
       splash: {
-        image: './assets/generated/splash-logo.png',
+        image: './assets/images/dropyou-full-logo.png',
         resizeMode: 'contain',
         backgroundColor: '#ffffff',
       },
@@ -56,7 +56,7 @@ module.exports = () => {
       android: {
         package: 'co.uk.dropyou.app',
         adaptiveIcon: {
-          foregroundImage: './assets/generated/icon.png',
+          foregroundImage: './assets/images/D-app-logo.png',
           backgroundColor: '#ffffff',
         },
         edgeToEdgeEnabled: true,

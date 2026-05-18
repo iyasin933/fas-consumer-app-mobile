@@ -1,20 +1,71 @@
-import { useMemo } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { useEffect, useMemo, useRef } from 'react';
+import {
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useActiveTrips } from '@/features/home/hooks/useActiveTrips';
 import { useTheme } from '@/hooks/useTheme';
+import { IllustratedActionCard } from '@/shared/components/IllustratedActionCard';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { MainTabParamList } from '@/types/navigation.types';
 
+const CURRENT_OFFERS = [
+  {
+    id: 'first-delivery',
+    eyebrow: 'First delivery offer',
+    title: '20% off your first delivery',
+    body: 'Use promo code FIRST20 at checkout and track your parcel from pickup to drop-off.',
+    code: 'FIRST20',
+    icon: 'pricetag',
+    tone: 'primary',
+    cta: 'Book Now',
+  },
+  {
+    id: 'live-quotes',
+    eyebrow: 'Live driver quotes',
+    title: 'Compare prices before you book',
+    body: 'Get real-time carrier offers and pick the option that works best for your delivery.',
+    icon: 'flash',
+    tone: 'pressed',
+    cta: 'Start Booking',
+  },
+  {
+    id: 'scheduled',
+    eyebrow: 'Plan ahead',
+    title: 'Schedule pickup and drop-off',
+    body: 'Choose the delivery windows that fit your day and keep every stop organised.',
+    icon: 'calendar',
+    tone: 'primary',
+    cta: 'Schedule Now',
+  },
+] as const;
+
+const LOOPED_OFFERS = [...CURRENT_OFFERS, CURRENT_OFFERS[0]];
+
+function offerAccent(colors: ThemeColors, tone: (typeof CURRENT_OFFERS)[number]['tone']) {
+  return tone === 'pressed' ? colors.primaryPressed : colors.primary;
+}
+
+function getOfferWidth(width: number) {
+  return Math.max(282, width - spacing.md * 2);
+}
+
 function createStyles(colors: ThemeColors, width: number) {
   const slideWidth = Math.max(260, Math.min(320, width - spacing.md * 2));
+  const offerWidth = getOfferWidth(width);
   const isNarrow = width < 370;
   return StyleSheet.create({
     section: { paddingBottom: spacing.xl, gap: spacing.sm },
@@ -30,20 +81,23 @@ function createStyles(colors: ThemeColors, width: number) {
     },
     hScroll: { paddingLeft: spacing.md, paddingRight: spacing.sm, gap: spacing.sm },
     slide: { width: slideWidth },
-    emptyWrap: {
-      paddingHorizontal: spacing.md,
+    emptyOffersScroll: {
+      paddingLeft: spacing.md,
+      paddingRight: spacing.md,
+      gap: spacing.sm,
     },
     emptyCard: {
-      minHeight: isNarrow ? 252 : 196,
-      borderRadius: 20,
-      padding: spacing.lg,
+      width: offerWidth,
+      minHeight: isNarrow ? 220 : 168,
+      borderRadius: 18,
+      padding: spacing.md,
       backgroundColor: colors.surface,
       borderWidth: 1,
       borderColor: colors.border,
       overflow: 'hidden',
       flexDirection: isNarrow ? 'column' : 'row',
       alignItems: isNarrow ? 'flex-start' : 'center',
-      gap: spacing.lg,
+      gap: spacing.md,
     },
     emptyCopy: {
       flex: 1,
@@ -62,6 +116,20 @@ function createStyles(colors: ThemeColors, width: number) {
       fontWeight: typography.fontWeight.bold,
       overflow: 'hidden',
     },
+    promoCode: {
+      alignSelf: 'flex-start',
+      marginTop: spacing.xs,
+      borderRadius: 10,
+      paddingHorizontal: spacing.sm,
+      paddingVertical: 6,
+      backgroundColor: colors.background,
+      borderWidth: 1,
+      borderColor: colors.border,
+      color: colors.textPrimary,
+      fontSize: typography.fontSize.sm,
+      fontWeight: '800',
+      overflow: 'hidden',
+    },
     emptyTitle: {
       color: colors.textPrimary,
       fontSize: isNarrow ? typography.fontSize.md : typography.fontSize.lg,
@@ -72,12 +140,12 @@ function createStyles(colors: ThemeColors, width: number) {
     emptyBody: {
       color: colors.textSecondary,
       fontSize: typography.fontSize.sm,
-      lineHeight: 20,
-      maxWidth: 286,
+      lineHeight: 19,
+      maxWidth: 276,
     },
     bookButton: {
       alignSelf: 'flex-start',
-      marginTop: spacing.sm,
+      marginTop: spacing.xs,
       minHeight: 44,
       borderRadius: 12,
       paddingHorizontal: spacing.md,
@@ -97,16 +165,16 @@ function createStyles(colors: ThemeColors, width: number) {
       fontWeight: typography.fontWeight.bold,
     },
     emptyArt: {
-      width: isNarrow ? '100%' : 126,
-      minHeight: isNarrow ? 82 : 126,
+      width: isNarrow ? '100%' : 108,
+      minHeight: isNarrow ? 76 : 108,
       justifyContent: 'center',
       alignItems: 'center',
       alignSelf: isNarrow ? 'stretch' : 'center',
     },
     artPanel: {
-      width: isNarrow ? '100%' : 126,
-      height: isNarrow ? 82 : 126,
-      borderRadius: 24,
+      width: isNarrow ? '100%' : 108,
+      height: isNarrow ? 76 : 108,
+      borderRadius: 22,
       backgroundColor: colors.primary + '0F',
       borderWidth: 1,
       borderColor: colors.primary + '22',
@@ -118,7 +186,7 @@ function createStyles(colors: ThemeColors, width: number) {
       position: 'absolute',
       left: -8,
       right: -8,
-      top: isNarrow ? 42 : 68,
+      top: isNarrow ? 39 : 58,
       height: 4,
       borderRadius: 99,
       backgroundColor: colors.primary + '33',
@@ -126,11 +194,11 @@ function createStyles(colors: ThemeColors, width: number) {
     },
     pinBubble: {
       position: 'absolute',
-      left: isNarrow ? '20%' : 12,
-      top: isNarrow ? 23 : 30,
-      width: 42,
-      height: 42,
-      borderRadius: 21,
+      left: isNarrow ? '20%' : 10,
+      top: isNarrow ? 20 : 26,
+      width: 38,
+      height: 38,
+      borderRadius: 19,
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
@@ -138,9 +206,9 @@ function createStyles(colors: ThemeColors, width: number) {
       borderColor: colors.surface,
     },
     parcelBubble: {
-      width: 64,
-      height: 64,
-      borderRadius: 22,
+      width: 56,
+      height: 56,
+      borderRadius: 20,
       backgroundColor: colors.surface,
       alignItems: 'center',
       justifyContent: 'center',
@@ -155,24 +223,38 @@ function createStyles(colors: ThemeColors, width: number) {
     arrowBubble: {
       position: 'absolute',
       right: isNarrow ? '20%' : 10,
-      bottom: isNarrow ? 18 : 24,
-      width: 34,
-      height: 34,
-      borderRadius: 17,
+      bottom: isNarrow ? 15 : 20,
+      width: 32,
+      height: 32,
+      borderRadius: 16,
       backgroundColor: '#EF4444',
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 3,
       borderColor: colors.surface,
     },
+    offerIconBubble: {
+      width: isNarrow ? 56 : 64,
+      height: isNarrow ? 56 : 64,
+      borderRadius: isNarrow ? 20 : 23,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 2,
+      borderColor: colors.surface,
+      shadowColor: '#000',
+      shadowOffset: { width: 0, height: 8 },
+      shadowOpacity: 0.08,
+      shadowRadius: 16,
+      elevation: 3,
+    },
     glow: {
       position: 'absolute',
-      width: 170,
-      height: 170,
-      borderRadius: 85,
+      width: 140,
+      height: 140,
+      borderRadius: 70,
       backgroundColor: colors.primary + '10',
-      right: -72,
-      bottom: -82,
+      right: -58,
+      bottom: -70,
     },
     errBox: { paddingHorizontal: spacing.md },
     err: { color: colors.danger, textDecorationLine: 'underline' },
@@ -186,10 +268,84 @@ export function ActiveTripsSection() {
   const styles = useMemo(() => createStyles(colors, width), [colors, width]);
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const isEmpty = !isLoading && !isError && trips.length === 0;
+  const offerSnapInterval = getOfferWidth(width) + spacing.sm;
+  const offerScrollRef = useRef<ScrollView | null>(null);
+  const offerIndexRef = useRef(0);
+  const offerDraggingRef = useRef(false);
+  const offerResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const onBookNow = () => {
     navigation.navigate('Map', { initialSnapIndex: 1 });
   };
+
+  const resetOfferLoop = () => {
+    if (offerResetTimerRef.current) {
+      clearTimeout(offerResetTimerRef.current);
+    }
+
+    offerResetTimerRef.current = setTimeout(() => {
+      offerIndexRef.current = 0;
+      offerScrollRef.current?.scrollTo({ x: 0, animated: false });
+      offerResetTimerRef.current = null;
+    }, 520);
+  };
+
+  const onOfferScrollBeginDrag = () => {
+    offerDraggingRef.current = true;
+    if (offerResetTimerRef.current) {
+      clearTimeout(offerResetTimerRef.current);
+      offerResetTimerRef.current = null;
+    }
+  };
+
+  const onOfferScrollEndDrag = () => {
+    setTimeout(() => {
+      offerDraggingRef.current = false;
+    }, 420);
+  };
+
+  const onOfferMomentumScrollEnd = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const nextIndex = Math.round(event.nativeEvent.contentOffset.x / offerSnapInterval);
+    offerDraggingRef.current = false;
+
+    if (nextIndex >= CURRENT_OFFERS.length) {
+      offerIndexRef.current = CURRENT_OFFERS.length;
+      resetOfferLoop();
+      return;
+    }
+
+    offerIndexRef.current = Math.max(0, nextIndex);
+  };
+
+  useEffect(() => {
+    if (!isEmpty) return;
+    offerIndexRef.current = 0;
+    offerDraggingRef.current = false;
+    offerScrollRef.current?.scrollTo({ x: 0, animated: false });
+
+    const timer = setInterval(() => {
+      if (offerDraggingRef.current) return;
+
+      const nextIndex = offerIndexRef.current + 1;
+      offerIndexRef.current = nextIndex;
+      offerScrollRef.current?.scrollTo({
+        x: nextIndex * offerSnapInterval,
+        animated: true,
+      });
+
+      if (nextIndex >= CURRENT_OFFERS.length) {
+        resetOfferLoop();
+      }
+    }, 3500);
+
+    return () => {
+      clearInterval(timer);
+      if (offerResetTimerRef.current) {
+        clearTimeout(offerResetTimerRef.current);
+        offerResetTimerRef.current = null;
+      }
+    };
+  }, [isEmpty, offerSnapInterval]);
 
   return (
     <View style={styles.section}>
@@ -214,42 +370,39 @@ export function ActiveTripsSection() {
           <Text style={styles.err}>Could not load trips. Tap to retry.</Text>
         </Pressable>
       ) : trips.length === 0 ? (
-        <View style={styles.emptyWrap}>
-          <View style={styles.emptyCard}>
-            <View style={styles.glow} pointerEvents="none" />
-            <View style={styles.emptyCopy}>
-              <Text style={styles.emptyEyebrow}>No active trips</Text>
-              <Text style={styles.emptyTitle}>Book your next delivery</Text>
-              <Text style={styles.emptyBody}>
-                Compare live driver quotes and track your parcel from pickup to drop-off.
-              </Text>
-              <Pressable
-                accessibilityRole="button"
-                accessibilityLabel="Book now"
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-                onPress={onBookNow}
-                style={({ pressed }) => [styles.bookButton, pressed && styles.bookButtonPressed]}
-              >
-                <Ionicons name="add-circle-outline" size={18} color={colors.onPrimary} />
-                <Text style={styles.bookButtonText}>Book Now</Text>
-              </Pressable>
-            </View>
-            <View style={styles.emptyArt} pointerEvents="none">
-              <View style={styles.artPanel}>
-                <View style={styles.routeLine} />
-                <View style={styles.pinBubble}>
-                  <Ionicons name="location" size={18} color={colors.onPrimary} />
-                </View>
-                <View style={styles.parcelBubble}>
-                  <Ionicons name="cube" size={31} color={colors.primary} />
-                </View>
-                <View style={styles.arrowBubble}>
-                  <Ionicons name="arrow-forward" size={17} color="#ffffff" />
-                </View>
-              </View>
-            </View>
-          </View>
-        </View>
+        <ScrollView
+          ref={offerScrollRef}
+          horizontal
+          decelerationRate="fast"
+          disableIntervalMomentum
+          snapToAlignment="start"
+          snapToInterval={offerSnapInterval}
+          scrollEventThrottle={16}
+          onScrollBeginDrag={onOfferScrollBeginDrag}
+          onScrollEndDrag={onOfferScrollEndDrag}
+          onMomentumScrollEnd={onOfferMomentumScrollEnd}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.emptyOffersScroll}
+        >
+          {LOOPED_OFFERS.map((offer, index) => {
+            const accent = offerAccent(colors, offer.tone);
+            return (
+              <IllustratedActionCard
+                key={`${offer.id}-${index}`}
+                containerStyle={styles.emptyCard}
+                eyebrow={offer.eyebrow}
+                title={offer.title}
+                body={offer.body}
+                code={'code' in offer ? offer.code : undefined}
+                accent={accent}
+                iconName={offer.icon}
+                actionLabel={offer.cta}
+                actionIcon="add-circle-outline"
+                onActionPress={onBookNow}
+              />
+            );
+          })}
+        </ScrollView>
       ) : (
         <ScrollView
           horizontal

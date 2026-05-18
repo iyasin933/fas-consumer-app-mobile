@@ -1,5 +1,5 @@
 import { useNavigation } from '@react-navigation/native';
-import { useBottomTabBarHeight, type BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,13 +17,13 @@ import {
 } from '@/features/map/hooks/usePlacesAutocomplete';
 import { useReverseGeocode } from '@/features/map/hooks/useReverseGeocode';
 import { useTheme } from '@/hooks/useTheme';
+import { spacing } from '@/shared/theme/spacing';
 import type { MainTabParamList, MapScreenPickedPlace } from '@/types/navigation.types';
 
 /** Main “home” feed (tabs add their own `HomeBottomNavigation`). */
 export function HomeDashboardScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const tabBarHeight = useBottomTabBarHeight();
   const { coords, refresh } = useCurrentLocation(false);
   const { reverse } = useReverseGeocode();
 
@@ -104,7 +104,7 @@ export function HomeDashboardScreen() {
         />
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={[styles.content, { paddingBottom: tabBarHeight + 16 }]}
+          contentContainerStyle={styles.content}
           showsVerticalScrollIndicator={false}
         >
           <HomePromoBanner />
@@ -130,5 +130,5 @@ const styles = StyleSheet.create({
   safe: { flex: 1 },
   root: { flex: 1 },
   scroll: { flex: 1 },
-  content: {},
+  content: { paddingBottom: spacing.xl * 3 },
 });

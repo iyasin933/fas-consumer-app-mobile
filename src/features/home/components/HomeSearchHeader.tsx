@@ -1,12 +1,15 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useHomeProfile } from '@/features/home/hooks/useHomeProfile';
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
+import type { MainTabParamList } from '@/types/navigation.types';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -42,11 +45,16 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.primary,
       alignItems: 'center',
       justifyContent: 'center',
+      overflow: 'hidden',
+    },
+    avatarImage: {
+      width: '100%',
+      height: '100%',
     },
     avatarText: {
       color: colors.onPrimary,
       fontWeight: typography.fontWeight.bold,
-      fontSize: 18,
+      fontSize: 16,
     },
   });
 }
@@ -61,8 +69,9 @@ type Props = {
  * it can render **last** above ScrollView / tab chrome (z-index + order).
  */
 export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
-  const { initial, signOut } = useHomeProfile();
+  const { avatarUrl, initials, signOut } = useHomeProfile();
   const { colors } = useTheme();
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
@@ -80,14 +89,26 @@ export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
         </Text>
       </Pressable>
       <Pressable
-        accessibilityLabel="Profile, long press to sign out"
+        accessibilityLabel="Open profile"
         accessibilityRole="button"
+        onPress={() => navigation.navigate('Settings')}
         onLongPress={() => void signOut()}
         style={styles.avatar}
         hitSlop={8}
       >
         <View style={styles.avatarInner}>
-          <Text style={styles.avatarText}>{initial}</Text>
+          {avatarUrl ? (
+            <Image
+              source={{ uri: avatarUrl }}
+              style={styles.avatarImage}
+              resizeMode="cover"
+              accessibilityIgnoresInvertColors
+            />
+          ) : (
+            <Text style={styles.avatarText} numberOfLines={1}>
+              {initials}
+            </Text>
+          )}
         </View>
       </Pressable>
     </View>

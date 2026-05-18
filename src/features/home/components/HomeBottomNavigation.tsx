@@ -130,6 +130,10 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
      * show the screen content behind them.
      */
     wrap: {
+      position: 'absolute',
+      left: 0,
+      right: 0,
+      bottom: 0,
       backgroundColor: 'transparent',
       overflow: 'visible',
       zIndex: TAB_BAR_LAYER,

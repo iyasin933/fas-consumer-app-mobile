@@ -1,12 +1,6 @@
 import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import {
-  Platform,
-  Pressable,
-  StyleSheet,
-  Text,
-  View,
-} from 'react-native';
+import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { DropyouQuoteCardModel } from '@/features/delivery/utils/dropyouQuoteCardData';
 import {
@@ -27,7 +21,10 @@ type Props = {
 export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
   const { colors, isDark } = useTheme();
   const initials = useMemo(() => companyInitials(quote.companyName), [quote.companyName]);
-  const relative = useMemo(() => formatQuoteRelativeTime(quote.createdOn), [quote.createdOn]);
+  const relative = useMemo(
+    () => formatQuoteRelativeTime(quote.createdOn),
+    [quote.createdOn],
+  );
   const priceLabel = useMemo(
     () => formatMajorCurrency(quote.price, quote.currency),
     [quote.price, quote.currency],
@@ -71,6 +68,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           borderWidth: StyleSheet.hairlineWidth,
           borderColor: colors.border,
           gap: spacing.md,
+          overflow: 'hidden',
           ...Platform.select({
             ios: {
               shadowColor: '#000',
@@ -82,8 +80,52 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
             default: {},
           }),
         },
-        headerRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-        leftBlock: { flexDirection: 'row', flex: 1, gap: spacing.sm, minWidth: 0, paddingRight: spacing.sm },
+        cornerGraphic: {
+          position: 'absolute',
+          right: -30,
+          bottom: -44,
+          width: 150,
+          height: 150,
+          borderRadius: 75,
+          backgroundColor: dealColor + '10',
+          pointerEvents: 'none',
+        },
+        cornerLine: {
+          position: 'absolute',
+          left: 16,
+          right: -10,
+          top: 54,
+          height: 4,
+          borderRadius: 99,
+          backgroundColor: dealColor + '22',
+          transform: [{ rotate: '-18deg' }],
+        },
+        cornerPin: {
+          position: 'absolute',
+          right: 46,
+          bottom: 56,
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          backgroundColor: dealColor,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: 3,
+          borderColor: colors.surface,
+        },
+        headerRow: {
+          flexDirection: 'row',
+          justifyContent: 'space-between',
+          alignItems: 'flex-start',
+          zIndex: 1,
+        },
+        leftBlock: {
+          flexDirection: 'row',
+          flex: 1,
+          gap: spacing.sm,
+          minWidth: 0,
+          paddingRight: spacing.sm,
+        },
         avatar: {
           width: 44,
           height: 44,
@@ -127,6 +169,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           alignItems: 'center',
           justifyContent: 'space-between',
           gap: spacing.sm,
+          zIndex: 1,
         },
         dealPill: {
           flexDirection: 'row',
@@ -156,7 +199,12 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
         },
         pctTxt: { fontSize: 12, fontWeight: '700' },
         dealText: { flexShrink: 1, minWidth: 0, fontSize: 13, fontWeight: '700' },
-        savingsAmt: { fontSize: 12, color: colors.textSecondary, fontWeight: '600', marginTop: 1 },
+        savingsAmt: {
+          fontSize: 12,
+          color: colors.textSecondary,
+          fontWeight: '600',
+          marginTop: 1,
+        },
         acceptBtn: {
           backgroundColor: colors.primary,
           minHeight: 44,
@@ -173,18 +221,32 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           shadowRadius: 9,
           elevation: 3,
         },
-        acceptBtnPressed: { backgroundColor: colors.primaryPressed, transform: [{ scale: 0.98 }] },
+        acceptBtnPressed: {
+          backgroundColor: colors.primaryPressed,
+          transform: [{ scale: 0.98 }],
+        },
         disabledBtn: { backgroundColor: '#FECACA' },
         disabledTxt: { color: '#DC2626' },
-        acceptTxt: { color: colors.onPrimary, fontSize: typography.fontSize.sm, fontWeight: '700' },
+        acceptTxt: {
+          color: colors.onPrimary,
+          fontSize: typography.fontSize.sm,
+          fontWeight: '700',
+        },
         dealTextBlock: { flex: 1, minWidth: 0 },
       }),
-    [colors],
+    [colors, dealColor],
   );
   const isCancelled = quote.status.toUpperCase() === 'CANCELLED';
 
   return (
     <View style={styles.card}>
+      <View style={styles.cornerGraphic}>
+        <View style={styles.cornerLine} />
+        <View style={styles.cornerPin}>
+          <Ionicons name="navigate" size={16} color="#ffffff" />
+        </View>
+      </View>
+
       <View style={styles.headerRow}>
         <View style={styles.leftBlock}>
           <View style={styles.avatar}>
@@ -200,14 +262,21 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           </View>
         </View>
         <View style={styles.priceBlock}>
-          <Text style={styles.price} numberOfLines={1}>{priceLabel}</Text>
+          <Text style={styles.price} numberOfLines={1}>
+            {priceLabel}
+          </Text>
           <Text style={styles.vatNote}>Inc. VAT</Text>
         </View>
       </View>
 
       <View style={styles.footerRow}>
         {showDeal ? (
-          <View style={[styles.dealPill, { backgroundColor: dealBg, borderColor: dealColor + '33' }]}>
+          <View
+            style={[
+              styles.dealPill,
+              { backgroundColor: dealBg, borderColor: dealColor + '33' },
+            ]}
+          >
             <View style={[styles.dealIconWrap, { backgroundColor: dealColor }]}>
               <Ionicons name={dealIcon} size={14} color="#ffffff" />
             </View>
@@ -222,13 +291,18 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
                     {quote.dealLabel}
                   </Text>
                   <Text
-                    style={[styles.pctTxt, { color: isWarningDeal ? dealColor : colors.primary }]}
+                    style={[
+                      styles.pctTxt,
+                      { color: isWarningDeal ? dealColor : colors.primary },
+                    ]}
                     numberOfLines={1}
                   >
                     {quote.dealScore}%
                   </Text>
                 </View>
-                {dealDeltaLabel ? <Text style={styles.savingsAmt}>{dealDeltaLabel}</Text> : null}
+                {dealDeltaLabel ? (
+                  <Text style={styles.savingsAmt}>{dealDeltaLabel}</Text>
+                ) : null}
               </View>
             ) : (
               <View style={styles.dealTextBlock}>
@@ -239,7 +313,11 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
                 >
                   {quote.dealLabel}
                 </Text>
-                {dealDeltaLabel ? <Text style={styles.savingsAmt} numberOfLines={1}>{dealDeltaLabel}</Text> : null}
+                {dealDeltaLabel ? (
+                  <Text style={styles.savingsAmt} numberOfLines={1}>
+                    {dealDeltaLabel}
+                  </Text>
+                ) : null}
               </View>
             )}
           </View>
@@ -259,7 +337,9 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
             <Text style={styles.acceptTxt}>Accepting</Text>
           ) : (
             <>
-              {!isCancelled ? <Ionicons name="checkmark" size={17} color={colors.onPrimary} /> : null}
+              {!isCancelled ? (
+                <Ionicons name="checkmark" size={17} color={colors.onPrimary} />
+              ) : null}
               <Text style={[styles.acceptTxt, isCancelled && styles.disabledTxt]}>
                 {isCancelled ? 'Cancelled' : 'Accept'}
               </Text>

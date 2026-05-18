@@ -354,7 +354,7 @@ export function ChooseVehicleScreen() {
         keyExtractor={(item) => item.id}
         renderItem={renderItem}
         contentContainerStyle={list.length === 0 ? { flexGrow: 1 } : styles.list}
-        ItemSeparatorComponent={() => <View style={{ height: spacing.sm }} />}
+        ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
         refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
         ListEmptyComponent={
           <View style={styles.center}>
@@ -436,7 +436,7 @@ function VehicleOptionsSkeleton() {
         },
         list: {
           padding: spacing.lg,
-          gap: spacing.sm,
+          gap: spacing.md,
         },
         card: {
           flexDirection: 'row',
