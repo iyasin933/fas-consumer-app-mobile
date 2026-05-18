@@ -2,7 +2,6 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Platform,
@@ -11,6 +10,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { isAxiosError } from 'axios';
@@ -32,6 +32,7 @@ import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { getScheduledPickupDropoffOrderError } from '@/features/map/utils/deliverySchedule';
 import { useTheme } from '@/hooks/useTheme';
 import { env } from '@/shared/config/env';
+import { Skeleton } from '@/shared/components/Skeleton';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -310,10 +311,7 @@ export function ChooseVehicleScreen() {
   if (isLoading && !data) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <View style={styles.center}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.err}>Loading vehicles…</Text>
-        </View>
+        <VehicleOptionsSkeleton />
       </SafeAreaView>
     );
   }
@@ -371,7 +369,7 @@ export function ChooseVehicleScreen() {
           disabled={!selectedVehicleId || submitting}
         >
           {submitting ? (
-            <ActivityIndicator color={colors.onPrimary} />
+            <Text style={styles.ctaTxt}>REQUESTING VEHICLE</Text>
           ) : (
             <Text style={styles.ctaTxt}>REQUEST VEHICLE</Text>
           )}
@@ -419,5 +417,76 @@ export function ChooseVehicleScreen() {
         </View>
       ) : null}
     </SafeAreaView>
+  );
+}
+
+function VehicleOptionsSkeleton() {
+  const { colors } = useTheme();
+  const insets = useSafeAreaInsets();
+  const { width } = useWindowDimensions();
+  const isNarrow = width < 370;
+  const artWidth = isNarrow ? 58 : 72;
+  const artHeight = isNarrow ? 40 : 48;
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        screen: {
+          flex: 1,
+          backgroundColor: colors.background,
+        },
+        list: {
+          padding: spacing.lg,
+          gap: spacing.sm,
+        },
+        card: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: isNarrow ? spacing.sm : spacing.md,
+          padding: spacing.md,
+          borderRadius: 12,
+          borderWidth: 2,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+        },
+        art: {
+          width: artWidth,
+          height: artHeight,
+        },
+        body: {
+          flex: 1,
+          minWidth: 0,
+          gap: 6,
+        },
+        ctaWrap: {
+          marginTop: 'auto',
+          padding: spacing.lg,
+          paddingBottom: Math.max(insets.bottom, spacing.md),
+          borderTopWidth: StyleSheet.hairlineWidth,
+          borderTopColor: colors.border,
+          backgroundColor: colors.surface,
+        },
+      }),
+    [artHeight, artWidth, colors.background, colors.border, colors.surface, insets.bottom, isNarrow],
+  );
+
+  return (
+    <View style={styles.screen}>
+      <View style={styles.list}>
+        {[0, 1, 2, 3].map((item) => (
+          <View key={item} style={styles.card}>
+            <Skeleton width={artWidth} height={artHeight} radius={10} />
+            <View style={styles.body}>
+              <Skeleton width={item === 1 ? '52%' : '44%'} height={18} radius={7} />
+              <Skeleton width={item === 2 ? '62%' : '72%'} height={14} radius={7} />
+              <Skeleton width={item === 2 ? '46%' : '58%'} height={18} radius={7} />
+              <Skeleton width="34%" height={13} radius={7} />
+            </View>
+          </View>
+        ))}
+      </View>
+      <View style={styles.ctaWrap}>
+        <Skeleton width="100%" height={50} radius={12} />
+      </View>
+    </View>
   );
 }

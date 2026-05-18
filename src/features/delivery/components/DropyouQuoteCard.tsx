@@ -1,7 +1,6 @@
 import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   StyleSheet,
@@ -257,7 +256,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           disabled={busy || isCancelled}
         >
           {busy ? (
-            <ActivityIndicator color={colors.onPrimary} size="small" />
+            <Text style={styles.acceptTxt}>Accepting</Text>
           ) : (
             <>
               {!isCancelled ? <Ionicons name="checkmark" size={17} color={colors.onPrimary} /> : null}

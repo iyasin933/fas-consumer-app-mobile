@@ -1,6 +1,5 @@
 import { useMemo } from 'react';
 import {
-  ActivityIndicator,
   FlatList,
   Pressable,
   RefreshControl,
@@ -10,6 +9,7 @@ import {
 } from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
+import { Skeleton } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
@@ -92,7 +92,9 @@ export function UsersListView({
   if (loading && users.length === 0) {
     return (
       <View style={styles.centered} accessibilityState={{ busy: true }}>
-        <ActivityIndicator size="large" color={colors.primary} />
+        {[0, 1, 2, 3, 4].map((item) => (
+          <Skeleton key={item} width="100%" height={24} />
+        ))}
       </View>
     );
   }

@@ -1,6 +1,7 @@
 import { useMemo } from 'react';
 
 import { useTheme } from '@/hooks/useTheme';
+import { ROUTE_MARKER_COLORS } from '@/shared/theme/routeMarkers';
 
 /**
  * Brand + semantic colors for the Map Delivery feature.
@@ -14,9 +15,9 @@ export function useMapColors() {
   const { colors, isDark } = useTheme();
 
   return useMemo(() => {
-    const brandGreen = '#2ECC71';
+    const brandGreen = ROUTE_MARKER_COLORS.pickup;
     const stopBrown = '#B45309';
-    const dropoffRed = '#DC2626';
+    const dropoffRed = ROUTE_MARKER_COLORS.dropoff;
 
     return {
       isDark,

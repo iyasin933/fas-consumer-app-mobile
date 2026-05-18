@@ -1,13 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
 import { StyleSheet, Text, View } from 'react-native';
 
+import { ROUTE_MARKER_COLORS } from '@/shared/theme/routeMarkers';
+
 export type PinKind = 'pickup' | 'stop' | 'dropoff';
 
-const COLORS: Record<PinKind, string> = {
-  pickup: '#2ECC71',
-  stop: '#F59E0B',
-  dropoff: '#EF4444',
-};
+const COLORS: Record<PinKind, string> = ROUTE_MARKER_COLORS;
 
 /**
  * Drop-in content for react-native-maps `<Marker>`. Renders a teardrop-ish

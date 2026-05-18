@@ -5,9 +5,8 @@ import type {
 } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
   Platform,
@@ -49,8 +48,10 @@ import {
   majorToPence,
   parseDropyouQuoteCardModel,
 } from '@/features/delivery/utils/dropyouQuoteCardData';
+import { MapRecenterButton } from '@/features/map/components/MapRecenterButton';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { useTheme } from '@/hooks/useTheme';
+import { ROUTE_MARKER_COLORS } from '@/shared/theme/routeMarkers';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -193,6 +194,20 @@ function regionForPickup(
   };
 }
 
+const headerBackStyles = StyleSheet.create({
+  button: {
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: -8,
+  },
+  text: {
+    fontSize: 17,
+    fontWeight: '400',
+    marginLeft: -4,
+  },
+});
+
 export function ChooseQuotesScreen({ route }: Props) {
   const { colors } = useTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
@@ -221,6 +236,45 @@ export function ChooseQuotesScreen({ route }: Props) {
     () => (dropoff ? { latitude: dropoff.lat, longitude: dropoff.lng } : null),
     [dropoff],
   );
+
+  const goHome = useCallback(() => {
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs', params: { screen: 'HomeMain' } }],
+    });
+  }, [navigation]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerBackVisible: false,
+      gestureEnabled: false,
+      headerLeft: () => (
+        <Pressable
+          onPress={goHome}
+          hitSlop={10}
+          accessibilityRole="button"
+          accessibilityLabel="Back to home"
+          style={headerBackStyles.button}
+        >
+          <Ionicons name="chevron-back" size={30} color={colors.textPrimary} />
+          <Text style={[headerBackStyles.text, { color: colors.textPrimary }]}>Home</Text>
+        </Pressable>
+      ),
+    });
+  }, [colors.textPrimary, goHome, navigation]);
+
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('beforeRemove', (event) => {
+      const type = event.data.action.type;
+      if (type !== 'GO_BACK' && type !== 'POP' && type !== 'POP_TO_TOP') return;
+
+      event.preventDefault();
+      goHome();
+    });
+
+    return unsubscribe;
+  }, [goHome, navigation]);
+
   const pickupRegion = useMemo<Region>(
     () => regionForPickup(pickupCoords),
     [pickupCoords],
@@ -375,29 +429,6 @@ export function ChooseQuotesScreen({ route }: Props) {
           paddingBottom: sheetSnaps.collapsed + 96 + Math.max(insets.bottom, spacing.lg),
           gap: spacing.sm,
         },
-        pickupCenterButton: {
-          position: 'absolute',
-          right: spacing.lg,
-          bottom: spacing.md,
-          width: 48,
-          height: 48,
-          borderRadius: 24,
-          backgroundColor: colors.surface,
-          alignItems: 'center',
-          justifyContent: 'center',
-          borderWidth: StyleSheet.hairlineWidth,
-          borderColor: colors.border,
-          shadowColor: '#000',
-          shadowOffset: { width: 0, height: 3 },
-          shadowOpacity: 0.16,
-          shadowRadius: 8,
-          elevation: 5,
-          zIndex: 30,
-        },
-        pickupCenterButtonPressed: {
-          transform: [{ scale: 0.96 }],
-          backgroundColor: colors.background,
-        },
         sheet: {
           marginTop: -8,
           borderTopLeftRadius: 28,
@@ -429,6 +460,17 @@ export function ChooseQuotesScreen({ route }: Props) {
         },
         statusBody: {
           color: colors.textSecondary,
+          fontSize: 13,
+          lineHeight: 18,
+        },
+        bookingMeta: {
+          color: colors.textSecondary,
+          fontSize: 12,
+          lineHeight: 17,
+          fontWeight: '600',
+        },
+        errorMessage: {
+          color: colors.danger,
           fontSize: 13,
           lineHeight: 18,
         },
@@ -546,7 +588,7 @@ export function ChooseQuotesScreen({ route }: Props) {
     [colors, drawerSidePadding, insets.bottom, sheetSnaps.collapsed],
   );
 
-  const onAcceptQuote = useCallback(
+  const acceptQuoteNow = useCallback(
     async (model: NonNullable<ReturnType<typeof parseDropyouQuoteCardModel>>) => {
       const key = `${model.loadId}:${model.quoteId}`;
       setAcceptingKey(key);
@@ -592,6 +634,13 @@ export function ChooseQuotesScreen({ route }: Props) {
       }
     },
     [navigation, vehicleName],
+  );
+
+  const onAcceptQuote = useCallback(
+    (model: NonNullable<ReturnType<typeof parseDropyouQuoteCardModel>>) => {
+      void acceptQuoteNow(model);
+    },
+    [acceptQuoteNow],
   );
 
   const cancelBookingNow = useCallback(async () => {
@@ -709,14 +758,7 @@ export function ChooseQuotesScreen({ route }: Props) {
             </Marker>
           ))}
         </MapView>
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Center pickup on map"
-          style={({ pressed }) => [styles.pickupCenterButton, pressed && styles.pickupCenterButtonPressed]}
-          onPress={centerOnPickup}
-        >
-          <Ionicons name="locate" size={22} color={colors.primary} />
-        </Pressable>
+        <MapRecenterButton accessibilityLabel="Center pickup on map" onPress={centerOnPickup} />
       </View>
 
       {sortedQuotes.length > 0 ? (
@@ -755,16 +797,17 @@ export function ChooseQuotesScreen({ route }: Props) {
               {sortedQuotes.length} quote{sortedQuotes.length === 1 ? '' : 's'} received for {vehicleName}.
             </Text>
           )}
+          <Text style={styles.bookingMeta}>Booking ID: {loadId}</Text>
           {!isConnected ? (
-            <Text style={styles.statusBody}>
-              You are offline from the quotes server. Check `EXPO_PUBLIC_SOCKET_URL` and your connection.
+            <Text style={styles.errorMessage}>
+              We’re having trouble connecting to live quotes. Please check your internet connection and try again.
             </Text>
           ) : null}
         </View>
         <ScrollView contentContainerStyle={styles.drawerContent} showsVerticalScrollIndicator={false}>
           <View style={styles.locationsWrap}>
             <View style={styles.disabledInput}>
-              <Ionicons name="location-sharp" size={18} color={colors.primary} />
+              <Ionicons name="location-sharp" size={18} color={ROUTE_MARKER_COLORS.pickup} />
               <Text
                 style={[styles.disabledInputText, !pickup?.address && styles.disabledInputMuted]}
                 numberOfLines={1}
@@ -774,7 +817,7 @@ export function ChooseQuotesScreen({ route }: Props) {
               <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
             </View>
             <View style={styles.disabledInput}>
-              <Ionicons name="flag" size={17} color="#EF4444" />
+              <Ionicons name="flag" size={17} color={ROUTE_MARKER_COLORS.dropoff} />
               <Text
                 style={[styles.disabledInputText, !dropoff?.address && styles.disabledInputMuted]}
                 numberOfLines={1}
@@ -793,11 +836,7 @@ export function ChooseQuotesScreen({ route }: Props) {
             onPress={onCancelBooking}
             disabled={cancelling}
           >
-            {cancelling ? (
-              <ActivityIndicator size="small" color="#DC2626" />
-            ) : (
-              <Ionicons name="close-circle-outline" size={20} color="#DC2626" />
-            )}
+            {!cancelling ? <Ionicons name="close-circle-outline" size={20} color="#DC2626" /> : null}
             <Text style={styles.cancelText}>{cancelling ? 'Cancelling booking' : 'Cancel Booking'}</Text>
           </Pressable>
       </View>
@@ -881,7 +920,7 @@ const dropoffMarkerStyles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#EF4444',
+    backgroundColor: ROUTE_MARKER_COLORS.dropoff,
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 3,

@@ -1,15 +1,20 @@
 import { useMemo } from 'react';
-import { Image, StyleSheet, Text, View } from 'react-native';
+import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { LocationFrameSvg } from '@/features/home/components/LocationFrameSvg';
 import { vehicleIconSource } from '@/features/home/utils/vehicleIconFromManifest';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
 import { useTheme } from '@/hooks/useTheme';
+import { StatusChip } from '@/shared/components/StatusChip';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
-type Props = { trip: ActiveTripCardVm };
+type Props = {
+  trip: ActiveTripCardVm;
+  onPress?: () => void;
+  disabled?: boolean;
+};
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -42,7 +47,6 @@ function createStyles(colors: ThemeColors) {
       color: colors.textPrimary,
       fontSize: typography.fontSize.md,
     },
-    meta: { color: colors.textSecondary, fontSize: typography.fontSize.sm },
     vehicleIconWrap: {
       padding: 4,
       backgroundColor: colors.background,
@@ -64,17 +68,29 @@ function createStyles(colors: ThemeColors) {
     addr: { color: colors.textPrimary, fontSize: typography.fontSize.sm, lineHeight: 20 },
     time: { color: colors.textSecondary, fontSize: typography.fontSize.sm, marginTop: 2 },
     padTop: { paddingTop: spacing.sm },
+    pressed: { opacity: 0.82 },
+    disabled: { opacity: 0.55 },
   });
 }
 
-export function ActiveTripCard({ trip }: Props) {
+export function ActiveTripCard({ trip, onPress, disabled }: Props) {
   const initial = trip.passengerLabel.trim().charAt(0).toUpperCase() || 'D';
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const vehicleSrc = useMemo(() => vehicleIconSource(trip.vehicleName), [trip.vehicleName]);
 
   return (
-    <View style={styles.card}>
+    <Pressable
+      style={({ pressed }) => [
+        styles.card,
+        pressed && !disabled && styles.pressed,
+        disabled && styles.disabled,
+      ]}
+      onPress={onPress}
+      disabled={disabled || !onPress}
+      accessibilityRole={onPress ? 'button' : undefined}
+      accessibilityLabel={`Open booking ${trip.loadId || trip.id}`}
+    >
       <View style={styles.head}>
         <View style={styles.userRow}>
           <View style={styles.avatar}>
@@ -82,7 +98,7 @@ export function ActiveTripCard({ trip }: Props) {
           </View>
           <View style={styles.nameCol}>
             <Text style={styles.name}>{trip.passengerLabel}</Text>
-            <Text style={styles.meta}>{trip.statusLabel}</Text>
+            <StatusChip label={trip.statusLabel} />
           </View>
         </View>
         <View style={styles.vehicleIconWrap} accessibilityLabel={trip.vehicleName || 'Vehicle'}>
@@ -110,6 +126,6 @@ export function ActiveTripCard({ trip }: Props) {
           </View>
         </View>
       </View>
-    </View>
+    </Pressable>
   );
 }

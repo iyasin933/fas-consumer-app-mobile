@@ -204,7 +204,7 @@ export function AddDeliveryContentsScreen() {
 
   if (!pickup?.address || !dropoff?.address) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top', 'bottom']}>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.empty}>
           <Text style={styles.title}>Delivery details missing</Text>
           <Text style={styles.emptyTxt}>Pick pickup and dropoff on the map, then tap Proceed again.</Text>
@@ -217,7 +217,7 @@ export function AddDeliveryContentsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <KeyboardAvoidingView
         style={{ flex: 1 }}
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}

@@ -1,5 +1,5 @@
 import { ReactNode, useMemo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, Text, ViewStyle } from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -77,16 +77,10 @@ export function Button({
         style,
       ]}
     >
-      {loading ? (
-        <ActivityIndicator color={isPrimary ? colors.onPrimary : colors.primary} />
-      ) : (
-        <>
-          {leftAccessory}
-          <Text style={[styles.label, isPrimary ? styles.labelPrimary : styles.labelOutline]}>
-            {title}
-          </Text>
-        </>
-      )}
+      {leftAccessory}
+      <Text style={[styles.label, isPrimary ? styles.labelPrimary : styles.labelOutline]}>
+        {loading ? `${title}...` : title}
+      </Text>
     </Pressable>
   );
 }

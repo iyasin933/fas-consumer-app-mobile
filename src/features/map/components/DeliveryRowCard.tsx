@@ -153,6 +153,7 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
               : 'Select Stop Location'
         }
         value={row.place}
+        markerKind={row.kind}
         onPress={onOpenPlaces}
         onClear={onClearPlace}
         showGps={isPickup}
@@ -167,6 +168,7 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
           <AddressField
             placeholder="Select Dropoff Location"
             value={row.extraDropoff ?? null}
+            markerKind="dropoff"
             onPress={onOpenExtraDropoffPlaces ?? (() => {})}
             onClear={onClearExtraDropoff}
           />

@@ -1,7 +1,9 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
+  Alert,
   FlatList,
   Pressable,
   RefreshControl,
@@ -11,30 +13,32 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { fetchLoadDetailsById } from '@/api/modules/dropyou.api';
 import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
+import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useTheme } from '@/hooks/useTheme';
+import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
+import type { AppStackParamList } from '@/types/navigation.types';
+
+function logJson(label: string, value: unknown): void {
+  try {
+    console.log(label, JSON.stringify(value, null, 2));
+  } catch {
+    console.log(label, value);
+  }
+}
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
-    header: {
-      paddingHorizontal: spacing.md,
-      paddingBottom: spacing.sm,
-      gap: spacing.xs,
-    },
-    title: {
-      fontSize: typography.fontSize.xl,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.textPrimary,
-    },
-    subtitle: { fontSize: typography.fontSize.sm, color: colors.textSecondary },
     listContent: {
       paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
     },
     list: { flex: 1 },
     center: {
@@ -49,8 +53,16 @@ function createStyles(colors: ThemeColors) {
 
 export function BookingsScreen() {
   const { colors } = useTheme();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const tabBarHeight = useBottomTabBarHeight();
+  const detailsByLoadId = useBookingDetailsStore((s) => s.detailsByLoadId);
+  const loadingByLoadId = useBookingDetailsStore((s) => s.loadingByLoadId);
+  const setSelectedLoadId = useBookingDetailsStore((s) => s.setSelectedLoadId);
+  const setDetails = useBookingDetailsStore((s) => s.setDetails);
+  const setDetailsError = useBookingDetailsStore((s) => s.setError);
+  const clearDetailsError = useBookingDetailsStore((s) => s.clearError);
+  const setDetailsLoading = useBookingDetailsStore((s) => s.setLoading);
   const {
     bookings,
     isLoading,
@@ -65,32 +77,100 @@ export function BookingsScreen() {
     refetch();
   }, [refetch]);
 
+  const handleBookingPress = useCallback(
+    (trip: ActiveTripCardVm) => {
+      const loadId = (trip.loadId || trip.id).trim();
+      if (!loadId) {
+        Alert.alert('Booking details', 'This booking does not include a load id.');
+        return;
+      }
+
+      const hasCachedDetails = Boolean(detailsByLoadId[loadId]);
+      if (loadingByLoadId[loadId]) {
+        navigation.navigate('BookingDetails', {
+          loadId,
+          ...(trip.bookingId ? { bookingId: trip.bookingId } : {}),
+          passengerLabel: trip.passengerLabel,
+          statusLabel: trip.statusLabel,
+          vehicleName: trip.vehicleName,
+          pickupAddress: trip.originAddress,
+          dropoffAddress: trip.destAddress,
+          pickupTimeLabel: trip.originTimeLabel,
+          dropoffTimeLabel: trip.destTimeLabel,
+        });
+        return;
+      }
+
+      setSelectedLoadId(loadId);
+      clearDetailsError(loadId);
+      if (!hasCachedDetails) {
+        setDetailsLoading(loadId, true);
+      }
+      navigation.navigate('BookingDetails', {
+        loadId,
+        ...(trip.bookingId ? { bookingId: trip.bookingId } : {}),
+        passengerLabel: trip.passengerLabel,
+        statusLabel: trip.statusLabel,
+        vehicleName: trip.vehicleName,
+        pickupAddress: trip.originAddress,
+        dropoffAddress: trip.destAddress,
+        pickupTimeLabel: trip.originTimeLabel,
+        dropoffTimeLabel: trip.destTimeLabel,
+      });
+
+      void (async () => {
+        try {
+          const response = await fetchLoadDetailsById(loadId);
+          logJson(`[BookingsScreen] GET /dropyou/load-by-id/${loadId} response`, response);
+          setDetails(loadId, response);
+        } catch (err) {
+          const message = err instanceof Error ? err.message : 'Failed to load booking details.';
+          console.warn(`[BookingsScreen] GET /dropyou/load-by-id/${loadId} failed`, err);
+          setDetailsError(loadId, message);
+        } finally {
+          if (!hasCachedDetails) {
+            setDetailsLoading(loadId, false);
+          }
+        }
+      })();
+    },
+    [
+      clearDetailsError,
+      detailsByLoadId,
+      loadingByLoadId,
+      navigation,
+      setDetails,
+      setDetailsError,
+      setDetailsLoading,
+      setSelectedLoadId,
+    ],
+  );
+
   const renderItem = useCallback(
-    ({ item }: { item: ActiveTripCardVm }) => <ActiveTripCard trip={item} />,
-    [],
+    ({ item }: { item: ActiveTripCardVm }) => {
+      return (
+        <ActiveTripCard
+          trip={item}
+          onPress={() => void handleBookingPress(item)}
+        />
+      );
+    },
+    [handleBookingPress],
   );
 
   const keyExtractor = useCallback((item: ActiveTripCardVm) => item.id, []);
 
   if (profileLoading) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Bookings</Text>
-        </View>
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <BookingsSkeletonList bottomPadding={tabBarHeight + spacing.lg} />
       </SafeAreaView>
     );
   }
 
   if (missingUserId) {
     return (
-      <SafeAreaView style={styles.safe} edges={['top']}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Bookings</Text>
-        </View>
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.center}>
           <Text style={styles.muted}>
             We couldn’t load your account id. Try signing out and signing in again, or contact support if this continues.
@@ -101,16 +181,9 @@ export function BookingsScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Bookings</Text>
-        <Text style={styles.subtitle}>Your DropYou deliveries</Text>
-      </View>
-
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       {isLoading ? (
-        <View style={styles.center}>
-          <ActivityIndicator color={colors.primary} size="large" />
-        </View>
+        <BookingsSkeletonList bottomPadding={tabBarHeight + spacing.lg} />
       ) : isError ? (
         <View style={styles.center}>
           <Pressable onPress={onRefresh}>
@@ -144,4 +217,39 @@ export function BookingsScreen() {
 
 function ListSeparator() {
   return <View style={{ height: spacing.md }} />;
+}
+
+function BookingsSkeletonList({ bottomPadding }: { bottomPadding: number }) {
+  return (
+    <View
+      style={{
+        paddingHorizontal: spacing.md,
+        paddingTop: spacing.md,
+        paddingBottom: bottomPadding,
+        gap: spacing.md,
+      }}
+    >
+      {[0, 1].map((item) => (
+        <SkeletonCard key={item}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+            <Skeleton width={40} height={40} radius={20} />
+            <View style={{ flex: 1, gap: spacing.xs }}>
+              <Skeleton width="62%" height={20} />
+              <Skeleton width={84} height={18} radius={999} />
+            </View>
+            <Skeleton width={56} height={56} radius={14} />
+          </View>
+          <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+            <Skeleton width={28} height={104} radius={14} />
+            <View style={{ flex: 1, gap: spacing.sm }}>
+              <Skeleton width="92%" height={18} />
+              <Skeleton width="30%" height={16} />
+              <Skeleton width="82%" height={18} style={{ marginTop: spacing.md }} />
+              <Skeleton width="28%" height={16} />
+            </View>
+          </View>
+        </SkeletonCard>
+      ))}
+    </View>
+  );
 }

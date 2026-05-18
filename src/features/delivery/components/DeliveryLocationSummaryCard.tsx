@@ -3,6 +3,7 @@ import { useMemo } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
+import { ROUTE_MARKER_COLORS, ROUTE_MARKER_SOFT_COLORS } from '@/shared/theme/routeMarkers';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
@@ -42,6 +43,13 @@ export function DeliveryLocationSummaryCard({
           flex: 1,
           gap: spacing.xs,
         },
+        marker: {
+          width: 34,
+          height: 34,
+          borderRadius: 17,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
         kicker: {
           fontSize: typography.fontSize.sm,
           fontWeight: typography.fontWeight.medium,
@@ -72,6 +80,9 @@ export function DeliveryLocationSummaryCard({
         accessibilityRole="button"
         accessibilityLabel="Edit pickup address"
       >
+        <View style={[styles.marker, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.pickup }]}>
+          <Ionicons name="location-sharp" size={18} color={ROUTE_MARKER_COLORS.pickup} />
+        </View>
         <View style={styles.block}>
           <Text style={styles.kicker}>Pickup</Text>
           <Text style={styles.value} selectable>
@@ -89,6 +100,9 @@ export function DeliveryLocationSummaryCard({
         accessibilityRole="button"
         accessibilityLabel="Edit dropoff address"
       >
+        <View style={[styles.marker, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.dropoff }]}>
+          <Ionicons name="flag" size={17} color={ROUTE_MARKER_COLORS.dropoff} />
+        </View>
         <View style={styles.block}>
           <Text style={styles.kicker}>Dropoff</Text>
           <Text style={styles.value} selectable>

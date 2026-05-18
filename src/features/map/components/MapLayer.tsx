@@ -1,11 +1,12 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
-import { Platform, StyleSheet, View } from 'react-native';
+import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, {
   Marker,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
   type Region,
   Polyline,
+  type EdgePadding,
 } from 'react-native-maps';
 
 import { MapMarkerBadge } from '@/features/map/components/MapMarker';
@@ -32,12 +33,15 @@ const DARK_MAP_STYLE = [
 
 export type MapLayerHandle = {
   animateTo: (coords: LatLng, durationMs?: number) => void;
+  fitRoute: (coords: LatLng[], edgePadding?: EdgePadding) => void;
 };
 
 type Props = {
   initialRegion?: Region;
   currentLocation: LatLng | null;
   rows: DeliveryStop[];
+  routeCoords?: LatLng[];
+  routeSummaryLabel?: string | null;
 };
 
 /**
@@ -65,7 +69,7 @@ const DEFAULT_REGION: Region = {
  * Apple Maps by default (the Google key is still read for Places/Geocoding).
  */
 export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
-  { initialRegion, currentLocation, rows },
+  { initialRegion, currentLocation, rows, routeCoords, routeSummaryLabel },
   ref,
 ) {
   const mapRef = useRef<MapView | null>(null);
@@ -85,11 +89,23 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
           duration,
         );
       },
+      fitRoute: (coords, edgePadding) => {
+        if (coords.length < 2) return;
+        mapRef.current?.fitToCoordinates(coords, {
+          animated: true,
+          edgePadding: edgePadding ?? {
+            top: 110,
+            right: 60,
+            bottom: 360,
+            left: 60,
+          },
+        });
+      },
     }),
     [],
   );
 
-  const { polylineCoords, pinnedRows } = useMemo(() => {
+  const { fallbackPolylineCoords, pinnedRows } = useMemo(() => {
     const filled = rows
       .filter((r) => r.place)
       .map((r) => ({
@@ -100,9 +116,15 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
       }));
     return {
       pinnedRows: filled,
-      polylineCoords: filled.map((f) => ({ latitude: f.latitude, longitude: f.longitude })),
+      fallbackPolylineCoords: filled.map((f) => ({ latitude: f.latitude, longitude: f.longitude })),
     };
   }, [rows]);
+  const visiblePolylineCoords =
+    routeCoords && routeCoords.length >= 2 ? routeCoords : fallbackPolylineCoords;
+  const routeSummaryCoord = useMemo(() => {
+    if (!routeSummaryLabel || visiblePolylineCoords.length < 2) return null;
+    return visiblePolylineCoords[Math.floor((visiblePolylineCoords.length - 1) / 2)];
+  }, [routeSummaryLabel, visiblePolylineCoords]);
 
   const stopNumberByRowId = useMemo(() => {
     const map = new Map<string, number>();
@@ -164,16 +186,60 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
           </Marker>
         ))}
 
-        {polylineCoords.length >= 2 && (
+        {visiblePolylineCoords.length >= 2 && (
           <Polyline
-            coordinates={polylineCoords}
+            coordinates={visiblePolylineCoords}
             strokeColor={c.brandGreen}
             strokeWidth={4}
             lineCap="round"
             lineJoin="round"
           />
         )}
+
+        {routeSummaryCoord ? (
+          <Marker
+            coordinate={routeSummaryCoord}
+            anchor={{ x: 0.5, y: 1.25 }}
+            zIndex={30}
+          >
+            <View
+              style={[
+                styles.routeChip,
+                {
+                  backgroundColor: c.surface,
+                  borderColor: c.border,
+                },
+              ]}
+            >
+              <Text style={[styles.routeChipText, { color: c.textPrimary }]} numberOfLines={1}>
+                {routeSummaryLabel}
+              </Text>
+            </View>
+          </Marker>
+        ) : null}
       </MapView>
     </View>
   );
+});
+
+const styles = StyleSheet.create({
+  routeChip: {
+    minHeight: 32,
+    maxWidth: 180,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: StyleSheet.hairlineWidth,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.14,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  routeChipText: {
+    fontSize: 13,
+    lineHeight: 16,
+    fontWeight: '800',
+  },
 });

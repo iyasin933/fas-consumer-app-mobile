@@ -14,6 +14,10 @@ export type ActiveTripListEnvelope = {
 /** Normalized row for `ActiveTripCard`. */
 export type ActiveTripCardVm = {
   id: string;
+  /** TEG load id used by `GET /dropyou/load-by-id/:loadId`. */
+  loadId: string;
+  /** DropYou booking UUID when present. */
+  bookingId: string;
   passengerLabel: string;
   statusLabel: string;
   /** Vehicle label from API — matched in-app to `transport-icons-manifest.json`. */

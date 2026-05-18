@@ -26,6 +26,21 @@ function priceLabel(v: DeliveryVehicleDto): string {
   return single != null ? formatGbp(single) : 'Quote on request';
 }
 
+function capacityLabel(v: DeliveryVehicleDto): string | null {
+  const parts: string[] = [];
+
+  if (v.loadCapacity != null && Number.isFinite(v.loadCapacity) && v.loadCapacity > 0) {
+    parts.push(`Carries up to ${Math.round(v.loadCapacity).toLocaleString('en-GB')} kg`);
+  }
+
+  if (v.surfaceAreaCapacity != null && Number.isFinite(v.surfaceAreaCapacity) && v.surfaceAreaCapacity > 0) {
+    const areaM2 = v.surfaceAreaCapacity > 100 ? v.surfaceAreaCapacity / 10_000 : v.surfaceAreaCapacity;
+    parts.push(`${areaM2.toLocaleString('en-GB', { maximumFractionDigits: 2 })} m²`);
+  }
+
+  return parts.length > 0 ? parts.join(' • ') : null;
+}
+
 type Props = {
   vehicle: DeliveryVehicleDto;
   selected: boolean;
@@ -38,6 +53,7 @@ export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, sele
   const isNarrow = width < 370;
   const assetKey = vehicleNameToIconAssetKey(vehicle.name, vehicle.type ?? vehicle.code);
   const src = transportIconSource(assetKey) ?? TRANSPORT_ICON_SOURCES.delivery;
+  const capacity = capacityLabel(vehicle);
 
   const styles = useMemo(
     () =>
@@ -53,8 +69,14 @@ export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, sele
           borderColor: selected ? colors.primary : colors.border,
         },
         art: { width: isNarrow ? 58 : 72, height: isNarrow ? 40 : 48, resizeMode: 'contain' },
-        body: { flex: 1, minWidth: 0, gap: 4 },
+        body: { flex: 1, minWidth: 0, gap: 5 },
         name: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
+        capacity: {
+          fontSize: typography.fontSize.sm,
+          lineHeight: 18,
+          color: colors.textSecondary,
+          fontWeight: '600',
+        },
         price: { fontSize: typography.fontSize.md, fontWeight: '700', color: colors.textPrimary },
         disc: {
           fontSize: typography.fontSize.sm,
@@ -62,7 +84,16 @@ export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, sele
           color: colors.danger,
         },
       }),
-    [colors.border, colors.danger, colors.primary, colors.surface, colors.textPrimary, isNarrow, selected],
+    [
+      colors.border,
+      colors.danger,
+      colors.primary,
+      colors.surface,
+      colors.textPrimary,
+      colors.textSecondary,
+      isNarrow,
+      selected,
+    ],
   );
 
   return (
@@ -70,6 +101,11 @@ export const VehicleOptionCard = memo(function VehicleOptionCard({ vehicle, sele
       <Image source={src} style={styles.art} accessibilityIgnoresInvertColors />
       <View style={styles.body}>
         <Text style={styles.name} numberOfLines={2}>{vehicle.name}</Text>
+        {capacity ? (
+          <Text style={styles.capacity} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.86}>
+            {capacity}
+          </Text>
+        ) : null}
         <Text style={styles.price} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.82}>
           {priceLabel(vehicle)}
         </Text>

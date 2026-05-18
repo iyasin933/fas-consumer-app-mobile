@@ -6,6 +6,7 @@ import { SignInScreen } from '@/features/auth/screens/SignInScreen';
 import { SignUpScreen } from '@/features/auth/screens/SignUpScreen';
 import { SignUpVerifyScreen } from '@/features/auth/screens/SignUpVerifyScreen';
 import { useTheme } from '@/hooks/useTheme';
+import { createDefaultStackHeaderOptions } from '@/navigation/headerOptions';
 import type { AuthStackParamList } from '@/types/navigation.types';
 
 const Stack = createNativeStackNavigator<AuthStackParamList>();
@@ -15,13 +16,7 @@ export function AuthNavigator() {
   return (
     <Stack.Navigator
       initialRouteName="SignIn"
-      screenOptions={{
-        headerShadowVisible: false,
-        headerStyle: { backgroundColor: colors.background },
-        headerTitleStyle: { fontWeight: '600', color: colors.textPrimary },
-        headerTintColor: colors.textPrimary,
-        contentStyle: { backgroundColor: colors.background },
-      }}
+      screenOptions={createDefaultStackHeaderOptions(colors)}
     >
       <Stack.Screen
         name="SignIn"
@@ -31,22 +26,22 @@ export function AuthNavigator() {
       <Stack.Screen
         name="SignUp"
         component={SignUpScreen}
-        options={{ title: 'Create account' }}
+        options={{ title: 'Create account', headerBackTitle: 'Sign in' }}
       />
       <Stack.Screen
         name="ForgotPassword"
         component={ForgotPasswordScreen}
-        options={{ title: 'Forgot password' }}
+        options={{ title: 'Forgot password', headerBackTitle: 'Sign in' }}
       />
       <Stack.Screen
         name="ResetPassword"
         component={ResetPasswordScreen}
-        options={{ title: 'Set new password' }}
+        options={{ title: 'Set new password', headerBackTitle: 'Forgot' }}
       />
       <Stack.Screen
         name="SignUpVerify"
         component={SignUpVerifyScreen}
-        options={{ title: 'Verify phone' }}
+        options={{ title: 'Verify phone', headerBackTitle: 'Create account' }}
       />
     </Stack.Navigator>
   );

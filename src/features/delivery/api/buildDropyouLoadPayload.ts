@@ -2,7 +2,7 @@ import type { DeliveryVehicleDto } from '@/features/delivery/api/consumerBooking
 import type { ContentDimensionsDraft, PalletLineDraft } from '@/features/delivery/types';
 import { resolveTegVehicleApiKeyForPayload } from '@/features/delivery/utils/tegVehicleApiKey';
 import type { DeliveryStop, DeliveryTab, PlaceValue } from '@/features/map/types';
-import { DROPOFF_BUFFER_MS } from '@/features/map/utils/deliverySchedule';
+import { mergeStopDateTime } from '@/features/map/utils/deliverySchedule';
 
 /** Request body for `POST /dropyou/load` — aligned with working Postman / legacy consumer shape. */
 export type DropyouLoadPayload = {
@@ -56,14 +56,84 @@ function fmtTimeGb(d: Date): string {
   return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
 }
 
-function fmtTimeRange(window?: { fromISO: string; toISO: string }): string {
-  if (!window?.fromISO) return '';
-  const from = new Date(window.fromISO);
-  const to = window.toISO ? new Date(window.toISO) : from;
-  if (Number.isNaN(from.getTime())) return '';
-  const a = fmtTimeGb(from);
-  const b = fmtTimeGb(to);
-  return a === b ? a : `${a} – ${b}`;
+function validDate(d: Date): boolean {
+  return !Number.isNaN(d.getTime());
+}
+
+function minPickupAt(): Date {
+  return new Date(Date.now() + 3 * 60 * 1000);
+}
+
+function ensureFuturePickup(pickupAt: Date): Date {
+  const min = minPickupAt();
+  return !validDate(pickupAt) || pickupAt.getTime() < min.getTime() ? min : pickupAt;
+}
+
+function addDays(d: Date, days: number): Date {
+  const next = new Date(d);
+  next.setDate(next.getDate() + days);
+  return next;
+}
+
+function sameClockOnDate(source: Date, targetDate: Date): Date {
+  const next = new Date(source);
+  next.setFullYear(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
+  return next;
+}
+
+function minutesOfDay(d: Date): number {
+  return d.getHours() * 60 + d.getMinutes();
+}
+
+function setMinutesOfDay(source: Date, minutes: number): Date {
+  const next = new Date(source);
+  next.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
+  return next;
+}
+
+function ensureDropoffClockAfterPickup(dropoffAt: Date, pickupAt: Date): Date {
+  const pickupMinutes = minutesOfDay(pickupAt);
+  const dropoffMinutes = minutesOfDay(dropoffAt);
+  if (dropoffMinutes > pickupMinutes) return dropoffAt;
+
+  // TEG rejects overnight scheduled loads when the HH:mm value is earlier than readyAt,
+  // even if the drop-off date is the next day. Keep the date, but send a later clock.
+  const safeMinutes = Math.min(pickupMinutes + 30, 23 * 60 + 59);
+  return setMinutesOfDay(dropoffAt, safeMinutes);
+}
+
+function ensureDropoffAfterPickup(
+  dropoffAt: Date,
+  pickupAt: Date,
+  routeDurationSec: number | null,
+  scheduled: boolean,
+): Date {
+  const driveMs = Math.max(60, routeDurationSec ?? 30 * 60) * 1000;
+  const arrivalAt = new Date(pickupAt.getTime() + driveMs);
+  let candidate = validDate(dropoffAt) ? dropoffAt : arrivalAt;
+
+  if (scheduled) {
+    const minScheduledDate = addDays(pickupAt, 1);
+    if (candidate < minScheduledDate) {
+      candidate = sameClockOnDate(candidate, minScheduledDate);
+    }
+  }
+
+  const chronological = candidate.getTime() >= arrivalAt.getTime() ? candidate : arrivalAt;
+  return scheduled ? ensureDropoffClockAfterPickup(chronological, pickupAt) : chronological;
+}
+
+function devLogSchedule(source: 'scheduled' | 'same_day', pickupAt: Date, dropoffAt: Date): void {
+  if (!__DEV__) return;
+  console.log('[buildDropyouLoadPayload] resolved schedule', {
+    source,
+    pickUpDate: fmtYyyyMmDd(pickupAt.toISOString()),
+    pickupTime: fmtTimeGb(pickupAt),
+    dropOffDate: fmtYyyyMmDd(dropoffAt.toISOString()),
+    dropoffTime: fmtTimeGb(dropoffAt),
+    pickupISO: pickupAt.toISOString(),
+    dropoffISO: dropoffAt.toISOString(),
+  });
 }
 
 function addressBlock(place: PlaceValue | null) {
@@ -131,9 +201,10 @@ function buildSameDaySchedule(routeDurationSec: number | null): {
   dropOffDate: string;
   dropoffTime: string;
 } {
-  const pickupAt = new Date();
+  const pickupAt = minPickupAt();
   const driveSec = Math.max(60, routeDurationSec ?? 90 * 60);
-  const dropoffAt = new Date(pickupAt.getTime() + driveSec * 1000 + DROPOFF_BUFFER_MS);
+  const dropoffAt = new Date(pickupAt.getTime() + driveSec * 1000);
+  devLogSchedule('same_day', pickupAt, dropoffAt);
   return {
     pickUpDate: fmtYyyyMmDd(pickupAt.toISOString()),
     pickupTime: fmtTimeGb(pickupAt),
@@ -170,12 +241,24 @@ export function buildDropyouLoadPayload(input: BuildDropyouLoadPayloadInput): Dr
 
   const scheduled = input.tab === 'scheduled';
   const scheduleBlock = scheduled
-    ? {
-        pickUpDate: pickupRow?.dateISO ? fmtYyyyMmDd(pickupRow.dateISO) : '',
-        pickupTime: fmtTimeRange(pickupRow?.window),
-        dropOffDate: dropoffRow?.dateISO ? fmtYyyyMmDd(dropoffRow.dateISO) : '',
-        dropoffTime: fmtTimeRange(dropoffRow?.window),
-      }
+    ? (() => {
+        const pickupAt = ensureFuturePickup(
+          mergeStopDateTime(pickupRow?.dateISO, pickupRow?.window?.fromISO),
+        );
+        const dropoffAt = ensureDropoffAfterPickup(
+          mergeStopDateTime(dropoffRow?.dateISO, dropoffRow?.window?.fromISO),
+          pickupAt,
+          input.routeDurationSec,
+          scheduled,
+        );
+        devLogSchedule('scheduled', pickupAt, dropoffAt);
+        return {
+          pickUpDate: fmtYyyyMmDd(pickupAt.toISOString()),
+          pickupTime: fmtTimeGb(pickupAt),
+          dropOffDate: fmtYyyyMmDd(dropoffAt.toISOString()),
+          dropoffTime: fmtTimeGb(dropoffAt),
+        };
+      })()
     : buildSameDaySchedule(input.routeDurationSec);
 
   const primary = input.pallets[0] ?? {

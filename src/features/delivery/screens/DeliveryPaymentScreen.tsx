@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   Pressable,
   ScrollView,
@@ -27,6 +26,7 @@ import { allocateDropyouLoad } from '@/features/delivery/api/dropyouAllocateLoad
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 import { useTheme } from '@/hooks/useTheme';
 import { env } from '@/shared/config/env';
+import { ROUTE_MARKER_COLORS, ROUTE_MARKER_SOFT_COLORS } from '@/shared/theme/routeMarkers';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -64,7 +64,6 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
   } = route.params;
   const pickup = useDeliveryOrderDraftStore((s) => s.pickup);
   const dropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
-  const hasAutoPresentedRef = useRef(false);
 
   const [busy, setBusy] = useState(false);
   const [showSuccessConfetti, setShowSuccessConfetti] = useState(false);
@@ -341,15 +340,6 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
     vehicleName,
   ]);
 
-  useEffect(() => {
-    if (hasAutoPresentedRef.current) return;
-    hasAutoPresentedRef.current = true;
-    const handle = setTimeout(() => {
-      void pay();
-    }, 450);
-    return () => clearTimeout(handle);
-  }, [pay]);
-
   return (
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       {showSuccessConfetti ? (
@@ -408,8 +398,8 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           <View style={styles.divider} />
 
           <View style={styles.routeRow}>
-            <View style={[styles.routeIcon, { backgroundColor: colors.primary + '18' }]}>
-              <Ionicons name="location-sharp" size={18} color={colors.primary} />
+            <View style={[styles.routeIcon, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.pickup }]}>
+              <Ionicons name="location-sharp" size={18} color={ROUTE_MARKER_COLORS.pickup} />
             </View>
             <View style={styles.routeCopy}>
               <Text style={styles.routeLabel}>Pickup</Text>
@@ -420,8 +410,8 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           </View>
 
           <View style={styles.routeRow}>
-            <View style={[styles.routeIcon, { backgroundColor: '#FEE2E2' }]}>
-              <Ionicons name="flag" size={17} color="#EF4444" />
+            <View style={[styles.routeIcon, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.dropoff }]}>
+              <Ionicons name="flag" size={17} color={ROUTE_MARKER_COLORS.dropoff} />
             </View>
             <View style={styles.routeCopy}>
               <Text style={styles.routeLabel}>Dropoff</Text>
@@ -440,7 +430,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           disabled={busy}
         >
           {busy ? (
-            <ActivityIndicator color={colors.onPrimary} />
+            <Text style={styles.ctaTxt}>Processing payment</Text>
           ) : (
             <>
               <Ionicons name="card" size={20} color={colors.onPrimary} />

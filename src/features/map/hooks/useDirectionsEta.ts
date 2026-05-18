@@ -18,9 +18,54 @@ type EtaResult = {
   durationSec: number;
   /** Total distance in metres. */
   distanceM: number;
+  /** Decoded road-following route geometry from Google Directions. */
+  routeCoords: LatLng[];
 };
 
 const encode = ({ latitude, longitude }: LatLng) => `${latitude},${longitude}`;
+
+function decodeOverviewPolyline(encoded: string | undefined): LatLng[] {
+  if (!encoded) return [];
+
+  const points: LatLng[] = [];
+  let index = 0;
+  let latitude = 0;
+  let longitude = 0;
+
+  while (index < encoded.length) {
+    let result = 0;
+    let shift = 0;
+    let byte: number;
+
+    do {
+      byte = encoded.charCodeAt(index) - 63;
+      index += 1;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < encoded.length);
+
+    latitude += result & 1 ? ~(result >> 1) : result >> 1;
+
+    result = 0;
+    shift = 0;
+
+    do {
+      byte = encoded.charCodeAt(index) - 63;
+      index += 1;
+      result |= (byte & 0x1f) << shift;
+      shift += 5;
+    } while (byte >= 0x20 && index < encoded.length);
+
+    longitude += result & 1 ? ~(result >> 1) : result >> 1;
+
+    points.push({
+      latitude: latitude / 100000,
+      longitude: longitude / 100000,
+    });
+  }
+
+  return points;
+}
 
 /**
  * Thin wrapper around Google Directions API for computing a dropoff ETA.
@@ -64,6 +109,7 @@ export function useDirectionsEta() {
         status: string;
         error_message?: string;
         routes?: {
+          overview_polyline?: { points?: string };
           legs: {
             duration: { value: number };
             duration_in_traffic?: { value: number };
@@ -85,7 +131,8 @@ export function useDirectionsEta() {
         0,
       );
       const distanceM = legs.reduce((acc, l) => acc + l.distance.value, 0);
-      return { durationSec, distanceM };
+      const routeCoords = decodeOverviewPolyline(json.routes[0].overview_polyline?.points);
+      return { durationSec, distanceM, routeCoords };
     } catch (e) {
       debugLog('Directions', e instanceof Error ? e.message : 'unknown error');
       return null;

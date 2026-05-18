@@ -3,11 +3,13 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { PlaceValue } from '@/features/map/types';
+import type { RouteMarkerKind } from '@/shared/theme/routeMarkers';
 
 type Props = {
   placeholder: string;
   value: PlaceValue | null;
   onPress: () => void;
+  markerKind?: RouteMarkerKind;
   onGpsPress?: () => void;
   /** Show the inline GPS fill button (pickup row only). */
   showGps?: boolean;
@@ -31,12 +33,17 @@ export function AddressField({
   placeholder,
   value,
   onPress,
+  markerKind = 'pickup',
   onGpsPress,
   showGps,
   onClear,
 }: Props) {
   const c = useMapColors();
   const filled = !!value?.address;
+  const filledIconName = markerKind === 'dropoff' ? 'flag' : 'location-sharp';
+  const filledIconColor =
+    markerKind === 'dropoff' ? c.dropoffRed : markerKind === 'stop' ? c.stopBrown : c.brandGreen;
+
   return (
     <Pressable
       style={({ pressed }) => [
@@ -50,7 +57,7 @@ export function AddressField({
       accessibilityLabel={placeholder}
     >
       {filled ? (
-        <Ionicons name="location-sharp" size={18} color={c.brandGreen} />
+        <Ionicons name={filledIconName} size={18} color={filledIconColor} />
       ) : (
         <Ionicons name="search" size={18} color={c.textSecondary} />
       )}

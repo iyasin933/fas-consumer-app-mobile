@@ -37,6 +37,10 @@ export type DeliveryVehicleDto = {
   maxPrice?: number;
   /** When set, UI shows VAT-inclusive range: £(max(0, priceWithVat − 50)) – £(priceWithVat). */
   priceWithVat?: number;
+  /** Vehicle max load in kilograms, matching the web/backend vehicle catalogue. */
+  loadCapacity?: number;
+  /** Vehicle floor/surface capacity, usually sent by backend in cm². */
+  surfaceAreaCapacity?: number;
 };
 
 export type ConsumerBookingPriceParams = {
@@ -295,6 +299,27 @@ function normalizeVehicle(raw: unknown, index: number): DeliveryVehicleDto | nul
     asMoney(o.price_with_vat) ??
     asMoney(o.priceWithVAT) ??
     (priceObj ? asMoney(priceObj.withVat) : undefined);
+  const loadCapacity = firstDefinedNumber(o, [
+    'loadCapacity',
+    'load_capacity',
+    'payload',
+    'payloadKg',
+    'payload_kg',
+    'maxPayload',
+    'max_payload',
+    'weightCapacity',
+    'weight_capacity',
+  ]);
+  const surfaceAreaCapacity = firstDefinedNumber(o, [
+    'surfaceAreaCapacity',
+    'surface_area_capacity',
+    'maxSurfaceArea',
+    'maxSurfaceAre',
+    'surfaceArea',
+    'surface_area',
+    'floorArea',
+    'floor_area',
+  ]);
 
   const tegVehicleKey =
     asString(o.apiKey) ??
@@ -316,6 +341,9 @@ function normalizeVehicle(raw: unknown, index: number): DeliveryVehicleDto | nul
     minPrice,
     maxPrice,
     priceWithVat: priceWithVat != null && Number.isFinite(priceWithVat) ? priceWithVat : undefined,
+    loadCapacity: loadCapacity != null && Number.isFinite(loadCapacity) ? loadCapacity : undefined,
+    surfaceAreaCapacity:
+      surfaceAreaCapacity != null && Number.isFinite(surfaceAreaCapacity) ? surfaceAreaCapacity : undefined,
   };
 }
 

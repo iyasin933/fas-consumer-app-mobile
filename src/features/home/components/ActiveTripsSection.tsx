@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
@@ -7,6 +7,7 @@ import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useActiveTrips } from '@/features/home/hooks/useActiveTrips';
 import { useTheme } from '@/hooks/useTheme';
+import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
@@ -197,7 +198,17 @@ export function ActiveTripsSection() {
       </View>
 
       {isLoading ? (
-        <ActivityIndicator color={colors.primary} style={{ marginVertical: spacing.md }} />
+        <ScrollView
+          horizontal
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.hScroll}
+        >
+          {[0, 1].map((item) => (
+            <View key={item} style={styles.slide}>
+              <ActiveTripSkeletonCard />
+            </View>
+          ))}
+        </ScrollView>
       ) : isError ? (
         <Pressable onPress={refetch} style={styles.errBox}>
           <Text style={styles.err}>Could not load trips. Tap to retry.</Text>
@@ -252,5 +263,29 @@ export function ActiveTripsSection() {
         </ScrollView>
       )}
     </View>
+  );
+}
+
+function ActiveTripSkeletonCard() {
+  return (
+    <SkeletonCard>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.sm }}>
+        <Skeleton width={40} height={40} radius={20} />
+        <View style={{ flex: 1, gap: spacing.xs }}>
+          <Skeleton width="70%" height={18} />
+          <Skeleton width={80} height={18} radius={999} />
+        </View>
+        <Skeleton width={48} height={48} radius={12} />
+      </View>
+      <View style={{ flexDirection: 'row', gap: spacing.sm }}>
+        <Skeleton width={28} height={104} radius={14} />
+        <View style={{ flex: 1, gap: spacing.sm }}>
+          <Skeleton width="90%" height={16} />
+          <Skeleton width="36%" height={14} />
+          <Skeleton width="82%" height={16} style={{ marginTop: spacing.sm }} />
+          <Skeleton width="32%" height={14} />
+        </View>
+      </View>
+    </SkeletonCard>
   );
 }

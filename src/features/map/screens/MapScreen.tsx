@@ -20,6 +20,7 @@ import {
 } from '@/features/map/components/DeliveryBottomSheet';
 import { FloatingMapButtons } from '@/features/map/components/FloatingMapButtons';
 import { MapLayer, type MapLayerHandle } from '@/features/map/components/MapLayer';
+import { MapRecenterButton } from '@/features/map/components/MapRecenterButton';
 import { PlacesAutocompleteModal } from '@/features/map/components/PlacesAutocompleteModal';
 import { ProceedButton } from '@/features/map/components/ProceedButton';
 import { ScheduleDateTimePickerProvider } from '@/features/map/components/ScheduleDateTimePickerProvider';
@@ -43,7 +44,7 @@ import {
   mergeStopDateTime,
 } from '@/features/map/utils/deliverySchedule';
 import { useMapColors } from '@/features/map/theme/useMapColors';
-import type { PlaceValue, PlacesTarget } from '@/features/map/types';
+import type { LatLng, PlaceValue, PlacesTarget } from '@/features/map/types';
 import { MAX_STOPS } from '@/features/map/types';
 import type { MainTabParamList, MapTabScreenNavigationProp } from '@/types/navigation.types';
 
@@ -73,8 +74,26 @@ const ACTION_FOOTER_TOP_PADDING = 10;
 const ACTION_FOOTER_MIN_BOTTOM_PADDING = 12;
 const ACTION_FOOTER_BUTTON_HEIGHT = 52;
 const ACTION_FOOTER_TOAST_GAP = 24;
+const ROUTE_FIT_TOP_PADDING = 118;
+const ROUTE_FIT_SIDE_PADDING = 56;
+const ROUTE_FIT_BOTTOM_PADDING = 420;
 
 type MapRoute = RouteProp<MainTabParamList, 'Map'>;
+
+function formatRouteDuration(totalSec: number): string {
+  const minutes = Math.max(1, Math.round(totalSec / 60));
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours <= 0) return `${mins} min`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h ${mins}m`;
+}
+
+function formatRouteDistance(metres: number): string {
+  const miles = metres / 1609.344;
+  if (miles < 10) return `${miles.toFixed(1)} mi`;
+  return `${Math.round(miles)} mi`;
+}
 
 /**
  * Map Delivery screen — composes:
@@ -97,6 +116,8 @@ export function MapScreen() {
   const setWindow = useDeliveryFormStore((s) => s.setWindow);
   const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
   const setRouteMetrics = useDeliveryFormStore((s) => s.setRouteMetrics);
+  const routeDurationSec = useDeliveryFormStore((s) => s.routeDurationSec);
+  const routeDistanceM = useDeliveryFormStore((s) => s.routeDistanceM);
   const toast = useDeliveryFormStore((s) => s.toast);
   const setToast = useDeliveryFormStore((s) => s.setToast);
   const addStop = useDeliveryFormStore((s) => s.addStop);
@@ -107,8 +128,11 @@ export function MapScreen() {
 
   const mapRef = useRef<MapLayerHandle | null>(null);
   const sheetRef = useRef<DeliveryBottomSheetHandle | null>(null);
+  const initialSnapIndex = route.params?.initialSnapIndex ?? 1;
 
   const [placesTarget, setPlacesTarget] = useState<PlacesTarget | null>(null);
+  const [routeCoords, setRouteCoords] = useState<LatLng[]>([]);
+  const [sheetIndex, setSheetIndex] = useState(initialSnapIndex);
   // Mirror the current `placesTarget` in a ref so the modal's optimistic-close
   // flow (onPickSuggestion → onClose same tick) can still dispatch the result
   // to the correct row after `placesTarget` has been cleared.
@@ -117,7 +141,6 @@ export function MapScreen() {
   const dropoffScheduleUserEditedRef = useRef(false);
 
   // ── Apply nav params (initialDropoff + initialSnapIndex) once per mount ───
-  const initialSnapIndex = route.params?.initialSnapIndex ?? 1;
   useEffect(() => {
     const initialDropoff = route.params?.initialDropoff;
     if (initialDropoff) {
@@ -154,6 +177,10 @@ export function MapScreen() {
   const actionFooterReservedHeight =
     ACTION_FOOTER_TOP_PADDING + ACTION_FOOTER_BUTTON_HEIGHT + actionFooterBottomPadding;
   const proceedEnabled = canProceed(rows, tab);
+  const routeSummaryLabel =
+    pickupRow?.place && dropoffRow?.place && routeDurationSec != null && routeDistanceM != null
+      ? `${formatRouteDistance(routeDistanceM)} • ${formatRouteDuration(routeDurationSec)}`
+      : null;
   const stopCount = rows.filter((r) => r.kind === 'stop').length;
   const footerBottom = useSharedValue(bottomNavInset);
   const pickupKey = pickupRow?.place ? `${pickupRow.place.lat},${pickupRow.place.lng}` : '';
@@ -184,6 +211,7 @@ export function MapScreen() {
   useEffect(() => {
     if (!pickupRow?.place || !dropoffRow?.place) {
       setRouteMetrics(null, null);
+      setRouteCoords([]);
       if (tab === 'scheduled') {
         setWindow(DROPOFF_ID, undefined);
         setDateISO(DROPOFF_ID, undefined);
@@ -205,6 +233,7 @@ export function MapScreen() {
     void (async () => {
       const origin = { latitude: pickupRow.place!.lat, longitude: pickupRow.place!.lng };
       const destination = { latitude: dropoffRow.place!.lat, longitude: dropoffRow.place!.lng };
+      setRouteCoords([origin, ...waypoints, destination]);
 
       const eta = await fetchEta({ origin, destination, waypoints, departureMs });
       if (cancelled) return;
@@ -214,6 +243,7 @@ export function MapScreen() {
       if (eta) {
         durationSec = eta.durationSec;
         distanceM = eta.distanceM;
+        setRouteCoords(eta.routeCoords.length >= 2 ? eta.routeCoords : [origin, ...waypoints, destination]);
       } else {
         // Graceful fallback — sum haversine distance across the full route and
         // convert to seconds using an average urban speed. This means the pill
@@ -223,9 +253,17 @@ export function MapScreen() {
         for (let i = 1; i < points.length; i += 1) km += haversineKm(points[i - 1], points[i]);
         durationSec = Math.max(60, Math.round((km / AVG_URBAN_SPEED_KMH) * 3600));
         distanceM = Math.max(1, Math.round(km * 1000));
+        setRouteCoords([origin, ...waypoints, destination]);
       }
 
       setRouteMetrics(durationSec, distanceM);
+      const routeFrame = eta?.routeCoords && eta.routeCoords.length >= 2 ? eta.routeCoords : [origin, ...waypoints, destination];
+      mapRef.current?.fitRoute(routeFrame, {
+        top: ROUTE_FIT_TOP_PADDING,
+        right: ROUTE_FIT_SIDE_PADDING,
+        bottom: ROUTE_FIT_BOTTOM_PADDING + insets.bottom,
+        left: ROUTE_FIT_SIDE_PADDING,
+      });
 
       if (dropoffScheduleUserEditedRef.current || tab !== 'scheduled') return;
 
@@ -256,11 +294,31 @@ export function MapScreen() {
     };
     // `pickupKey` / `dropoffKey` / `stopsKey` are intentional stable dep keys.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pickupKey, dropoffKey, stopsKey, pickupFromISO, pickupDateISO, tab]);
+  }, [pickupKey, dropoffKey, stopsKey, pickupFromISO, pickupDateISO, tab, insets.bottom]);
 
   const onDropoffScheduleEdited = useCallback(() => {
     dropoffScheduleUserEditedRef.current = true;
   }, []);
+
+  const recenterMap = useCallback(() => {
+    if (routeCoords.length >= 2) {
+      mapRef.current?.fitRoute(routeCoords, {
+        top: ROUTE_FIT_TOP_PADDING,
+        right: ROUTE_FIT_SIDE_PADDING,
+        bottom: ROUTE_FIT_BOTTOM_PADDING + insets.bottom,
+        left: ROUTE_FIT_SIDE_PADDING,
+      });
+      return;
+    }
+
+    const fallbackPlace = pickupRow?.place ?? dropoffRow?.place;
+    if (fallbackPlace) {
+      mapRef.current?.animateTo({ latitude: fallbackPlace.lat, longitude: fallbackPlace.lng });
+      return;
+    }
+
+    if (coords) mapRef.current?.animateTo(coords);
+  }, [coords, dropoffRow?.place, insets.bottom, pickupRow?.place, routeCoords]);
 
   // ── Places modal plumbing ───────────────────────────────────────────────
   const openPlaces = useCallback((target: PlacesTarget) => {
@@ -390,7 +448,13 @@ export function MapScreen() {
           Intentionally not forwarding `initialRegion` — MapLayer falls back to
           its UK-wide default. Users set pickup from search or the GPS control.
         */}
-        <MapLayer ref={mapRef} currentLocation={coords} rows={rows} />
+        <MapLayer
+          ref={mapRef}
+          currentLocation={coords}
+          rows={rows}
+          routeCoords={routeCoords}
+          routeSummaryLabel={routeSummaryLabel}
+        />
 
         <FloatingMapButtons
           onBack={() => {
@@ -399,10 +463,19 @@ export function MapScreen() {
           onMenu={() => Alert.alert('Menu', 'No actions yet.')}
         />
 
+        {sheetIndex < 2 ? (
+          <MapRecenterButton
+            accessibilityLabel="Recenter route map"
+            onPress={recenterMap}
+            style={[styles.recenterButton, sheetIndex === 0 ? styles.recenterCollapsed : styles.recenterDefault]}
+          />
+        ) : null}
+
         <DeliveryBottomSheet
           ref={sheetRef}
           initialSnapIndex={initialSnapIndex}
           bottomContentInset={actionFooterReservedHeight + ACTION_FOOTER_TOAST_GAP}
+          onChange={setSheetIndex}
           onOpenPlaces={openPlaces}
           onClearPlace={handleClearPlace}
           onPickupGps={handlePickupGps}
@@ -479,6 +552,16 @@ function placesTargetTitle(t: PlacesTarget | null): string {
 
 const styles = StyleSheet.create({
   root: { flex: 1 },
+  recenterButton: {
+    zIndex: 22,
+    elevation: 22,
+  },
+  recenterDefault: {
+    bottom: '67%',
+  },
+  recenterCollapsed: {
+    bottom: '37%',
+  },
   actionFooter: {
     position: 'absolute',
     left: 0,

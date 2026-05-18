@@ -2,7 +2,6 @@ import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useEffect, useMemo, useState } from 'react';
 import {
-  ActivityIndicator,
   Platform,
   Pressable,
   ScrollView,
@@ -24,6 +23,9 @@ import { fetchActiveTrips } from '@/api/modules/dropyou.api';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 import { useLoadQuotesSocket } from '@/features/delivery/providers/LoadQuotesSocketProvider';
 import { useTheme } from '@/hooks/useTheme';
+import { Skeleton } from '@/shared/components/Skeleton';
+import { StatusChip } from '@/shared/components/StatusChip';
+import { ROUTE_MARKER_COLORS, ROUTE_MARKER_SOFT_COLORS } from '@/shared/theme/routeMarkers';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -215,21 +217,6 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
           lineHeight: 28,
           fontWeight: '900',
         },
-        statusPill: {
-          alignSelf: 'flex-start',
-          flexDirection: 'row',
-          alignItems: 'center',
-          gap: 6,
-          backgroundColor: colors.primary + '18',
-          borderRadius: 999,
-          paddingHorizontal: 10,
-          paddingVertical: 7,
-        },
-        statusText: {
-          color: colors.primary,
-          fontSize: 12,
-          fontWeight: typography.fontWeight.bold,
-        },
         card: {
           backgroundColor: colors.surface,
           borderRadius: 18,
@@ -317,12 +304,12 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
           ) : null}
           {pickupCoords ? (
             <Marker coordinate={pickupCoords} anchor={{ x: 0.5, y: 0.5 }}>
-              <TrackingMarker icon="location-sharp" color={colors.primary} />
+              <TrackingMarker icon="location-sharp" color={ROUTE_MARKER_COLORS.pickup} />
             </Marker>
           ) : null}
           {dropoffCoords ? (
             <Marker coordinate={dropoffCoords} anchor={{ x: 0.5, y: 0.5 }}>
-              <TrackingMarker icon="flag" color="#EF4444" />
+              <TrackingMarker icon="flag" color={ROUTE_MARKER_COLORS.dropoff} />
             </Marker>
           ) : null}
           {liveVehicleLocation ? (
@@ -343,12 +330,7 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
                 {isConnected ? 'Live updates are connected.' : 'Reconnecting to live updates...'}
               </Text>
             </View>
-            <View style={styles.statusPill}>
-              <Ionicons name="radio" size={14} color={colors.primary} />
-              <Text style={styles.statusText} numberOfLines={1}>
-                {statusLabel}
-              </Text>
-            </View>
+            <StatusChip label={statusLabel} />
           </View>
 
           <View style={styles.card}>
@@ -377,8 +359,8 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
 
           <View style={styles.card}>
             <View style={styles.row}>
-              <View style={[styles.iconWrap, { backgroundColor: colors.primary + '18' }]}>
-                <Ionicons name="location-sharp" size={18} color={colors.primary} />
+              <View style={[styles.iconWrap, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.pickup }]}>
+                <Ionicons name="location-sharp" size={18} color={ROUTE_MARKER_COLORS.pickup} />
               </View>
               <View style={styles.rowCopy}>
                 <Text style={styles.label}>Pickup</Text>
@@ -386,8 +368,8 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
               </View>
             </View>
             <View style={styles.row}>
-              <View style={[styles.iconWrap, { backgroundColor: '#FEE2E2' }]}>
-                <Ionicons name="flag" size={17} color="#EF4444" />
+              <View style={[styles.iconWrap, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.dropoff }]}>
+                <Ionicons name="flag" size={17} color={ROUTE_MARKER_COLORS.dropoff} />
               </View>
               <View style={styles.rowCopy}>
                 <Text style={styles.label}>Dropoff</Text>
@@ -398,8 +380,11 @@ export function DeliveryTrackingScreen({ navigation, route }: Props) {
 
           {loadingTrip ? (
             <View style={styles.row}>
-              <ActivityIndicator color={colors.primary} />
-              <Text style={styles.muted}>Refreshing booking details...</Text>
+              <Skeleton width={36} height={36} radius={18} />
+              <View style={styles.rowCopy}>
+                <Skeleton width="58%" height={16} />
+                <Skeleton width="42%" height={14} style={{ marginTop: spacing.xs }} />
+              </View>
             </View>
           ) : null}
 

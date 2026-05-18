@@ -96,7 +96,7 @@ export function HomeDashboardScreen() {
   }, [coords, navigateToMapWith, refresh, reverse]);
 
   return (
-    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top']}>
+    <SafeAreaView style={[styles.safe, { backgroundColor: colors.background }]} edges={['top', 'bottom']}>
       <View style={styles.root}>
         <HomeSearchHeader
           onOpenWhereTo={() => setWhereToOpen(true)}

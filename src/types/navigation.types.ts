@@ -40,6 +40,17 @@ export type MainTabParamList = {
 export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Users: undefined;
+  BookingDetails: {
+    loadId: string;
+    bookingId?: string;
+    passengerLabel?: string;
+    statusLabel?: string;
+    vehicleName?: string;
+    pickupAddress?: string;
+    dropoffAddress?: string;
+    pickupTimeLabel?: string;
+    dropoffTimeLabel?: string;
+  };
   AddDeliveryContents: undefined;
   RecipientDetails: undefined;
   ChooseVehicle: undefined;

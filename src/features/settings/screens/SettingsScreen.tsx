@@ -24,12 +24,6 @@ function createStyles(colors: ThemeColors) {
       padding: spacing.lg,
       gap: spacing.lg,
     },
-    title: {
-      fontSize: typography.fontSize.xl,
-      fontWeight: typography.fontWeight.bold,
-      color: colors.textPrimary,
-    },
-    sub: { fontSize: typography.fontSize.md, color: colors.textSecondary, lineHeight: 22 },
     sectionLabel: {
       fontSize: typography.fontSize.sm,
       fontWeight: '600',
@@ -108,15 +102,12 @@ export function SettingsScreen() {
   };
 
   return (
-    <SafeAreaView style={styles.safe} edges={['top']}>
+    <SafeAreaView style={styles.safe} edges={['bottom']}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={[styles.scrollContent, { paddingBottom: tabBarHeight + spacing.lg }]}
         keyboardShouldPersistTaps="handled"
       >
-        <Text style={styles.title}>Settings</Text>
-        <Text style={styles.sub}>Account and app preferences.</Text>
-
         <View>
           <Text style={styles.sectionLabel}>Appearance</Text>
           {APPEARANCE_OPTIONS.map(({ value, label, hint }) => {

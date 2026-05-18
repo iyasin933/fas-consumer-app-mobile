@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
-  ActivityIndicator,
   BackHandler,
   FlatList,
   Keyboard,
@@ -19,6 +18,7 @@ import {
   usePlacesAutocomplete,
 } from '@/features/map/hooks/usePlacesAutocomplete';
 import { useMapColors } from '@/features/map/theme/useMapColors';
+import { Skeleton } from '@/shared/components/Skeleton';
 import { debugLog } from '@/utils/debugLog';
 
 type Props = {
@@ -176,9 +176,7 @@ export function PlacesAutocompleteModal({
           )}
           ListEmptyComponent={
             loading ? (
-              <View style={styles.emptyWrap}>
-                <ActivityIndicator color={c.brandGreen} />
-              </View>
+              <PlacesSuggestionsSkeleton />
             ) : query.trim().length >= 2 ? (
               <Text style={[styles.emptyText, { color: c.textSecondary }]}>No results</Text>
             ) : null
@@ -209,6 +207,22 @@ export function PlacesAutocompleteModal({
           )}
         />
       </SafeAreaView>
+    </View>
+  );
+}
+
+function PlacesSuggestionsSkeleton() {
+  return (
+    <View style={styles.skeletonList}>
+      {[0, 1, 2, 3].map((item) => (
+        <View key={item} style={styles.row}>
+          <Skeleton width={36} height={36} radius={18} />
+          <View style={styles.rowText}>
+            <Skeleton width="72%" height={16} />
+            <Skeleton width="52%" height={14} />
+          </View>
+        </View>
+      ))}
     </View>
   );
 }
@@ -294,6 +308,6 @@ const styles = StyleSheet.create({
   rowText: { flex: 1 },
   rowPrimary: { fontSize: 15, fontWeight: '700' },
   rowSecondary: { fontSize: 13, marginTop: 2 },
-  emptyWrap: { paddingVertical: 32, alignItems: 'center' },
+  skeletonList: { paddingTop: 4 },
   emptyText: { textAlign: 'center', paddingVertical: 24 },
 });

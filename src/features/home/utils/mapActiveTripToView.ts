@@ -10,6 +10,12 @@ function pickStr(o: unknown, keys: string[]): string {
   return '';
 }
 
+function pickScalarStr(v: unknown): string {
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return '';
+}
+
 function pickNested(o: unknown, path: string[]): unknown {
   let cur: unknown = o;
   for (const p of path) {
@@ -53,6 +59,27 @@ function idOf(o: ActiveTripRaw, index: number): string {
     String(pickNested(o, ['trip', 'id']) ?? '') ||
     String(pickNested(o, ['booking', 'id']) ?? '');
   return id || `trip-${index}`;
+}
+
+function loadIdOf(o: ActiveTripRaw): string {
+  const roots = tripRoots(o);
+  return (
+    firstPickStr(roots, ['tegLoadId', 'teg_load_id', 'loadId', 'load_id']) ||
+    pickScalarStr(pickNested(o, ['load', 'loadId'])) ||
+    pickScalarStr(pickNested(o, ['load', 'id'])) ||
+    pickScalarStr(pickNested(o, ['selectedQuote', 'loadId'])) ||
+    pickScalarStr(pickNested(o, ['selectedQuote', 'load_id'])) ||
+    ''
+  );
+}
+
+function bookingIdOf(o: ActiveTripRaw): string {
+  const roots = tripRoots(o);
+  return (
+    firstPickStr(roots, ['bookingId', 'booking_id', 'uuid']) ||
+    pickScalarStr(pickNested(o, ['booking', 'id'])) ||
+    ''
+  );
 }
 
 /** Maps API trip/load objects into home card fields (best-effort across shapes). */
@@ -184,6 +211,8 @@ export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTrip
 
   return {
     id: idOf(o, index),
+    loadId: loadIdOf(o),
+    bookingId: bookingIdOf(o),
     passengerLabel: passenger,
     statusLabel: status,
     vehicleName: vehicle,

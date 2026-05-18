@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useMemo } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useHomeProfile } from '@/features/home/hooks/useHomeProfile';
 import { useTheme } from '@/hooks/useTheme';
@@ -74,11 +74,7 @@ export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
         accessibilityLabel="Where to?"
         disabled={resolving}
       >
-        {resolving ? (
-          <ActivityIndicator size="small" color={colors.muted} />
-        ) : (
-          <Ionicons name="search" size={20} color={colors.muted} />
-        )}
+        <Ionicons name={resolving ? 'navigate-circle-outline' : 'search'} size={20} color={colors.muted} />
         <Text style={styles.searchText} numberOfLines={1}>
           {resolving ? 'Pinning address…' : 'Where to?'}
         </Text>
