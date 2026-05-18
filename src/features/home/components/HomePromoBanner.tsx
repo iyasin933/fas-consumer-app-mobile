@@ -88,12 +88,13 @@ export function HomePromoBanner() {
             style={styles.cta}
             accessibilityRole="button"
             accessibilityLabel={cta}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
             onPress={onStartNow}
           >
             <Text style={styles.ctaText}>{cta}</Text>
           </Pressable>
         </View>
-        <View style={styles.art} accessibilityLabel="Delivery illustration">
+        <View style={styles.art} accessibilityLabel="Delivery illustration" pointerEvents="none">
           <View style={styles.artBurst}>
             <Image
               source={HOME_PROMO_ILLUSTRATION}

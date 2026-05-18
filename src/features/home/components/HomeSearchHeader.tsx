@@ -81,8 +81,10 @@ export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
       </Pressable>
       <Pressable
         accessibilityLabel="Profile, long press to sign out"
+        accessibilityRole="button"
         onLongPress={() => void signOut()}
         style={styles.avatar}
+        hitSlop={8}
       >
         <View style={styles.avatarInner}>
           <Text style={styles.avatarText}>{initial}</Text>

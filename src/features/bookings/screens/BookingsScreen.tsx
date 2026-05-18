@@ -1,7 +1,7 @@
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -18,12 +18,28 @@ import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useTheme } from '@/hooks/useTheme';
+import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
 import type { AppStackParamList } from '@/types/navigation.types';
+
+type LoadStatusTab = 'all' | 'pending' | 'failed';
+
+const FAILED_STATUS_TERMS = ['failed', 'failure', 'rejected', 'cancelled', 'canceled', 'declined', 'expired', 'error'];
+const PENDING_STATUS_TERMS = [
+  'pending',
+  'waiting',
+  'processing',
+  'requested',
+  'created',
+  'posted',
+  'open',
+  'quote',
+  'unassigned',
+];
 
 function logJson(label: string, value: unknown): void {
   try {
@@ -37,10 +53,20 @@ function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
     listContent: {
-      paddingHorizontal: spacing.md,
-      paddingTop: spacing.md,
+      gap: spacing.md,
     },
     list: { flex: 1 },
+    tabsHeader: {
+      paddingHorizontal: spacing.md,
+      paddingTop: spacing.md,
+      paddingBottom: spacing.md,
+      backgroundColor: colors.background,
+      zIndex: 5,
+      elevation: 5,
+    },
+    listItem: {
+      paddingHorizontal: spacing.md,
+    },
     center: {
       flex: 1,
       justifyContent: 'center',
@@ -51,10 +77,25 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
+function normalizedStatus(trip: ActiveTripCardVm): string {
+  return trip.statusLabel.trim().toLowerCase();
+}
+
+function isFailedLoad(trip: ActiveTripCardVm): boolean {
+  const status = normalizedStatus(trip);
+  return FAILED_STATUS_TERMS.some((term) => status.includes(term));
+}
+
+function isPendingLoad(trip: ActiveTripCardVm): boolean {
+  const status = normalizedStatus(trip);
+  return PENDING_STATUS_TERMS.some((term) => status.includes(term));
+}
+
 export function BookingsScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [activeStatusTab, setActiveStatusTab] = useState<LoadStatusTab>('all');
   const tabBarHeight = useBottomTabBarHeight();
   const detailsByLoadId = useBookingDetailsStore((s) => s.detailsByLoadId);
   const loadingByLoadId = useBookingDetailsStore((s) => s.loadingByLoadId);
@@ -76,6 +117,23 @@ export function BookingsScreen() {
   const onRefresh = useCallback(() => {
     refetch();
   }, [refetch]);
+
+  const pendingCount = useMemo(() => bookings.filter(isPendingLoad).length, [bookings]);
+  const failedCount = useMemo(() => bookings.filter(isFailedLoad).length, [bookings]);
+  const filteredBookings = useMemo(() => {
+    if (activeStatusTab === 'pending') return bookings.filter(isPendingLoad);
+    if (activeStatusTab === 'failed') return bookings.filter(isFailedLoad);
+    return bookings;
+  }, [activeStatusTab, bookings]);
+
+  const statusTabs = useMemo(
+    () => [
+      { value: 'all' as const, label: 'All', badge: bookings.length },
+      { value: 'pending' as const, label: 'Pending', badge: pendingCount },
+      { value: 'failed' as const, label: 'Failed', badge: failedCount },
+    ],
+    [bookings.length, failedCount, pendingCount],
+  );
 
   const handleBookingPress = useCallback(
     (trip: ActiveTripCardVm) => {
@@ -149,13 +207,15 @@ export function BookingsScreen() {
   const renderItem = useCallback(
     ({ item }: { item: ActiveTripCardVm }) => {
       return (
-        <ActiveTripCard
-          trip={item}
-          onPress={() => void handleBookingPress(item)}
-        />
+        <View style={styles.listItem}>
+          <ActiveTripCard
+            trip={item}
+            onPress={() => void handleBookingPress(item)}
+          />
+        </View>
       );
     },
-    [handleBookingPress],
+    [handleBookingPress, styles.listItem],
   );
 
   const keyExtractor = useCallback((item: ActiveTripCardVm) => item.id, []);
@@ -186,27 +246,45 @@ export function BookingsScreen() {
         <BookingsSkeletonList bottomPadding={tabBarHeight + spacing.lg} />
       ) : isError ? (
         <View style={styles.center}>
-          <Pressable onPress={onRefresh}>
+          <Pressable onPress={onRefresh} accessibilityRole="button" hitSlop={10}>
             <Text style={styles.err}>Could not load bookings. Tap to retry.</Text>
           </Pressable>
         </View>
       ) : (
         <FlatList
           style={styles.list}
-          data={bookings}
+          ListHeaderComponent={
+            <View style={styles.tabsHeader}>
+              <SegmentedTabs
+                value={activeStatusTab}
+                options={statusTabs}
+                onChange={setActiveStatusTab}
+              />
+            </View>
+          }
+          stickyHeaderIndices={[0]}
+          data={filteredBookings}
           keyExtractor={keyExtractor}
           renderItem={renderItem}
           ItemSeparatorComponent={ListSeparator}
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: tabBarHeight + spacing.lg },
-            bookings.length === 0 && { flexGrow: 1, justifyContent: 'center' },
+            filteredBookings.length === 0 && { flexGrow: 1 },
           ]}
           refreshControl={
             <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />
           }
           ListEmptyComponent={
-            <Text style={styles.muted}>No bookings yet. When you book a delivery, it will show here.</Text>
+            <View style={styles.listItem}>
+              <Text style={styles.muted}>
+                {activeStatusTab === 'pending'
+                  ? 'No pending loads right now.'
+                  : activeStatusTab === 'failed'
+                    ? 'No failed loads right now.'
+                    : 'No bookings yet. When you book a delivery, it will show here.'}
+              </Text>
+            </View>
           }
           showsVerticalScrollIndicator={false}
         />

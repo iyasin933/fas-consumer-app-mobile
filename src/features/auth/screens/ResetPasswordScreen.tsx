@@ -120,7 +120,12 @@ export function ResetPasswordScreen({ route, navigation }: Props) {
           loading={loading}
         />
 
-        <Pressable onPress={() => navigation.navigate('SignIn')} style={styles.backWrap}>
+        <Pressable
+          onPress={() => navigation.navigate('SignIn')}
+          style={styles.backWrap}
+          accessibilityRole="button"
+          hitSlop={12}
+        >
           <Text style={styles.back}>Back to sign in</Text>
         </Pressable>
       </ScrollView>

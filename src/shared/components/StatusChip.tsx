@@ -3,7 +3,6 @@ import { StyleSheet, Text, View } from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
-import { typography } from '@/shared/theme/typography';
 
 type StatusTone = 'neutral' | 'success' | 'warning' | 'danger';
 

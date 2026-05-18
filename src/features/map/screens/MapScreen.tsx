@@ -441,6 +441,10 @@ export function MapScreen() {
     navigation.navigate('AddDeliveryContents');
   }, [hydrateFromMapRows, navigation, rows, setToast, tab]);
 
+  const handleSheetChange = useCallback((index: number) => {
+    if (index === 0 || index === 1 || index === 2) setSheetIndex(index);
+  }, []);
+
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
       <ScheduleDateTimePickerProvider>
@@ -475,7 +479,7 @@ export function MapScreen() {
           ref={sheetRef}
           initialSnapIndex={initialSnapIndex}
           bottomContentInset={actionFooterReservedHeight + ACTION_FOOTER_TOAST_GAP}
-          onChange={setSheetIndex}
+          onChange={handleSheetChange}
           onOpenPlaces={openPlaces}
           onClearPlace={handleClearPlace}
           onPickupGps={handlePickupGps}

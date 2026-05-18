@@ -49,6 +49,8 @@ type ObjectRecord = Record<string, unknown>;
 type RouteCoord = { latitude: number; longitude: number };
 type DetailsTab = 'details' | 'quotes';
 
+const EMPTY_QUOTES: unknown[] = [];
+
 const DEFAULT_ROUTE_REGION: Region = {
   latitude: 51.5074,
   longitude: -0.1278,
@@ -513,7 +515,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
   const [activeTab, setActiveTab] = useState<DetailsTab>('details');
   const [acceptingKey, setAcceptingKey] = useState<string | null>(null);
   const detailsResponse = useBookingDetailsStore((s) => s.detailsByLoadId[loadId]);
-  const rawQuotes = useBookingDetailsStore((s) => s.quotesByLoadId[loadId] ?? []);
+  const rawQuotes = useBookingDetailsStore((s) => s.quotesByLoadId[loadId] ?? EMPTY_QUOTES);
   const quotesFetched = useBookingDetailsStore((s) => Boolean(s.quotesFetchedByLoadId?.[loadId]));
   const loading = useBookingDetailsStore((s) => Boolean(s.loadingByLoadId[loadId]));
   const quotesLoading = useBookingDetailsStore((s) => Boolean(s.quotesLoadingByLoadId[loadId]));
@@ -781,6 +783,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                     onPress={recenterMap}
                     accessibilityRole="button"
                     accessibilityLabel="Recenter route map"
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                   >
                     <Ionicons name="locate" size={16} color={colors.textPrimary} />
                   </Pressable>
@@ -789,6 +792,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                     onPress={openMaps}
                     accessibilityRole="button"
                     accessibilityLabel="Open route in maps"
+                    hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
                   >
                     <Ionicons name="navigate" size={14} color={colors.textPrimary} />
                     <Text style={styles.mapActionText}>Open route</Text>
@@ -843,6 +847,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                 style={({ pressed }) => [styles.outlineButton, pressed && styles.outlineButtonPressed]}
                 onPress={() => void refreshQuotes()}
                 accessibilityRole="button"
+                hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
               >
                 <Text style={styles.outlineText}>{quotesLoading ? 'Refreshing' : 'Refresh'}</Text>
               </Pressable>

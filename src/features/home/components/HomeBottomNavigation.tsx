@@ -26,6 +26,7 @@ import type { MainTabParamList } from '@/types/navigation.types';
 import { debugLog } from '@/utils/debugLog';
 
 const INACTIVE_COLOR = '#6B7280';
+const TAB_BAR_LAYER = 2_147_483_000;
 
 // ─── Tab metadata ─────────────────────────────────────────────────────────────
 const TAB_META: {
@@ -45,7 +46,7 @@ const TAB_META: {
     name: 'Bookings',
     iconActive: 'calendar',
     iconInactive: 'calendar-outline',
-    label: 'Schedule',
+    label: 'Bookings',
   },
   {
     name: 'Map',
@@ -131,8 +132,17 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
     wrap: {
       backgroundColor: 'transparent',
       overflow: 'visible',
-      zIndex: 10,
-      elevation: 10,
+      zIndex: TAB_BAR_LAYER,
+      elevation: 64,
+    },
+    fabTouchPad: {
+      position: 'absolute',
+      top: metrics.fabTop - 10,
+      width: metrics.fabSize + 20,
+      height: metrics.fabSize + 20,
+      borderRadius: (metrics.fabSize + 20) / 2,
+      zIndex: 3,
+      elevation: 11,
     },
     /**
      * The bar itself.  overflow:visible lets the FAB escape the clipping rect.
@@ -229,6 +239,8 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
     /** White fill below the bar that covers the device safe-area strip. */
     safeAreaFill: {
       backgroundColor: colors.surface,
+      zIndex: 1,
+      elevation: 1,
     },
   });
 }
@@ -395,6 +407,13 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
         </View>
 
         {/* ── Floating Map button ─────────────────────────────────────── */}
+        <Pressable
+          style={[styles.fabTouchPad, { left: fabLeft - 10 }]}
+          onPress={() => handleTabPress(centerRoute.key, centerRoute.name)}
+          accessibilityRole="button"
+          accessibilityState={{ selected: isCenterActive }}
+          accessibilityLabel={TAB_META[CENTER_IDX].label}
+        />
         <Pressable
           style={[
             styles.fab,

@@ -132,11 +132,16 @@ export function SettingsScreen() {
           })}
         </View>
 
-        <Pressable style={styles.link} onPress={goUsers} accessibilityRole="button">
+        <Pressable style={styles.link} onPress={goUsers} accessibilityRole="button" hitSlop={12}>
           <Text style={styles.linkTxt}>Users (sample API)</Text>
         </Pressable>
 
-        <Pressable style={styles.out} onPress={() => void signOut()} accessibilityRole="button">
+        <Pressable
+          style={styles.out}
+          onPress={() => void signOut()}
+          accessibilityRole="button"
+          hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
+        >
           <Text style={styles.outTxt}>Sign out</Text>
         </Pressable>
       </ScrollView>

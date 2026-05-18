@@ -216,7 +216,7 @@ export function ActiveTripsSection() {
       ) : trips.length === 0 ? (
         <View style={styles.emptyWrap}>
           <View style={styles.emptyCard}>
-            <View style={styles.glow} />
+            <View style={styles.glow} pointerEvents="none" />
             <View style={styles.emptyCopy}>
               <Text style={styles.emptyEyebrow}>No active trips</Text>
               <Text style={styles.emptyTitle}>Book your next delivery</Text>
@@ -226,6 +226,7 @@ export function ActiveTripsSection() {
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel="Book now"
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                 onPress={onBookNow}
                 style={({ pressed }) => [styles.bookButton, pressed && styles.bookButtonPressed]}
               >
