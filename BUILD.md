@@ -27,6 +27,17 @@ Then press:
 
 Use this when native packages changed, or when you need a real development client.
 
+## Production 
+npx eas-cli@latest login
+npx eas-cli@latest build -p ios --profile production
+
+
+For App Store/TestFlight submit after build:
+npx eas-cli@latest submit -p ios --profile production
+
+
+
+
 ### iOS Simulator
 
 ```bash
