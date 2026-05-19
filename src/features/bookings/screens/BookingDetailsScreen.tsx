@@ -783,6 +783,9 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
             body="Tap to refresh booking details."
             accent={colors.primary}
             imageSource={vehicleSrc}
+            imageBubbleBackgroundColor={colors.surface}
+            hideArtPin
+            hideArtArrow
             onPress={() => void refresh()}
             accessibilityLabel="Refresh booking details"
             footer={<StatusChip label={status} />}

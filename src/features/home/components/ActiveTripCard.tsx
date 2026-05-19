@@ -60,6 +60,10 @@ export function ActiveTripCard({ trip, onPress, disabled }: Props) {
       body={trip.vehicleName || `Booking ${trip.loadId || trip.id}`}
       accent={accent}
       imageSource={vehicleSrc}
+      imageBubbleBackgroundColor={colors.surface}
+      hideGlow
+      hideArtPin
+      hideArtArrow
       onPress={onPress}
       disabled={disabled}
       containerStyle={[styles.card, disabled && styles.disabled]}

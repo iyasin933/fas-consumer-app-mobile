@@ -5,6 +5,37 @@ type ActiveTripsBody = {
   result?: { bookings?: unknown } | ActiveTripRaw[];
 };
 
+export type DropyouQuote = {
+  quoteId?: string | number;
+  loadId?: string | number;
+  price?: string | number;
+  currency?: string;
+  vehicleType?: string;
+  quoteOwnerId?: string | number;
+  quoteOwnerCompanyName?: string;
+  quoteOwnerPhone?: string;
+  eventTime?: string;
+  createdOn?: string;
+  status?: string;
+  totalPrice?: string | number;
+  accessorials?: unknown[];
+  rawData?: Record<string, unknown>;
+  recordCreatedAt?: string;
+  recordUpdatedAt?: string;
+  [key: string]: unknown;
+};
+
+export type DropyouQuotesPage = {
+  data: DropyouQuote[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+  };
+};
+
 function activeTripsFromResponse(data: unknown): ActiveTripRaw[] {
   if (Array.isArray(data)) return data as ActiveTripRaw[];
   if (!data || typeof data !== 'object') return [];
@@ -41,6 +72,100 @@ function quoteRowsFromResponse(data: unknown): unknown[] {
   return [];
 }
 
+function numberFrom(value: unknown, fallback: number): number {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return fallback;
+}
+
+function quotePageFromResponse(data: unknown, fallbackPage: number, fallbackLimit: number): DropyouQuotesPage {
+  const fallback = {
+    total: 0,
+    page: fallbackPage,
+    limit: fallbackLimit,
+    totalPages: fallbackPage,
+    hasNextPage: false,
+  };
+
+  if (Array.isArray(data)) {
+    return {
+      data: data as DropyouQuote[],
+      meta: {
+        ...fallback,
+        total: data.length,
+        hasNextPage: data.length >= fallbackLimit,
+      },
+    };
+  }
+
+  if (!data || typeof data !== 'object') return { data: [], meta: fallback };
+
+  const body = data as Record<string, unknown>;
+  if (Array.isArray(body.result)) {
+    const rawMeta =
+      body.meta && typeof body.meta === 'object'
+        ? (body.meta as Record<string, unknown>)
+        : body.pagination && typeof body.pagination === 'object'
+          ? (body.pagination as Record<string, unknown>)
+          : body;
+    const rows = body.result;
+    const total = numberFrom(rawMeta.total ?? rawMeta.itemCount ?? rawMeta.count, rows.length);
+    const page = numberFrom(rawMeta.page, fallbackPage);
+    const limit = numberFrom(rawMeta.limit ?? rawMeta.take, fallbackLimit);
+    const totalPages = Math.max(
+      1,
+      numberFrom(rawMeta.totalPages ?? rawMeta.pageCount, Math.ceil(total / limit) || 1),
+    );
+
+    return {
+      data: rows as DropyouQuote[],
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages,
+        hasNextPage: page < totalPages,
+      },
+    };
+  }
+
+  const result = body.result && typeof body.result === 'object' ? (body.result as Record<string, unknown>) : null;
+  const source = result ?? body;
+  const rows =
+    (Array.isArray(source.data) && source.data) ||
+    (Array.isArray(source.quotes) && source.quotes) ||
+    (Array.isArray(source.results) && source.results) ||
+    [];
+  const rawMeta =
+    source.meta && typeof source.meta === 'object'
+      ? (source.meta as Record<string, unknown>)
+      : source.pagination && typeof source.pagination === 'object'
+        ? (source.pagination as Record<string, unknown>)
+        : source;
+  const total = numberFrom(rawMeta.total ?? rawMeta.itemCount ?? rawMeta.count, rows.length);
+  const page = numberFrom(rawMeta.page, fallbackPage);
+  const limit = numberFrom(rawMeta.limit ?? rawMeta.take, fallbackLimit);
+  const totalPages = Math.max(1, numberFrom(rawMeta.totalPages ?? rawMeta.pageCount, Math.ceil(total / limit) || 1));
+  const hasNextPage =
+    typeof rawMeta.hasNextPage === 'boolean'
+      ? rawMeta.hasNextPage
+      : page < totalPages || (rows.length >= limit && total === 0);
+
+  return {
+    data: rows as DropyouQuote[],
+    meta: {
+      total,
+      page,
+      limit,
+      totalPages,
+      hasNextPage,
+    },
+  };
+}
+
 export async function fetchActiveTrips(): Promise<ActiveTripRaw[]> {
   const res = await api.get<unknown>('/dropyou/active-trips');
   return activeTripsFromResponse(res.data);
@@ -66,4 +191,18 @@ export async function fetchQuotesByLoadId(loadId: string | number): Promise<unkn
   if (!id) throw new Error('Missing load id');
   const res = await api.get<unknown>(`/dropyou/quote-by-load-id/${id}`);
   return quoteRowsFromResponse(res.data);
+}
+
+/** `GET /dropyou/quotes?page=&limit=` — all TEG quotes for the signed-in consumer. */
+export async function fetchDropyouQuotesPage({
+  page,
+  limit,
+}: {
+  page: number;
+  limit: number;
+}): Promise<DropyouQuotesPage> {
+  const res = await api.get<unknown>('/dropyou/quotes', {
+    params: { page, limit },
+  });
+  return quotePageFromResponse(res.data, page, limit);
 }

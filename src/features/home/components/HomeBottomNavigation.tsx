@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { LiquidTabBarLayer } from '@/features/home/components/LiquidTabBarLayer';
+import { useNotificationUnreadDot } from '@/features/notifications/hooks/useNotificationUnreadDot';
 import { useTheme } from '@/hooks/useTheme';
 import { lightColors, type ThemeColors } from '@/shared/theme/colors';
 import type { MainTabParamList } from '@/types/navigation.types';
@@ -34,7 +35,6 @@ const TAB_META: {
   iconActive: keyof typeof Ionicons.glyphMap;
   iconInactive: keyof typeof Ionicons.glyphMap;
   label: string;
-  badge?: number;
 }[] = [
   {
     name: 'HomeMain',
@@ -59,7 +59,6 @@ const TAB_META: {
     iconActive: 'notifications',
     iconInactive: 'notifications-outline',
     label: 'Notifications',
-    badge: 3,
   },
   {
     name: 'Settings',
@@ -84,7 +83,6 @@ type TabBarMetrics = {
   tabPaddingBottom: number;
   tabGap: number;
   badgeSize: number;
-  badgeFontSize: number;
   cornerRadius: number;
   notchRadius: number;
   notchControlLength: number;
@@ -115,7 +113,6 @@ function tabBarMetrics(width: number, height: number): TabBarMetrics {
     tabPaddingBottom: compactHeight ? 5 : 6,
     tabGap: compactWidth ? 2 : 3,
     badgeSize: compactWidth ? 15 : 16,
-    badgeFontSize: compactWidth ? 8 : 9,
     cornerRadius: compactWidth ? 20 : 24,
     notchRadius,
     notchControlLength: compactWidth ? 18 : roomyWidth ? 24 : 22,
@@ -205,20 +202,14 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
     /** Notification badge dot. */
     badge: {
       position: 'absolute',
-      right: -metrics.badgeSize * 0.42,
-      top: -metrics.badgeSize * 0.25,
-      minWidth: metrics.badgeSize,
-      height: metrics.badgeSize,
+      right: -metrics.badgeSize * 0.22,
+      top: -metrics.badgeSize * 0.08,
+      width: metrics.badgeSize * 0.62,
+      height: metrics.badgeSize * 0.62,
       borderRadius: metrics.badgeSize / 2,
-      alignItems: 'center',
-      justifyContent: 'center',
-      paddingHorizontal: 4,
+      borderWidth: 2,
+      borderColor: colors.surface,
       zIndex: 6,
-    },
-    badgeTxt: {
-      color: '#ffffff',
-      fontSize: metrics.badgeFontSize,
-      fontWeight: '700',
     },
     /** Floating action button — lifts above the bar via negative top. */
     fab: {
@@ -257,6 +248,7 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
   const colors = themeColors ?? lightColors;
   const metrics = useMemo(() => tabBarMetrics(width, height), [height, width]);
   const styles = useMemo(() => createStyles(colors, metrics), [colors, metrics]);
+  const { hasUnread: hasUnreadNotifications } = useNotificationUnreadDot();
   const shouldHideForMapFlow = state.routes[state.index]?.name === 'Map';
   const logicalTabBarHeight = metrics.barHeight + insets.bottom;
   const contentWidth = Math.max(1, width - insets.left - insets.right);
@@ -385,13 +377,9 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
                     size={metrics.iconSize}
                     color={active ? colors.primary : INACTIVE_COLOR}
                   />
-                  {meta.badge != null && meta.badge > 0 && (
-                    <View style={[styles.badge, { backgroundColor: colors.danger }]}>
-                      <Text style={styles.badgeTxt}>
-                        {meta.badge > 9 ? '9+' : meta.badge}
-                      </Text>
-                    </View>
-                  )}
+                  {route.name === 'Notifications' && hasUnreadNotifications ? (
+                    <View style={[styles.badge, { backgroundColor: colors.danger }]} />
+                  ) : null}
                 </View>
                 <Text
                   numberOfLines={1}

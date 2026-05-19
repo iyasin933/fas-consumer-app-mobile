@@ -26,12 +26,17 @@ type Props = {
   accent?: string;
   iconName?: keyof typeof Ionicons.glyphMap;
   imageSource?: ImageSourcePropType;
+  artLabel?: string;
   actionLabel?: string;
   actionIcon?: keyof typeof Ionicons.glyphMap;
   footer?: ReactNode;
   selected?: boolean;
   disabled?: boolean;
   transparentArt?: boolean;
+  imageBubbleBackgroundColor?: string;
+  hideGlow?: boolean;
+  hideArtPin?: boolean;
+  hideArtArrow?: boolean;
   hideArt?: boolean;
   onPress?: () => void;
   onActionPress?: () => void;
@@ -45,6 +50,8 @@ function createStyles(
   accent: string,
   selected: boolean,
   transparentArt: boolean,
+  hideGlow: boolean,
+  imageBubbleBackgroundColor?: string,
 ) {
   const compact = width < 370;
 
@@ -148,6 +155,9 @@ function createStyles(
       alignItems: 'center',
       justifyContent: 'center',
     },
+    artPanelWithLabel: {
+      paddingBottom: 18,
+    },
     routeLine: {
       position: 'absolute',
       left: -8,
@@ -175,7 +185,7 @@ function createStyles(
       width: compact ? 56 : 64,
       height: compact ? 56 : 64,
       borderRadius: compact ? 20 : 23,
-      backgroundColor: accent,
+      backgroundColor: imageBubbleBackgroundColor ?? accent,
       alignItems: 'center',
       justifyContent: 'center',
       borderWidth: 2,
@@ -208,9 +218,20 @@ function createStyles(
       width: 140,
       height: 140,
       borderRadius: 70,
-      backgroundColor: transparentArt ? 'transparent' : accent + '10',
+      backgroundColor: transparentArt || hideGlow ? 'transparent' : accent + '10',
       right: -58,
       bottom: -70,
+    },
+    artLabel: {
+      position: 'absolute',
+      left: 8,
+      right: 8,
+      bottom: 8,
+      color: colors.textSecondary,
+      fontSize: 12,
+      lineHeight: 14,
+      fontWeight: typography.fontWeight.bold,
+      textAlign: 'center',
     },
   });
 }
@@ -223,12 +244,17 @@ export function IllustratedActionCard({
   accent: accentProp,
   iconName = 'cube',
   imageSource,
+  artLabel,
   actionLabel,
   actionIcon = 'arrow-forward',
   footer,
   selected = false,
   disabled = false,
   transparentArt = false,
+  imageBubbleBackgroundColor,
+  hideGlow = false,
+  hideArtPin = false,
+  hideArtArrow = false,
   hideArt = false,
   onPress,
   onActionPress,
@@ -239,8 +265,17 @@ export function IllustratedActionCard({
   const { width } = useWindowDimensions();
   const accent = accentProp ?? colors.primary;
   const styles = useMemo(
-    () => createStyles(colors, width, accent, selected, transparentArt),
-    [accent, colors, selected, transparentArt, width],
+    () =>
+      createStyles(
+        colors,
+        width,
+        accent,
+        selected,
+        transparentArt,
+        hideGlow,
+        imageBubbleBackgroundColor,
+      ),
+    [accent, colors, hideGlow, imageBubbleBackgroundColor, selected, transparentArt, width],
   );
 
   const content = (
@@ -285,11 +320,13 @@ export function IllustratedActionCard({
               <Ionicons name={iconName} size={38} color={accent} />
             )
           ) : (
-            <View style={styles.artPanel}>
+            <View style={[styles.artPanel, artLabel && styles.artPanelWithLabel]}>
               <View style={styles.routeLine} />
-              <View style={styles.pinBubble}>
-                <Ionicons name="location" size={18} color={colors.onPrimary} />
-              </View>
+              {hideArtPin ? null : (
+                <View style={styles.pinBubble}>
+                  <Ionicons name="location" size={18} color={colors.onPrimary} />
+                </View>
+              )}
               <View style={styles.iconBubble}>
                 {imageSource ? (
                   <Image
@@ -302,9 +339,16 @@ export function IllustratedActionCard({
                   <Ionicons name={iconName} size={31} color="#ffffff" />
                 )}
               </View>
-              <View style={styles.arrowBubble}>
-                <Ionicons name="arrow-forward" size={17} color="#ffffff" />
-              </View>
+              {hideArtArrow ? null : (
+                <View style={styles.arrowBubble}>
+                  <Ionicons name="arrow-forward" size={17} color="#ffffff" />
+                </View>
+              )}
+              {artLabel ? (
+                <Text style={styles.artLabel} numberOfLines={1}>
+                  {artLabel}
+                </Text>
+              ) : null}
             </View>
           )}
         </View>

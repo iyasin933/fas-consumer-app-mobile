@@ -4,6 +4,8 @@ import { resolveTegVehicleApiKeyForPayload } from '@/features/delivery/utils/teg
 import type { DeliveryStop, DeliveryTab, PlaceValue } from '@/features/map/types';
 import { mergeStopDateTime } from '@/features/map/utils/deliverySchedule';
 
+const UK_TIME_ZONE = 'Europe/London';
+
 /** Request body for `POST /dropyou/load` — aligned with working Postman / legacy consumer shape. */
 export type DropyouLoadPayload = {
   pickUpDate: string;
@@ -41,19 +43,44 @@ function parseNum(s: string): number {
   return Number.isFinite(n) ? n : 0;
 }
 
-function fmtYyyyMmDd(isoDate?: string): string {
-  if (!isoDate) return '';
-  const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return '';
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
+function getUkDateTimeParts(d: Date): {
+  year: string;
+  month: string;
+  day: string;
+  hour: string;
+  minute: string;
+} | null {
+  if (Number.isNaN(d.getTime())) return null;
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: UK_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(d);
+
+  const byType = new Map(parts.map((part) => [part.type, part.value]));
+  const year = byType.get('year');
+  const month = byType.get('month');
+  const day = byType.get('day');
+  const hour = byType.get('hour');
+  const minute = byType.get('minute');
+  if (!year || !month || !day || !hour || !minute) return null;
+  return { year, month, day, hour: hour === '24' ? '00' : hour, minute };
+}
+
+function fmtYyyyMmDdUk(d: Date): string {
+  const parts = getUkDateTimeParts(d);
+  if (!parts) return '';
+  return `${parts.year}-${parts.month}-${parts.day}`;
 }
 
 function fmtTimeGb(d: Date): string {
-  if (Number.isNaN(d.getTime())) return '';
-  return d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit', hour12: false });
+  const parts = getUkDateTimeParts(d);
+  if (!parts) return '';
+  return `${parts.hour}:${parts.minute}`;
 }
 
 function validDate(d: Date): boolean {
@@ -69,26 +96,17 @@ function ensureFuturePickup(pickupAt: Date): Date {
   return !validDate(pickupAt) || pickupAt.getTime() < min.getTime() ? min : pickupAt;
 }
 
-function addDays(d: Date, days: number): Date {
-  const next = new Date(d);
-  next.setDate(next.getDate() + days);
-  return next;
-}
-
-function sameClockOnDate(source: Date, targetDate: Date): Date {
-  const next = new Date(source);
-  next.setFullYear(targetDate.getFullYear(), targetDate.getMonth(), targetDate.getDate());
-  return next;
-}
-
 function minutesOfDay(d: Date): number {
-  return d.getHours() * 60 + d.getMinutes();
+  const time = fmtTimeGb(d);
+  if (!time) return 0;
+  const [hours, minutes] = time.split(':').map(Number);
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return 0;
+  return hours * 60 + minutes;
 }
 
 function setMinutesOfDay(source: Date, minutes: number): Date {
-  const next = new Date(source);
-  next.setHours(Math.floor(minutes / 60), minutes % 60, 0, 0);
-  return next;
+  const currentMinutes = minutesOfDay(source);
+  return new Date(source.getTime() + (minutes - currentMinutes) * 60 * 1000);
 }
 
 function ensureDropoffClockAfterPickup(dropoffAt: Date, pickupAt: Date): Date {
@@ -111,14 +129,6 @@ function ensureDropoffAfterPickup(
   const driveMs = Math.max(60, routeDurationSec ?? 30 * 60) * 1000;
   const arrivalAt = new Date(pickupAt.getTime() + driveMs);
   let candidate = validDate(dropoffAt) ? dropoffAt : arrivalAt;
-
-  if (scheduled) {
-    const minScheduledDate = addDays(pickupAt, 1);
-    if (candidate < minScheduledDate) {
-      candidate = sameClockOnDate(candidate, minScheduledDate);
-    }
-  }
-
   const chronological = candidate.getTime() >= arrivalAt.getTime() ? candidate : arrivalAt;
   return scheduled ? ensureDropoffClockAfterPickup(chronological, pickupAt) : chronological;
 }
@@ -127,10 +137,11 @@ function devLogSchedule(source: 'scheduled' | 'same_day', pickupAt: Date, dropof
   if (!__DEV__) return;
   console.log('[buildDropyouLoadPayload] resolved schedule', {
     source,
-    pickUpDate: fmtYyyyMmDd(pickupAt.toISOString()),
+    pickUpDate: fmtYyyyMmDdUk(pickupAt),
     pickupTime: fmtTimeGb(pickupAt),
-    dropOffDate: fmtYyyyMmDd(dropoffAt.toISOString()),
+    dropOffDate: fmtYyyyMmDdUk(dropoffAt),
     dropoffTime: fmtTimeGb(dropoffAt),
+    timeZone: UK_TIME_ZONE,
     pickupISO: pickupAt.toISOString(),
     dropoffISO: dropoffAt.toISOString(),
   });
@@ -192,8 +203,8 @@ function buildRecipientNotes(input: {
 }
 
 /**
- * Same-day tab clears schedule pills on the map; synthesize ISO dates + times from
- * “now” + Directions duration so `POST /dropyou/load` matches legacy Postman payloads.
+ * Same-day tab clears schedule pills on the map; match the web app contract by
+ * sending today's UK date with an ASAP drop-off.
  */
 function buildSameDaySchedule(routeDurationSec: number | null): {
   pickUpDate: string;
@@ -205,11 +216,12 @@ function buildSameDaySchedule(routeDurationSec: number | null): {
   const driveSec = Math.max(60, routeDurationSec ?? 90 * 60);
   const dropoffAt = new Date(pickupAt.getTime() + driveSec * 1000);
   devLogSchedule('same_day', pickupAt, dropoffAt);
+  const pickUpDate = fmtYyyyMmDdUk(pickupAt);
   return {
-    pickUpDate: fmtYyyyMmDd(pickupAt.toISOString()),
+    pickUpDate,
     pickupTime: fmtTimeGb(pickupAt),
-    dropOffDate: fmtYyyyMmDd(dropoffAt.toISOString()),
-    dropoffTime: fmtTimeGb(dropoffAt),
+    dropOffDate: pickUpDate,
+    dropoffTime: 'ASAP',
   };
 }
 
@@ -227,7 +239,7 @@ export type BuildDropyouLoadPayloadInput = {
   recipientDialCode: string;
   recipientPhoneLocal: string;
   recipientNotes: string;
-  /** Map store route duration — used for same-day dropoff time when pills are empty. */
+  /** Map store route duration — used to log same-day ETA and validate scheduled drop-off floors. */
   routeDurationSec: number | null;
 };
 
@@ -253,9 +265,9 @@ export function buildDropyouLoadPayload(input: BuildDropyouLoadPayloadInput): Dr
         );
         devLogSchedule('scheduled', pickupAt, dropoffAt);
         return {
-          pickUpDate: fmtYyyyMmDd(pickupAt.toISOString()),
+          pickUpDate: fmtYyyyMmDdUk(pickupAt),
           pickupTime: fmtTimeGb(pickupAt),
-          dropOffDate: fmtYyyyMmDd(dropoffAt.toISOString()),
+          dropOffDate: fmtYyyyMmDdUk(dropoffAt),
           dropoffTime: fmtTimeGb(dropoffAt),
         };
       })()
