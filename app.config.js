@@ -33,7 +33,7 @@ module.exports = () => {
       userInterfaceStyle: 'automatic',
       newArchEnabled: true,
       splash: {
-        image: './assets/images/dropyou-full-logo.png',
+        image: './assets/images/D-app-logo.png',
         resizeMode: 'contain',
         backgroundColor: '#ffffff',
       },

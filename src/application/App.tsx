@@ -1,11 +1,9 @@
-import { useCallback, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 import { StripeProvider } from '@stripe/stripe-react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { LoadQuotesSocketProvider } from '@/features/delivery/providers/LoadQuotesSocketProvider';
-import { AnimatedSplashScreen } from '@/features/splash/screens/AnimatedSplashScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { AuthHydration } from '@/providers/AuthHydration';
@@ -19,11 +17,6 @@ function ThemedStatusBar() {
 }
 
 export function AppRoot() {
-  const [showSplash, setShowSplash] = useState(true);
-  const handleSplashComplete = useCallback(() => {
-    setShowSplash(false);
-  }, []);
-
   const tree = (
     <SafeAreaProvider>
       <ThemeProvider>
@@ -31,11 +24,7 @@ export function AppRoot() {
           <AuthHydration>
             <LoadQuotesSocketProvider>
               <ThemedStatusBar />
-              {showSplash ? (
-                <AnimatedSplashScreen onAnimationComplete={handleSplashComplete} />
-              ) : (
-                <RootNavigator />
-              )}
+              <RootNavigator />
             </LoadQuotesSocketProvider>
           </AuthHydration>
         </QueryProvider>

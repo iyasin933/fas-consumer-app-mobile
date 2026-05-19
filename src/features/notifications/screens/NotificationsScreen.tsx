@@ -11,6 +11,7 @@ import {
   RefreshControl,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -87,14 +88,25 @@ function formatUkQuoteTimestamp(iso: string): string {
   if (Number.isNaN(date.getTime())) return '';
 
   try {
-    return new Intl.DateTimeFormat('en-GB', {
+    const dateLabel = new Intl.DateTimeFormat('en-GB', {
       timeZone: 'Europe/London',
       day: '2-digit',
       month: 'short',
+    }).format(date);
+    const timeLabel = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short',
+      hourCycle: 'h23',
     }).format(date);
+    const zoneLabel = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Europe/London',
+      timeZoneName: 'short',
+    })
+      .formatToParts(date)
+      .find((part) => part.type === 'timeZoneName')?.value;
+
+    return `${dateLabel}, ${timeLabel}${zoneLabel ? ` ${zoneLabel}` : ''}`;
   } catch {
     return '';
   }
@@ -253,7 +265,9 @@ function createStyles(colors: ThemeColors) {
     receivedText: {
       color: colors.textSecondary,
       fontSize: typography.fontSize.sm,
+      lineHeight: 20,
       fontWeight: typography.fontWeight.medium,
+      flex: 1,
     },
     emptyCard: {
       marginHorizontal: spacing.md,
@@ -323,8 +337,19 @@ function createStyles(colors: ThemeColors) {
 export function NotificationsScreen() {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const tabBarHeight = useBottomTabBarHeight();
+  const horizontalPadding = width < 380 ? spacing.md : spacing.lg;
+  const adaptiveListContent = useMemo(
+    () => ({
+      alignSelf: 'center' as const,
+      maxWidth: 720,
+      width: '100%' as const,
+      paddingHorizontal: horizontalPadding,
+    }),
+    [horizontalPadding],
+  );
   const detailsByBookingId = useBookingDetailsStore((s) => s.detailsByLoadId);
   const loadingByBookingId = useBookingDetailsStore((s) => s.loadingByLoadId);
   const setSelectedBookingId = useBookingDetailsStore((s) => s.setSelectedLoadId);
@@ -457,6 +482,7 @@ export function NotificationsScreen() {
         }
         contentContainerStyle={[
           styles.listContent,
+          adaptiveListContent,
           { paddingBottom: tabBarHeight + spacing.lg },
           quoteItems.length === 0 && { flexGrow: 1, justifyContent: 'center' },
         ]}
@@ -634,8 +660,8 @@ function QuoteNotificationCard({
             <View style={styles.cardMetaRow}>
               <View style={styles.bookingMeta}>
                 <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
-                <Text style={styles.receivedText} numberOfLines={1}>
-                  Received {quote.receivedAtLabel}
+                <Text style={styles.receivedText} numberOfLines={2}>
+                  {quote.receivedAtLabel}
                 </Text>
               </View>
             </View>

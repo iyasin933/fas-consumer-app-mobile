@@ -15,6 +15,9 @@ export type PlaceDetails = {
   lat: number;
   lng: number;
   placeId: string;
+  streetAddress?: string;
+  city?: string;
+  postalCode?: string;
 };
 
 const DEBOUNCE_MS = 300;
@@ -66,6 +69,7 @@ export function usePlacesAutocomplete(query: string, bias?: { lat: number; lng: 
         key,
         sessiontoken: sessionTokenRef.current,
         types: 'geocode',
+        components: 'country:gb',
       });
       if (bias) {
         params.set('location', `${bias.lat},${bias.lng}`);
@@ -132,6 +136,39 @@ export class PlacesDetailsError extends Error {
   }
 }
 
+type PlaceAddressComponentApi = {
+  short_name?: string;
+  long_name?: string;
+  types?: string[];
+};
+
+function isUkPlace(components?: PlaceAddressComponentApi[]): boolean {
+  return Boolean(
+    components?.some(
+      (component) =>
+        component.types?.includes('country') &&
+        component.short_name?.toUpperCase() === 'GB',
+    ),
+  );
+}
+
+function componentValue(
+  components: PlaceAddressComponentApi[] | undefined,
+  types: string[],
+): string {
+  const component = components?.find((item) =>
+    types.some((type) => item.types?.includes(type)),
+  );
+  return component?.long_name ?? component?.short_name ?? '';
+}
+
+function streetAddressFromComponents(components: PlaceAddressComponentApi[] | undefined): string {
+  const streetNumber = componentValue(components, ['street_number']);
+  const route = componentValue(components, ['route']);
+  const premise = componentValue(components, ['premise', 'subpremise']);
+  return [premise, streetNumber, route].filter(Boolean).join(' ');
+}
+
 export async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> {
   const key = env.googleMapsApiKey;
   if (!key) {
@@ -141,7 +178,7 @@ export async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> 
   const params = new URLSearchParams({
     place_id: placeId,
     key,
-    fields: 'formatted_address,geometry',
+    fields: 'formatted_address,geometry,address_components',
   });
   const url = `https://maps.googleapis.com/maps/api/place/details/json?${params.toString()}`;
 
@@ -155,6 +192,7 @@ export async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> 
       error_message?: string;
       result?: {
         formatted_address?: string;
+        address_components?: PlaceAddressComponentApi[];
         geometry?: { location?: { lat: number; lng: number } };
       };
     };
@@ -167,12 +205,22 @@ export async function fetchPlaceDetails(placeId: string): Promise<PlaceDetails> 
         json.status,
       );
     }
+    if (!isUkPlace(json.result.address_components)) {
+      throw new PlacesDetailsError('Please choose an address in the UK.', 'OUT_OF_REGION');
+    }
 
     return {
       address: json.result.formatted_address ?? '',
       lat: json.result.geometry.location.lat,
       lng: json.result.geometry.location.lng,
       placeId,
+      streetAddress: streetAddressFromComponents(json.result.address_components),
+      city: componentValue(json.result.address_components, [
+        'postal_town',
+        'locality',
+        'administrative_area_level_2',
+      ]),
+      postalCode: componentValue(json.result.address_components, ['postal_code']),
     };
   } catch (e) {
     if (e instanceof PlacesDetailsError) throw e;

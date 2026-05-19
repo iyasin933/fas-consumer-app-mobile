@@ -14,6 +14,25 @@ import type {
 
 type AuthTokensResult = { raw: unknown; accessToken?: string; refreshToken?: string };
 
+export type UpdateProfileDto = {
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  avatar?: string | null;
+  phone?: string;
+  language?: string;
+  address?: string | null;
+  postalCode?: string | null;
+  zipCode?: string | null;
+  isDarkModeOn?: boolean;
+};
+
+export type ProfileImageUploadInput = {
+  uri: string;
+  contentType: string;
+  fileSize?: number | null;
+};
+
 function withTokens(data: unknown): AuthTokensResult {
   const { accessToken, refreshToken } = pickTokens(data);
   return { raw: data, accessToken, refreshToken };
@@ -54,7 +73,7 @@ export async function googleLogin(dto: GoogleLoginDto): Promise<AuthTokensResult
   return withTokens(data);
 }
 
-/** Same envelope style as login when profile is under `result.user`. */
+/** Backend profile can arrive as `{ result: user }` or `{ result: { user } }`. */
 function unwrapResultUser(data: unknown): MeResponse | null {
   if (!data || typeof data !== 'object') return null;
   const d = data as Record<string, unknown>;
@@ -62,6 +81,7 @@ function unwrapResultUser(data: unknown): MeResponse | null {
   if (result && typeof result === 'object') {
     const u = (result as Record<string, unknown>).user;
     if (u && typeof u === 'object') return u as MeResponse;
+    return result as MeResponse;
   }
   return null;
 }
@@ -71,6 +91,66 @@ export async function fetchMe(): Promise<MeResponse> {
   const user = unwrapResultUser(data);
   if (user) return user;
   return data as MeResponse;
+}
+
+/**
+ * Web app parity:
+ * `PUT /users/:id` with profile fields, followed by `GET /auth/me`.
+ */
+export async function updateProfile(userId: string | number, dto: UpdateProfileDto): Promise<unknown> {
+  const { data } = await api.put<unknown>(`/users/${userId}`, dto);
+  return data;
+}
+
+function readSignedUpload(data: unknown): { key: string; url: string } {
+  const root = data as Record<string, unknown>;
+  const result = root?.result as Record<string, unknown> | undefined;
+  const nested = result?.data as Record<string, unknown> | undefined;
+  const key = nested?.key;
+  const url = nested?.url;
+  if (typeof key !== 'string' || typeof url !== 'string') {
+    throw new Error('Missing upload credentials.');
+  }
+  return { key, url };
+}
+
+function readPublicUploadUrl(data: unknown): string {
+  const root = data as Record<string, unknown>;
+  const result = root?.result as Record<string, unknown> | undefined;
+  const signedUrl = result?.signedUrl;
+  if (typeof signedUrl !== 'string' || !signedUrl) {
+    throw new Error('Could not retrieve uploaded image URL.');
+  }
+  return signedUrl;
+}
+
+export async function uploadProfileImage(input: ProfileImageUploadInput): Promise<string> {
+  const fileType = input.contentType.split('/')[1] ?? 'jpg';
+  const fileSizeMb =
+    input.fileSize && Number.isFinite(input.fileSize)
+      ? Math.round((input.fileSize / (1024 * 1024)) * 100) / 100
+      : 1;
+
+  const { data } = await api.post<unknown>('/docs/signed-url', {
+    fileType,
+    fileSize: fileSizeMb,
+    contentType: input.contentType,
+  });
+  const signed = readSignedUpload(data);
+  const fileResponse = await fetch(input.uri);
+  const blob = await fileResponse.blob();
+  const uploadResponse = await fetch(signed.url, {
+    method: 'PUT',
+    body: blob,
+    headers: {
+      'Content-Type': input.contentType,
+    },
+  });
+  if (!uploadResponse.ok) {
+    throw new Error('Image upload failed.');
+  }
+  const { data: publicData } = await api.get<unknown>(`/docs/signed-url/${signed.key}`);
+  return readPublicUploadUrl(publicData);
 }
 
 /**

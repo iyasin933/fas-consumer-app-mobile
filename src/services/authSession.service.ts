@@ -8,6 +8,7 @@ import { env } from '@/shared/config/env';
 import type {
   ForgotPasswordCompleteDto,
   GoogleSignInMobileParams,
+  MeResponse,
   UserLoginDto,
   UserSignupDto,
   VerifyOtpDto,
@@ -42,6 +43,10 @@ async function persistAfterAuth(accessToken: string, refresh?: string) {
 
 async function loadMeIntoStore() {
   const me = await authApi.fetchMe();
+  await mergeMeIntoStore(me);
+}
+
+async function mergeMeIntoStore(me: MeResponse) {
   const token = await tokenStorage.getAccessToken();
   const mergedId = pickUserIdFromProfile(me) ?? userIdFromJwt(token);
   if (mergedId != null && me && typeof me === 'object') {
@@ -49,6 +54,19 @@ async function loadMeIntoStore() {
   } else {
     useAuthStore.getState().setAuthedUser(me);
   }
+}
+
+export async function updateProfile(params: {
+  userId: string | number;
+  profile: authApi.UpdateProfileDto;
+}): Promise<void> {
+  await authApi.updateProfile(params.userId, params.profile);
+  await loadMeIntoStore();
+  void queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
+}
+
+export async function uploadProfileImage(input: authApi.ProfileImageUploadInput): Promise<string> {
+  return authApi.uploadProfileImage(input);
 }
 
 export async function hydrateAuthSession(): Promise<void> {
