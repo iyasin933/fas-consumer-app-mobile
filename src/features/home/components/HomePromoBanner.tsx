@@ -1,7 +1,16 @@
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import { useCallback, useMemo } from 'react';
-import { Image, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef } from 'react';
+import {
+  Animated,
+  Easing,
+  Image,
+  Pressable,
+  StyleSheet,
+  Text,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 
 import { HOME_PROMO_ILLUSTRATION } from '@/features/home/utils/homeScreenArtAssets';
 import { useHomePromo } from '@/features/home/hooks/useHomePromo';
@@ -74,10 +83,42 @@ export function HomePromoBanner() {
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(colors, width), [colors, width]);
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const personMotion = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    const animation = Animated.loop(
+      Animated.sequence([
+        Animated.timing(personMotion, {
+          toValue: 1,
+          duration: 1300,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+        Animated.timing(personMotion, {
+          toValue: 0,
+          duration: 1300,
+          easing: Easing.inOut(Easing.sin),
+          useNativeDriver: true,
+        }),
+      ]),
+    );
+
+    animation.start();
+    return () => animation.stop();
+  }, [personMotion]);
 
   const onStartNow = useCallback(() => {
     navigation.navigate('Map', { initialSnapIndex: 1 });
   }, [navigation]);
+
+  const personTranslateY = personMotion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0, -6],
+  });
+  const personScale = personMotion.interpolate({
+    inputRange: [0, 1],
+    outputRange: [1, 1.025],
+  });
 
   return (
     <View style={styles.wrap}>
@@ -95,14 +136,24 @@ export function HomePromoBanner() {
           </Pressable>
         </View>
         <View style={styles.art} accessibilityLabel="Delivery illustration" pointerEvents="none">
-          <View style={styles.artBurst}>
+          <Animated.View
+            style={[
+              styles.artBurst,
+              {
+                transform: [
+                  { translateY: personTranslateY },
+                  { scale: personScale },
+                ],
+              },
+            ]}
+          >
             <Image
               source={HOME_PROMO_ILLUSTRATION}
               style={styles.artImage}
               resizeMode="contain"
               accessibilityIgnoresInvertColors
             />
-          </View>
+          </Animated.View>
         </View>
       </View>
     </View>

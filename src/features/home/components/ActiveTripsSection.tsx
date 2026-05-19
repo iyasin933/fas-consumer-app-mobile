@@ -349,9 +349,9 @@ export function ActiveTripsSection() {
 
   return (
     <View style={styles.section}>
-      <View style={styles.header}>
+      {/* <View style={styles.header}>
         <Text style={styles.h}>{isEmpty ? 'Next Booking' : 'Active Trips'}</Text>
-      </View>
+      </View> */}
 
       {isLoading ? (
         <ScrollView

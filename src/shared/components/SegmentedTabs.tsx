@@ -31,13 +31,14 @@ function createStyles(colors: ThemeColors) {
     },
     tab: {
       flex: 1,
-      minHeight: 42,
+      minHeight: 44,
       borderRadius: 9,
       alignItems: 'center',
       justifyContent: 'center',
       flexDirection: 'row',
-      gap: 6,
-      paddingHorizontal: spacing.sm,
+      gap: spacing.xs,
+      paddingHorizontal: 6,
+      minWidth: 0,
     },
     tabActive: {
       backgroundColor: colors.primary,
@@ -46,6 +47,8 @@ function createStyles(colors: ThemeColors) {
       fontSize: typography.fontSize.sm,
       fontWeight: '700',
       color: colors.textSecondary,
+      flexShrink: 1,
+      minWidth: 0,
     },
     textActive: {
       color: colors.onPrimary,
@@ -58,6 +61,7 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
       backgroundColor: colors.background,
+      flexShrink: 0,
     },
     badgeActive: {
       backgroundColor: 'rgba(255,255,255,0.22)',
@@ -89,7 +93,12 @@ export function SegmentedTabs<T extends string>({ value, options, onChange }: Pr
             accessibilityRole="tab"
             accessibilityState={{ selected: active }}
           >
-            <Text style={[styles.text, active && styles.textActive]} numberOfLines={1}>
+            <Text
+              style={[styles.text, active && styles.textActive]}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.72}
+            >
               {option.label}
             </Text>
             {option.badge != null ? (
