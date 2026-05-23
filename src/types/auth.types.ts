@@ -13,11 +13,17 @@ export type UserSignupDto = {
   phone: string;
   email?: string;
   roleId: number;
+  status?: string;
 };
 
 export type VerifyOtpDto = {
   otp: string;
   phone: string;
+};
+
+export type VerifyEmailOtpDto = {
+  otp: string;
+  email: string;
 };
 
 export type ForgotPasswordInitiateDto = {
@@ -28,6 +34,16 @@ export type ForgotPasswordCompleteDto = {
   password: string;
   confirmPassword: string;
   otp: string;
+};
+
+export type SendOtpDto = {
+  phone: string;
+  purpose?: 'SIGNUP' | 'LOGIN' | string;
+};
+
+export type SendEmailOtpDto = {
+  email: string;
+  purpose?: 'SIGNUP' | 'LOGIN' | string;
 };
 
 export type GoogleLoginDto = {

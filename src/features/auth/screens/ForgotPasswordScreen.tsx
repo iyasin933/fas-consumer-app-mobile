@@ -1,38 +1,28 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useMemo, useState } from 'react';
-import {
-  KeyboardAvoidingView,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  Text,
-} from 'react-native';
+import { StyleSheet, Text } from 'react-native';
 
 import { forgotPasswordInitiate } from '@/api/modules/auth.api';
+import { AuthFormScaffold } from '@/features/auth/components/AuthFormScaffold';
+import {
+  AuthPhoneNumberField,
+  normalizePhoneNumber,
+} from '@/features/auth/components/AuthPhoneNumberField';
 import { useTheme } from '@/hooks/useTheme';
-import type { AuthStackParamList } from '@/types/navigation.types';
-import { toApiClientError } from '@/types/api.types';
 import { Button } from '@/shared/components/Button';
-import { TextField } from '@/shared/components/TextField';
 import type { ThemeColors } from '@/shared/theme/colors';
-import { spacing } from '@/shared/theme/spacing';
+import { toApiClientError } from '@/types/api.types';
+import type { AuthStackParamList } from '@/types/navigation.types';
 
 type Props = NativeStackScreenProps<AuthStackParamList, 'ForgotPassword'>;
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
-    flex: { flex: 1, backgroundColor: colors.background },
-    scroll: {
-      padding: spacing.lg,
-      gap: spacing.md,
+    error: {
+      color: colors.danger,
+      fontSize: 14,
+      lineHeight: 20,
     },
-    copy: {
-      fontSize: 15,
-      color: colors.textSecondary,
-      lineHeight: 22,
-      marginBottom: spacing.sm,
-    },
-    error: { color: colors.danger, fontSize: 14 },
   });
 }
 
@@ -40,53 +30,74 @@ export function ForgotPasswordScreen({ navigation }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const [phone, setPhone] = useState('');
+  const [countryCode, setCountryCode] = useState('GB');
+  const [dialCode, setDialCode] = useState('+44');
+  const [phoneLocal, setPhoneLocal] = useState('');
   const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [phoneTouched, setPhoneTouched] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+
+  const normalized = useMemo(
+    () => normalizePhoneNumber(countryCode, dialCode, phoneLocal),
+    [countryCode, dialCode, phoneLocal],
+  );
+  const phoneError = submitted || phoneTouched ? normalized.error : undefined;
+
   const onSubmit = async () => {
-    setError(null);
-    const p = phone.trim();
-    if (!p) {
-      setError('Enter the phone number for your account.');
+    setSubmitted(true);
+    setApiError(null);
+    if (!normalized.phone) {
       return;
     }
     setLoading(true);
     try {
-      await forgotPasswordInitiate({ phone: p });
-      navigation.navigate('ResetPassword', { phone: p });
+      await forgotPasswordInitiate({ phone: normalized.phone });
+      navigation.navigate('ResetPassword', { phone: normalized.phone });
     } catch (e: unknown) {
-      setError(toApiClientError(e).message);
+      setApiError(toApiClientError(e).message);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.flex}
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+    <AuthFormScaffold
+      title="Forgot password"
+      subtitle="Enter the phone number linked to your DropYou account. We will send a one-time code."
     >
-      <ScrollView
-        contentContainerStyle={styles.scroll}
-        keyboardShouldPersistTaps="handled"
-      >
-        <Text style={styles.copy}>
-          We&apos;ll send a one-time code to your phone number so you can set a new
-          password.
+      <AuthPhoneNumberField
+        countryCode={countryCode}
+        dialCode={dialCode}
+        localNumber={phoneLocal}
+        onBlur={() => setPhoneTouched(true)}
+        onChangeCountryCode={(value) => {
+          setApiError(null);
+          setCountryCode(value);
+          setPhoneTouched(true);
+        }}
+        onChangeDialCode={setDialCode}
+        onChangeLocalNumber={(value) => {
+          setApiError(null);
+          setPhoneLocal(value);
+        }}
+        error={phoneError ?? undefined}
+        returnKeyType="done"
+        onSubmitEditing={() => void onSubmit()}
+      />
+
+      {apiError ? (
+        <Text selectable style={styles.error}>
+          {apiError}
         </Text>
+      ) : null}
 
-        <TextField
-          label="Phone"
-          keyboardType="phone-pad"
-          value={phone}
-          onChangeText={setPhone}
-          placeholder="+44 ..."
-        />
-
-        {error ? <Text style={styles.error}>{error}</Text> : null}
-
-        <Button title="Send OTP" onPress={() => void onSubmit()} loading={loading} />
-      </ScrollView>
-    </KeyboardAvoidingView>
+      <Button
+        title="Send OTP"
+        onPress={() => void onSubmit()}
+        loading={loading}
+        disabled={submitted && !normalized.phone}
+      />
+    </AuthFormScaffold>
   );
 }

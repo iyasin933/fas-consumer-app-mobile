@@ -12,6 +12,7 @@ type ButtonProps = {
   variant?: 'primary' | 'outline';
   style?: ViewStyle;
   leftAccessory?: ReactNode;
+  testID?: string;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -60,6 +61,7 @@ export function Button({
   variant = 'primary',
   style,
   leftAccessory,
+  testID,
 }: ButtonProps) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -67,6 +69,7 @@ export function Button({
   return (
     <Pressable
       accessibilityRole="button"
+      testID={testID}
       onPress={onPress}
       disabled={disabled || loading}
       style={({ pressed }) => [

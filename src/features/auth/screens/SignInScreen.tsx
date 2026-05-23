@@ -17,6 +17,7 @@ import type { AuthStackParamList } from '@/types/navigation.types';
 import { toApiClientError } from '@/types/api.types';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { Button } from '@/shared/components/Button';
+import { PasswordTextField } from '@/shared/components/PasswordTextField';
 import { TextField } from '@/shared/components/TextField';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
@@ -133,9 +134,8 @@ export function SignInScreen({ navigation }: Props) {
               onChangeText={setEmail}
               placeholder="you@example.com"
             />
-            <TextField
+            <PasswordTextField
               label="Password"
-              secureTextEntry
               value={password}
               onChangeText={setPassword}
               placeholder="••••••••"

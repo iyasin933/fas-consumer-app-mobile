@@ -1,12 +1,16 @@
 import { api } from '@/api/client';
 import { pickTokens } from '@/api/authTokens';
+import { isAxiosError } from 'axios';
 import type {
   ForgotPasswordCompleteDto,
   ForgotPasswordInitiateDto,
   GoogleLoginDto,
   MeResponse,
+  SendEmailOtpDto,
+  SendOtpDto,
   UserLoginDto,
   UserSignupDto,
+  VerifyEmailOtpDto,
   VerifyOtpDto,
 } from '@/types/auth.types';
 
@@ -38,6 +42,16 @@ function withTokens(data: unknown): AuthTokensResult {
   return { raw: data, accessToken, refreshToken };
 }
 
+function logGoogleAuth(step: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[google-auth][api] ${step}`, details ?? '');
+  }
+}
+
+function objectKeys(value: unknown) {
+  return value && typeof value === 'object' ? Object.keys(value) : [];
+}
+
 export async function login(dto: UserLoginDto): Promise<AuthTokensResult> {
   const { data } = await api.post<unknown>('/auth/login', dto);
   return withTokens(data);
@@ -53,6 +67,13 @@ export async function verifySignupOtp(dto: VerifyOtpDto): Promise<AuthTokensResu
   return withTokens(data);
 }
 
+export async function verifySignupEmailOtp(
+  dto: VerifyEmailOtpDto,
+): Promise<AuthTokensResult> {
+  const { data } = await api.post<unknown>('/auth/signup/verify/otp', dto);
+  return withTokens(data);
+}
+
 export async function forgotPasswordInitiate(
   dto: ForgotPasswordInitiateDto,
 ): Promise<unknown> {
@@ -60,17 +81,69 @@ export async function forgotPasswordInitiate(
   return data;
 }
 
-export async function forgotPasswordComplete(dto: ForgotPasswordCompleteDto): Promise<AuthTokensResult> {
+export async function forgotPasswordComplete(
+  dto: ForgotPasswordCompleteDto,
+): Promise<AuthTokensResult> {
   const { data } = await api.post<unknown>('/auth/password/forgot/complete', dto);
   return withTokens(data);
 }
 
+export async function sendOtp(dto: SendOtpDto): Promise<unknown> {
+  const { data } = await api.post<unknown>('/auth/send-otp', dto);
+  return data;
+}
+
+export async function sendEmailOtp(dto: SendEmailOtpDto): Promise<unknown> {
+  const { data } = await api.post<unknown>('/auth/send-otp-email', dto);
+  return data;
+}
+
 export async function googleLogin(dto: GoogleLoginDto): Promise<AuthTokensResult> {
-  const { data } = await api.post<unknown>('/auth/google/login', {
+  const body = {
     ...dto,
     source: dto.source ?? 'mobile',
+  };
+  logGoogleAuth('request /auth/google/login', {
+    source: body.source,
+    hasCode: Boolean(body.code),
+    codeLength: body.code?.length ?? 0,
+    hasCodeVerifier: Boolean(body.codeVerifier),
+    codeVerifierLength: body.codeVerifier?.length ?? 0,
+    redirectUri: body.redirectUri,
   });
-  return withTokens(data);
+  try {
+    const { data, status } = await api.post<unknown>('/auth/google/login', body);
+    const tokens = withTokens(data);
+    logGoogleAuth('response /auth/google/login', {
+      status,
+      rootKeys: objectKeys(data),
+      dataKeys:
+        data && typeof data === 'object'
+          ? objectKeys((data as Record<string, unknown>).data)
+          : [],
+      resultKeys:
+        data && typeof data === 'object'
+          ? objectKeys((data as Record<string, unknown>).result)
+          : [],
+      hasAccessToken: Boolean(tokens.accessToken),
+      accessTokenLength: tokens.accessToken?.length ?? 0,
+      hasRefreshToken: Boolean(tokens.refreshToken),
+    });
+    return tokens;
+  } catch (error: unknown) {
+    if (isAxiosError(error)) {
+      logGoogleAuth('error /auth/google/login', {
+        status: error.response?.status,
+        message: error.response?.data?.message ?? error.message,
+        responseKeys: objectKeys(error.response?.data),
+      });
+    } else {
+      logGoogleAuth('error /auth/google/login', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    throw error;
+  }
 }
 
 /** Backend profile can arrive as `{ result: user }` or `{ result: { user } }`. */
@@ -87,17 +160,40 @@ function unwrapResultUser(data: unknown): MeResponse | null {
 }
 
 export async function fetchMe(): Promise<MeResponse> {
-  const { data } = await api.get<unknown>('/auth/me');
-  const user = unwrapResultUser(data);
-  if (user) return user;
-  return data as MeResponse;
+  try {
+    logGoogleAuth('request /auth/me');
+    const { data, status } = await api.get<unknown>('/auth/me');
+    logGoogleAuth('response /auth/me', {
+      status,
+      rootKeys: objectKeys(data),
+      resultKeys:
+        data && typeof data === 'object'
+          ? objectKeys((data as Record<string, unknown>).result)
+          : [],
+    });
+    const user = unwrapResultUser(data);
+    if (user) return user;
+    return data as MeResponse;
+  } catch (error: unknown) {
+    if (isAxiosError(error)) {
+      logGoogleAuth('error /auth/me', {
+        status: error.response?.status,
+        message: error.response?.data?.message ?? error.message,
+        responseKeys: objectKeys(error.response?.data),
+      });
+    }
+    throw error;
+  }
 }
 
 /**
  * Web app parity:
  * `PUT /users/:id` with profile fields, followed by `GET /auth/me`.
  */
-export async function updateProfile(userId: string | number, dto: UpdateProfileDto): Promise<unknown> {
+export async function updateProfile(
+  userId: string | number,
+  dto: UpdateProfileDto,
+): Promise<unknown> {
   const { data } = await api.put<unknown>(`/users/${userId}`, dto);
   return data;
 }
@@ -124,21 +220,46 @@ function readPublicUploadUrl(data: unknown): string {
   return signedUrl;
 }
 
-export async function uploadProfileImage(input: ProfileImageUploadInput): Promise<string> {
+function logProfileImageUpload(message: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[profile-image-upload] ${message}`, details ?? '');
+  }
+}
+
+export async function uploadProfileImage(
+  input: ProfileImageUploadInput,
+): Promise<string> {
   const fileType = input.contentType.split('/')[1] ?? 'jpg';
   const fileSizeMb =
     input.fileSize && Number.isFinite(input.fileSize)
       ? Math.round((input.fileSize / (1024 * 1024)) * 100) / 100
       : 1;
 
+  logProfileImageUpload('requesting signed upload URL', {
+    contentType: input.contentType,
+    fileType,
+    fileSizeMb,
+  });
   const { data } = await api.post<unknown>('/docs/signed-url', {
     fileType,
     fileSize: fileSizeMb,
     contentType: input.contentType,
   });
   const signed = readSignedUpload(data);
+  logProfileImageUpload('signed upload URL received', { key: signed.key });
+
+  logProfileImageUpload('reading local image file', { uri: input.uri });
   const fileResponse = await fetch(input.uri);
+  logProfileImageUpload('local image file read', {
+    ok: fileResponse.ok,
+    status: fileResponse.status,
+  });
   const blob = await fileResponse.blob();
+  logProfileImageUpload('uploading image bytes', {
+    key: signed.key,
+    blobSize: blob.size,
+    contentType: input.contentType,
+  });
   const uploadResponse = await fetch(signed.url, {
     method: 'PUT',
     body: blob,
@@ -146,11 +267,19 @@ export async function uploadProfileImage(input: ProfileImageUploadInput): Promis
       'Content-Type': input.contentType,
     },
   });
+  logProfileImageUpload('upload response received', {
+    key: signed.key,
+    ok: uploadResponse.ok,
+    status: uploadResponse.status,
+  });
   if (!uploadResponse.ok) {
     throw new Error('Image upload failed.');
   }
+  logProfileImageUpload('requesting public read URL', { key: signed.key });
   const { data: publicData } = await api.get<unknown>(`/docs/signed-url/${signed.key}`);
-  return readPublicUploadUrl(publicData);
+  const publicUrl = readPublicUploadUrl(publicData);
+  logProfileImageUpload('public read URL received', { key: signed.key });
+  return publicUrl;
 }
 
 /**

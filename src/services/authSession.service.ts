@@ -11,6 +11,7 @@ import type {
   MeResponse,
   UserLoginDto,
   UserSignupDto,
+  VerifyEmailOtpDto,
   VerifyOtpDto,
 } from '@/types/auth.types';
 import { useAuthStore } from '@/store/authStore';
@@ -37,13 +38,29 @@ async function migrateLegacyTokens(): Promise<void> {
 }
 
 async function persistAfterAuth(accessToken: string, refresh?: string) {
+  logGoogleAuth('persist tokens start', {
+    accessTokenLength: accessToken.length,
+    hasRefreshToken: Boolean(refresh),
+  });
   await tokenStorage.setAccessToken(accessToken);
   if (refresh) await tokenStorage.setRefreshToken(refresh);
+  logGoogleAuth('persist tokens complete');
 }
 
 async function loadMeIntoStore() {
+  logGoogleAuth('load me start');
   const me = await authApi.fetchMe();
+  logGoogleAuth('load me response received', {
+    keys: me && typeof me === 'object' ? Object.keys(me) : [],
+  });
   await mergeMeIntoStore(me);
+  logGoogleAuth('load me stored');
+}
+
+function logGoogleAuth(step: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[google-auth][session] ${step}`, details ?? '');
+  }
 }
 
 async function mergeMeIntoStore(me: MeResponse) {
@@ -65,7 +82,9 @@ export async function updateProfile(params: {
   void queryClient.invalidateQueries({ queryKey: queryKeys.auth.me });
 }
 
-export async function uploadProfileImage(input: authApi.ProfileImageUploadInput): Promise<string> {
+export async function uploadProfileImage(
+  input: authApi.ProfileImageUploadInput,
+): Promise<string> {
   return authApi.uploadProfileImage(input);
 }
 
@@ -111,12 +130,16 @@ export async function signUp(params: Omit<UserSignupDto, 'roleId'>): Promise<voi
       'Set EXPO_PUBLIC_CONSUMER_ROLE_ID in `.env` (consumer role numeric id from your API).',
     );
   }
-  await authApi.signup({ ...params, roleId: env.consumerRoleId });
+  await authApi.signup({
+    ...params,
+    roleId: env.consumerRoleId,
+    status: params.status ?? 'ACTIVE',
+  });
 }
 
 export async function verifySignupOtp(dto: VerifyOtpDto): Promise<void> {
   const { accessToken, refreshToken } = await authApi.verifySignupOtp(dto);
-  if (!accessToken) throw new Error('Verified, but no access token was returned.');
+  if (!accessToken) return;
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
   useAuthStore.getState().setSession({ session: 'authed' });
@@ -125,10 +148,24 @@ export async function verifySignupOtp(dto: VerifyOtpDto): Promise<void> {
   void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
 }
 
-export async function completeForgotPassword(dto: ForgotPasswordCompleteDto): Promise<void> {
+export async function verifySignupEmailOtp(dto: VerifyEmailOtpDto): Promise<void> {
+  const { accessToken, refreshToken } = await authApi.verifySignupEmailOtp(dto);
+  if (!accessToken) return;
+  await persistAfterAuth(accessToken, refreshToken);
+  await loadMeIntoStore();
+  useAuthStore.getState().setSession({ session: 'authed' });
+  void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
+  void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
+  void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
+}
+
+export async function completeForgotPassword(
+  dto: ForgotPasswordCompleteDto,
+): Promise<void> {
   const { accessToken, refreshToken } = await authApi.forgotPasswordComplete(dto);
   if (!accessToken) {
-    throw new Error('Password updated, but no access token was returned. Try signing in.');
+    useAuthStore.getState().setSession({ session: 'guest' });
+    return;
   }
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
@@ -138,15 +175,38 @@ export async function completeForgotPassword(dto: ForgotPasswordCompleteDto): Pr
   void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
 }
 
-export async function signInWithGoogleToken(params: GoogleSignInMobileParams): Promise<void> {
+export async function resendSignupOtp(phone: string): Promise<void> {
+  await authApi.sendOtp({ phone: phone.trim(), purpose: 'SIGNUP' });
+}
+
+export async function resendSignupEmailOtp(email: string): Promise<void> {
+  await authApi.sendEmailOtp({ email: email.trim(), purpose: 'SIGNUP' });
+}
+
+export async function signInWithGoogleToken(
+  params: GoogleSignInMobileParams,
+): Promise<void> {
+  logGoogleAuth('start backend sign-in', {
+    hasCode: Boolean(params.code),
+    codeLength: params.code.length,
+    hasCodeVerifier: Boolean(params.codeVerifier),
+    codeVerifierLength: params.codeVerifier?.length ?? 0,
+    redirectUri: params.redirectUri,
+  });
   const { accessToken, refreshToken } = await authApi.googleLogin({
     ...params,
     source: 'mobile',
+  });
+  logGoogleAuth('backend exchange parsed', {
+    hasAccessToken: Boolean(accessToken),
+    accessTokenLength: accessToken?.length ?? 0,
+    hasRefreshToken: Boolean(refreshToken),
   });
   if (!accessToken) throw new Error('Google login did not return an access token.');
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
   useAuthStore.getState().setSession({ session: 'authed' });
+  logGoogleAuth('session authed');
   void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
   void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
   void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });

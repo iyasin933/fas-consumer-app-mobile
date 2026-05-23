@@ -6,7 +6,7 @@ function pickTokensFromResultEnvelope(o: Record<string, unknown>): {
   accessToken?: string;
   refreshToken?: string;
 } {
-  const result = o.result;
+  const result = o.result ?? o.data;
   if (!result || typeof result !== 'object') return {};
   const r = result as Record<string, unknown>;
   const token = r.token;
@@ -27,7 +27,10 @@ function pickTokensFromResultEnvelope(o: Record<string, unknown>): {
   return { accessToken, refreshToken };
 }
 
-export function pickTokens(payload: unknown): { accessToken?: string; refreshToken?: string } {
+export function pickTokens(payload: unknown): {
+  accessToken?: string;
+  refreshToken?: string;
+} {
   const fromFlat = (o: Record<string, unknown>) => {
     const accessToken =
       (typeof o.access_token === 'string' && o.access_token) ||

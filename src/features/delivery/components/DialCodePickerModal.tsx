@@ -7,6 +7,7 @@ import {
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -14,10 +15,10 @@ import { useTheme } from '@/hooks/useTheme';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
-type DialRow = { code: string; name: string; dial: string };
+export type DialRow = { code: string; name: string; dial: string };
 
 /** Curated list (dial codes) — extend as needed for your markets. */
-const DIAL_ROWS: DialRow[] = [
+export const DIAL_ROWS: DialRow[] = [
   { code: 'GB', name: 'United Kingdom', dial: '+44' },
   { code: 'IE', name: 'Ireland', dial: '+353' },
   { code: 'US', name: 'United States', dial: '+1' },
@@ -72,12 +73,25 @@ type Props = {
   visible: boolean;
   onClose: () => void;
   /** Called with E.164-style dial prefix including `+`. */
-  onPickDial: (dialCode: string) => void;
+  onPickDial: (dialCode: string, countryCode?: string) => void;
+  selectedCode?: string;
 };
 
-export function DialCodePickerModal({ visible, onClose, onPickDial }: Props) {
+export function countryCodeToFlag(countryCode: string) {
+  return countryCode
+    .toUpperCase()
+    .replace(/./g, (char) => String.fromCodePoint(127397 + char.charCodeAt(0)));
+}
+
+export function DialCodePickerModal({
+  visible,
+  onClose,
+  onPickDial,
+  selectedCode,
+}: Props) {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
+  const { height } = useWindowDimensions();
   const [q, setQ] = useState('');
 
   const filtered = useMemo(() => {
@@ -91,6 +105,8 @@ export function DialCodePickerModal({ visible, onClose, onPickDial }: Props) {
     );
   }, [q]);
 
+  const sheetHeight = Math.min(height * 0.72, Math.max(520, height - insets.top - 24));
+
   const styles = useMemo(
     () =>
       StyleSheet.create({
@@ -100,11 +116,14 @@ export function DialCodePickerModal({ visible, onClose, onPickDial }: Props) {
           justifyContent: 'flex-end',
         },
         sheet: {
-          maxHeight: '88%',
+          height: sheetHeight,
           backgroundColor: colors.surface,
           borderTopLeftRadius: 16,
           borderTopRightRadius: 16,
           paddingBottom: Math.max(insets.bottom, spacing.md),
+        },
+        list: {
+          flex: 1,
         },
         head: {
           flexDirection: 'row',
@@ -116,8 +135,16 @@ export function DialCodePickerModal({ visible, onClose, onPickDial }: Props) {
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         },
-        headTitle: { fontSize: typography.fontSize.lg, fontWeight: '700', color: colors.textPrimary },
-        close: { fontSize: typography.fontSize.md, fontWeight: '600', color: colors.primary },
+        headTitle: {
+          fontSize: typography.fontSize.lg,
+          fontWeight: '700',
+          color: colors.textPrimary,
+        },
+        close: {
+          fontSize: typography.fontSize.md,
+          fontWeight: '600',
+          color: colors.primary,
+        },
         search: {
           marginHorizontal: spacing.lg,
           marginTop: spacing.md,
@@ -138,17 +165,44 @@ export function DialCodePickerModal({ visible, onClose, onPickDial }: Props) {
           borderBottomWidth: StyleSheet.hairlineWidth,
           borderBottomColor: colors.border,
         },
-        rowLeft: { flex: 1, paddingRight: spacing.md },
-        rowName: { fontSize: typography.fontSize.md, color: colors.textPrimary, fontWeight: '600' },
-        rowMeta: { fontSize: typography.fontSize.sm, color: colors.textSecondary, marginTop: 2 },
-        dial: { fontSize: typography.fontSize.md, fontWeight: '800', color: colors.primary },
+        rowLeft: {
+          flex: 1,
+          paddingRight: spacing.md,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+        },
+        flag: { fontSize: 26 },
+        rowText: { flex: 1 },
+        rowName: {
+          fontSize: typography.fontSize.md,
+          color: colors.textPrimary,
+          fontWeight: '600',
+        },
+        rowMeta: {
+          fontSize: typography.fontSize.sm,
+          color: colors.textSecondary,
+          marginTop: 2,
+        },
+        dial: {
+          fontSize: typography.fontSize.md,
+          fontWeight: '800',
+          color: colors.primary,
+        },
+        selectedDot: {
+          width: 8,
+          height: 8,
+          borderRadius: 4,
+          backgroundColor: colors.primary,
+          marginLeft: spacing.sm,
+        },
       }),
-    [colors, insets.bottom],
+    [colors, insets.bottom, sheetHeight],
   );
 
   const onSelect = useCallback(
-    (dial: string) => {
-      onPickDial(dial);
+    (row: DialRow) => {
+      onPickDial(row.dial, row.code);
       setQ('');
       onClose();
     },
@@ -176,15 +230,25 @@ export function DialCodePickerModal({ visible, onClose, onPickDial }: Props) {
           />
           <FlatList
             data={filtered}
+            style={styles.list}
+            contentContainerStyle={filtered.length ? undefined : { flexGrow: 1 }}
             keyExtractor={(item) => item.code}
             keyboardShouldPersistTaps="handled"
             renderItem={({ item }) => (
-              <Pressable style={styles.row} onPress={() => onSelect(item.dial)}>
+              <Pressable style={styles.row} onPress={() => onSelect(item)}>
                 <View style={styles.rowLeft}>
-                  <Text style={styles.rowName}>{item.name}</Text>
-                  <Text style={styles.rowMeta}>{item.code}</Text>
+                  <Text style={styles.flag}>{countryCodeToFlag(item.code)}</Text>
+                  <View style={styles.rowText}>
+                    <Text style={styles.rowName}>{item.name}</Text>
+                    <Text style={styles.rowMeta}>{item.code}</Text>
+                  </View>
                 </View>
-                <Text style={styles.dial}>{item.dial}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                  <Text style={styles.dial}>{item.dial}</Text>
+                  {selectedCode === item.code ? (
+                    <View style={styles.selectedDot} />
+                  ) : null}
+                </View>
               </Pressable>
             )}
             ListEmptyComponent={

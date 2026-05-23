@@ -73,6 +73,12 @@ function getImagePicker(): ImagePickerModule | null {
   }
 }
 
+function logProfileImage(message: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[profile-image] ${message}`, details ?? '');
+  }
+}
+
 function asRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
 }
@@ -561,10 +567,20 @@ export function SettingsScreen() {
         throw new Error('We could not find your user id. Please sign in again.');
       }
       const email = nextForm.email.trim();
-      const avatar = selectedImage
-        ? await authSession.uploadProfileImage(selectedImage)
-        : nextForm.avatar || null;
+      let avatar = nextForm.avatar || null;
+      if (selectedImage) {
+        logProfileImage('uploading selected image before profile save', {
+          contentType: selectedImage.contentType,
+          fileSize: selectedImage.fileSize,
+        });
+        avatar = await authSession.uploadProfileImage(selectedImage);
+        logProfileImage('selected image uploaded', { hasAvatarUrl: Boolean(avatar) });
+      }
 
+      logProfileImage('saving profile', {
+        hasSelectedImage: Boolean(selectedImage),
+        hasAvatar: Boolean(avatar),
+      });
       await authSession.updateProfile({
         userId,
         profile: {
@@ -581,11 +597,15 @@ export function SettingsScreen() {
       });
     },
     onSuccess: () => {
+      logProfileImage('profile saved successfully');
       setSelectedImage(null);
       setSubmitAttempted(false);
       setSuccessMessage('Profile updated successfully');
     },
     onError: (error) => {
+      logProfileImage('profile save failed', {
+        message: error instanceof Error ? error.message : String(error),
+      });
       Alert.alert('Profile', error instanceof Error ? error.message : 'Could not update profile.');
     },
   });
@@ -682,8 +702,10 @@ export function SettingsScreen() {
   };
 
   const changeProfileImage = async () => {
+    logProfileImage('change profile photo pressed');
     const imagePicker = getImagePicker();
     if (!imagePicker) {
+      logProfileImage('image picker native module unavailable');
       Alert.alert(
         'Profile photo',
         'Photo upload needs the updated development build. Please rebuild and run the app, then try again.',
@@ -692,6 +714,7 @@ export function SettingsScreen() {
     }
 
     const permission = await imagePicker.requestMediaLibraryPermissionsAsync();
+    logProfileImage('media library permission result', { granted: permission.granted });
     if (!permission.granted) {
       Alert.alert('Profile photo', 'Please allow photo library access to change your profile image.');
       return;
@@ -704,10 +727,19 @@ export function SettingsScreen() {
       quality: 0.82,
     });
 
-    if (result.canceled || !result.assets[0]) return;
+    if (result.canceled || !result.assets[0]) {
+      logProfileImage('image selection canceled');
+      return;
+    }
     const asset = result.assets[0];
     const contentType = asset.mimeType ?? 'image/jpeg';
+    logProfileImage('image selected', {
+      uri: asset.uri,
+      contentType,
+      fileSize: asset.fileSize,
+    });
     if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
+      logProfileImage('image rejected because it is too large', { fileSize: asset.fileSize });
       Alert.alert('Profile photo', 'Please choose an image under 10 MB.');
       return;
     }
@@ -768,6 +800,7 @@ export function SettingsScreen() {
                 onPress={() => void changeProfileImage()}
                 accessibilityRole="button"
                 accessibilityLabel="Change profile photo"
+                testID="profile-photo-change-button"
               >
                 {avatarUrl ? (
                   <Image source={{ uri: avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
@@ -978,6 +1011,7 @@ export function SettingsScreen() {
                 onPress={resetProfile}
                 disabled={!isDirty || profileMutation.isPending}
                 style={styles.resetButton}
+                testID="profile-discard-button"
               />
               <Button
                 title="Save Changes"
@@ -985,6 +1019,7 @@ export function SettingsScreen() {
                 disabled={!isDirty || !hasValidRequiredNames}
                 loading={profileMutation.isPending}
                 style={styles.saveButton}
+                testID="profile-save-button"
                 leftAccessory={
                   profileMutation.isPending ? (
                     <ActivityIndicator color={colors.onPrimary} size="small" />

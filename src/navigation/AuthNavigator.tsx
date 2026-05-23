@@ -41,7 +41,7 @@ export function AuthNavigator() {
       <Stack.Screen
         name="SignUpVerify"
         component={SignUpVerifyScreen}
-        options={{ title: 'Verify phone', headerBackTitle: 'Create account' }}
+        options={{ title: 'Verify account', headerBackTitle: 'Create account' }}
       />
     </Stack.Navigator>
   );

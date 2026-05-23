@@ -15,18 +15,23 @@
 module.exports = () => {
   const iosKey = process.env.GOOGLE_MAPS_IOS_API_KEY ?? '';
   const androidKey = process.env.GOOGLE_MAPS_ANDROID_API_KEY ?? '';
+  const googleIosClientId = (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '').trim();
+  const googleIosUrlScheme = googleIosClientId.endsWith('.apps.googleusercontent.com')
+    ? `com.googleusercontent.apps.${googleIosClientId.replace(
+        '.apps.googleusercontent.com',
+        '',
+      )}`
+    : '';
 
   const iosConfig = iosKey ? { googleMapsApiKey: iosKey } : undefined;
-  const androidConfig = androidKey
-    ? { googleMaps: { apiKey: androidKey } }
-    : undefined;
+  const androidConfig = androidKey ? { googleMaps: { apiKey: androidKey } } : undefined;
 
   return {
     expo: {
       owner: 'immi911',
       name: 'DropYou',
       slug: 'dropyou',
-      scheme: 'dropyou',
+      scheme: googleIosUrlScheme ? ['dropyou', googleIosUrlScheme] : 'dropyou',
       version: '1.0.0',
       orientation: 'portrait',
       icon: './assets/images/D-app-logo.png',

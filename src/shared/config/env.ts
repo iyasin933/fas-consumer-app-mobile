@@ -16,8 +16,9 @@ export const env = {
   consumerRoleId: process.env.EXPO_PUBLIC_CONSUMER_ROLE_ID
     ? Number(process.env.EXPO_PUBLIC_CONSUMER_ROLE_ID)
     : undefined,
-  googleIosClientId: process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '',
-  googleWebClientId: process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '',
+  googleIosClientId: (process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ?? '').trim(),
+  googleAndroidClientId: (process.env.EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID ?? '').trim(),
+  googleWebClientId: (process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ?? '').trim(),
   /** Used for Places Autocomplete + Geocoding HTTP calls from the app. */
   googleMapsApiKey: (process.env.EXPO_PUBLIC_GOOGLE_MAPS_API_KEY ?? '').trim(),
   /** Stripe publishable key — required for Payment Sheet (`@stripe/stripe-react-native`). */
@@ -36,13 +37,13 @@ export const env = {
   socketUrl:
     trimTrailingSlashes(process.env.EXPO_PUBLIC_SOCKET_URL ?? '') ||
     trimTrailingSlashes(
-      String(process.env.EXPO_PUBLIC_API_URL ?? 'https://api.dropyou.co.uk/api/v1').replace(
-        /\/api\/v\d+\/?$/i,
-        '',
-      ),
+      String(
+        process.env.EXPO_PUBLIC_API_URL ?? 'https://api.dropyou.co.uk/api/v1',
+      ).replace(/\/api\/v\d+\/?$/i, ''),
     ),
   /**
    * Engine.IO path (Socket.IO default is `/socket.io`). Set if your gateway mounts elsewhere.
    */
-  socketPath: trimTrailingSlashes(process.env.EXPO_PUBLIC_SOCKET_PATH ?? '') || '/socket.io',
+  socketPath:
+    trimTrailingSlashes(process.env.EXPO_PUBLIC_SOCKET_PATH ?? '') || '/socket.io',
 };

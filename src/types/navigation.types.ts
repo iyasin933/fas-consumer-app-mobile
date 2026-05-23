@@ -1,5 +1,8 @@
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { CompositeNavigationProp, NavigatorScreenParams } from '@react-navigation/native';
+import type {
+  CompositeNavigationProp,
+  NavigatorScreenParams,
+} from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type AuthStackParamList = {
@@ -7,7 +10,7 @@ export type AuthStackParamList = {
   SignUp: undefined;
   ForgotPassword: undefined;
   ResetPassword: { phone: string };
-  SignUpVerify: { phone: string };
+  SignUpVerify: { phone: string; email: string; password?: string };
 };
 
 /**

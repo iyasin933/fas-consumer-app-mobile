@@ -2,7 +2,7 @@ import { makeRedirectUri } from 'expo-auth-session';
 import * as Google from 'expo-auth-session/providers/google';
 import * as WebBrowser from 'expo-web-browser';
 import { useCallback, useEffect, useRef } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, Platform, View } from 'react-native';
 
 import { GoogleLogoSvg } from '@/features/auth/components/GoogleLogoSvg';
 import { useAuth } from '@/hooks/useAuth';
@@ -11,26 +11,83 @@ import { env } from '@/shared/config/env';
 
 WebBrowser.maybeCompleteAuthSession();
 
-export function GoogleSignInButton() {
-  const { signInWithGoogleToken } = useAuth();
-  const handled = useRef(false);
+type GoogleSignInButtonProps = {
+  buttonText?: string;
+};
 
-  const redirectUri = makeRedirectUri({
+const MISSING_GOOGLE_CLIENT_ID = 'missing-google-client-id.apps.googleusercontent.com';
+
+function logGoogleAuth(step: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[google-auth][button] ${step}`, details ?? '');
+  }
+}
+
+function getPlatformGoogleClientId() {
+  if (Platform.OS === 'ios') return env.googleIosClientId;
+  if (Platform.OS === 'android') return env.googleAndroidClientId;
+  return env.googleWebClientId;
+}
+
+function googleIosUrlScheme(clientId: string) {
+  if (!clientId.endsWith('.apps.googleusercontent.com')) return '';
+  return `com.googleusercontent.apps.${clientId.replace('.apps.googleusercontent.com', '')}`;
+}
+
+function getRedirectUri() {
+  if (Platform.OS === 'ios') {
+    const scheme = googleIosUrlScheme(env.googleIosClientId);
+    if (scheme) return `${scheme}:/oauthredirect`;
+  }
+
+  return makeRedirectUri({
     scheme: 'dropyou',
     path: 'oauth',
   });
+}
+
+export function GoogleSignInButton({
+  buttonText = 'Continue with Google',
+}: GoogleSignInButtonProps) {
+  const { signInWithGoogleToken } = useAuth();
+  const handled = useRef(false);
+  const platformClientId = getPlatformGoogleClientId();
+  const hasPlatformClientId = Boolean(platformClientId);
+
+  const redirectUri = getRedirectUri();
 
   const [request, response, promptAsync] = Google.useAuthRequest({
-    iosClientId: env.googleIosClientId || undefined,
-    webClientId: env.googleWebClientId || undefined,
+    iosClientId: env.googleIosClientId || MISSING_GOOGLE_CLIENT_ID,
+    androidClientId: env.googleAndroidClientId || MISSING_GOOGLE_CLIENT_ID,
+    webClientId: env.googleWebClientId || MISSING_GOOGLE_CLIENT_ID,
     redirectUri,
     scopes: ['openid', 'profile', 'email'],
+    selectAccount: true,
+    shouldAutoExchangeCode: false,
   });
+
+  useEffect(() => {
+    logGoogleAuth('request configured', {
+      platform: Platform.OS,
+      hasPlatformClientId,
+      redirectUri,
+      hasRequest: Boolean(request),
+      hasCodeVerifier: Boolean(request?.codeVerifier),
+      clientIdTail: platformClientId ? platformClientId.slice(-32) : null,
+    });
+  }, [hasPlatformClientId, platformClientId, redirectUri, request]);
 
   useEffect(() => {
     if (response?.type !== 'success' || handled.current) return;
     const params = response.params as Record<string, string | undefined>;
     const code = params.code;
+    logGoogleAuth('google response received', {
+      type: response.type,
+      hasCode: Boolean(code),
+      hasCodeVerifier: Boolean(request?.codeVerifier),
+      redirectUri,
+      paramsKeys: Object.keys(params),
+    });
     if (!code) {
       Alert.alert('Google', 'No authorization code returned.');
       return;
@@ -41,13 +98,22 @@ export function GoogleSignInButton() {
 
     void (async () => {
       try {
+        logGoogleAuth('sending code to backend', {
+          codeLength: code.length,
+          codeVerifierLength: codeVerifier?.length ?? 0,
+          redirectUri,
+        });
         await signInWithGoogleToken({
           code,
           codeVerifier,
           redirectUri,
         });
+        logGoogleAuth('backend sign-in completed');
       } catch (e: unknown) {
         const msg = e instanceof Error ? e.message : 'Google sign-in failed';
+        logGoogleAuth('backend sign-in failed', {
+          message: msg,
+        });
         Alert.alert('Google', msg);
         handled.current = false;
       }
@@ -55,22 +121,30 @@ export function GoogleSignInButton() {
   }, [redirectUri, request?.codeVerifier, response, signInWithGoogleToken]);
 
   const onPress = useCallback(() => {
-    if (!env.googleIosClientId && !env.googleWebClientId) {
+    if (!hasPlatformClientId) {
       Alert.alert(
         'Google sign-in',
-        'Add EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID and EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to your `.env` file (Google Cloud Console OAuth clients).',
+        Platform.select({
+          ios: 'Add EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID to your `.env` file.',
+          android: 'Add EXPO_PUBLIC_GOOGLE_ANDROID_CLIENT_ID to your `.env` file.',
+          default: 'Add EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID to your `.env` file.',
+        }) ?? 'Add the Google OAuth client ID to your `.env` file.',
       );
       return;
     }
     handled.current = false;
+    logGoogleAuth('prompt opened', {
+      platform: Platform.OS,
+      redirectUri,
+    });
     void promptAsync();
-  }, [promptAsync]);
+  }, [hasPlatformClientId, promptAsync, redirectUri]);
 
-  const busy = !request;
+  const busy = hasPlatformClientId && !request;
 
   return (
     <Button
-      title="Continue with Google"
+      title={buttonText}
       variant="outline"
       onPress={onPress}
       loading={busy}

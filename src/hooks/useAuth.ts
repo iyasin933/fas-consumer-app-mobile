@@ -3,6 +3,7 @@ import { useCallback, useMemo } from 'react';
 import type {
   ForgotPasswordCompleteDto,
   UserSignupDto,
+  VerifyEmailOtpDto,
   VerifyOtpDto,
 } from '@/types/auth.types';
 import * as authSession from '@/services/authSession.service';
@@ -32,8 +33,23 @@ export function useAuth() {
     [],
   );
 
+  const verifySignupEmailOtp = useCallback(
+    (dto: VerifyEmailOtpDto) => authSession.verifySignupEmailOtp(dto),
+    [],
+  );
+
   const completeForgotPassword = useCallback(
     (dto: ForgotPasswordCompleteDto) => authSession.completeForgotPassword(dto),
+    [],
+  );
+
+  const resendSignupOtp = useCallback(
+    (phone: string) => authSession.resendSignupOtp(phone),
+    [],
+  );
+
+  const resendSignupEmailOtp = useCallback(
+    (email: string) => authSession.resendSignupEmailOtp(email),
     [],
   );
 
@@ -55,7 +71,10 @@ export function useAuth() {
       signInWithPassword,
       signUp,
       verifySignupOtp,
+      verifySignupEmailOtp,
       completeForgotPassword,
+      resendSignupOtp,
+      resendSignupEmailOtp,
       signInWithGoogleToken,
       signOut,
       hydrate,
@@ -67,7 +86,10 @@ export function useAuth() {
       signInWithPassword,
       signUp,
       verifySignupOtp,
+      verifySignupEmailOtp,
       completeForgotPassword,
+      resendSignupOtp,
+      resendSignupEmailOtp,
       signInWithGoogleToken,
       signOut,
       hydrate,
