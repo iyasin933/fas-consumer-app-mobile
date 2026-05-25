@@ -47,7 +47,7 @@ function normalizePhoneForAllocation(phone?: string): string {
 }
 
 export function DeliveryPaymentScreen({ navigation, route }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { width } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const { initPaymentSheet, presentPaymentSheet } = useStripe();
@@ -258,6 +258,36 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
         paymentIntentClientSecret,
         allowsDelayedPaymentMethods: true,
         returnURL: 'dropyou://stripe-redirect',
+        style: isDark ? 'alwaysDark' : 'alwaysLight',
+        appearance: {
+          colors: {
+            primary: colors.primary,
+            background: colors.background,
+            componentBackground: colors.surface,
+            componentBorder: colors.border,
+            componentDivider: colors.border,
+            primaryText: colors.textPrimary,
+            secondaryText: colors.textSecondary,
+            componentText: colors.textPrimary,
+            placeholderText: colors.textSecondary,
+            icon: colors.textSecondary,
+            error: colors.danger,
+          },
+          shapes: {
+            borderRadius: 12,
+            borderWidth: StyleSheet.hairlineWidth,
+          },
+          primaryButton: {
+            colors: {
+              background: colors.primary,
+              text: colors.onPrimary,
+              border: colors.primary,
+            },
+            shapes: {
+              borderRadius: 12,
+            },
+          },
+        },
       });
 
       if (initError) {
@@ -331,7 +361,9 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
     bookingId,
     busy,
     carrierName,
+    colors,
     initPaymentSheet,
+    isDark,
     loadId,
     presentPaymentSheet,
     quoteId,
@@ -359,6 +391,7 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
                     {
                       name: 'DeliveryTracking',
                       params: {
+                        backTitle: 'Payment',
                         loadId: String(loadId),
                         bookingId,
                         vehicleName,

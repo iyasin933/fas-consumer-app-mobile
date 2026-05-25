@@ -18,6 +18,7 @@ import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useTheme } from '@/hooks/useTheme';
+import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -28,7 +29,16 @@ import type { AppStackParamList } from '@/types/navigation.types';
 
 type LoadStatusTab = 'all' | 'pending' | 'failed';
 
-const FAILED_STATUS_TERMS = ['failed', 'failure', 'rejected', 'cancelled', 'canceled', 'declined', 'expired', 'error'];
+const FAILED_STATUS_TERMS = [
+  'failed',
+  'failure',
+  'rejected',
+  'cancelled',
+  'canceled',
+  'declined',
+  'expired',
+  'error',
+];
 const PENDING_STATUS_TERMS = [
   'pending',
   'waiting',
@@ -72,7 +82,12 @@ function createStyles(colors: ThemeColors) {
       justifyContent: 'center',
       paddingHorizontal: spacing.lg,
     },
-    muted: { fontSize: typography.fontSize.md, color: colors.textSecondary, textAlign: 'center', lineHeight: 22 },
+    muted: {
+      fontSize: typography.fontSize.md,
+      color: colors.textSecondary,
+      textAlign: 'center',
+      lineHeight: 22,
+    },
     err: { color: colors.danger, textDecorationLine: 'underline', textAlign: 'center' },
   });
 }
@@ -146,6 +161,7 @@ export function BookingsScreen() {
       const hasCachedDetails = Boolean(detailsByLoadId[loadId]);
       if (loadingByLoadId[loadId]) {
         navigation.navigate('BookingDetails', {
+          backTitle: 'Bookings',
           loadId,
           ...(trip.bookingId ? { bookingId: trip.bookingId } : {}),
           passengerLabel: trip.passengerLabel,
@@ -165,6 +181,7 @@ export function BookingsScreen() {
         setDetailsLoading(loadId, true);
       }
       navigation.navigate('BookingDetails', {
+        backTitle: 'Bookings',
         loadId,
         ...(trip.bookingId ? { bookingId: trip.bookingId } : {}),
         passengerLabel: trip.passengerLabel,
@@ -179,10 +196,14 @@ export function BookingsScreen() {
       void (async () => {
         try {
           const response = await fetchLoadDetailsById(loadId);
-          logJson(`[BookingsScreen] GET /dropyou/load-by-id/${loadId} response`, response);
+          logJson(
+            `[BookingsScreen] GET /dropyou/load-by-id/${loadId} response`,
+            response,
+          );
           setDetails(loadId, response);
         } catch (err) {
-          const message = err instanceof Error ? err.message : 'Failed to load booking details.';
+          const message =
+            err instanceof Error ? err.message : 'Failed to load booking details.';
           console.warn(`[BookingsScreen] GET /dropyou/load-by-id/${loadId} failed`, err);
           setDetailsError(loadId, message);
         } finally {
@@ -208,10 +229,7 @@ export function BookingsScreen() {
     ({ item }: { item: ActiveTripCardVm }) => {
       return (
         <View style={styles.listItem}>
-          <ActiveTripCard
-            trip={item}
-            onPress={() => void handleBookingPress(item)}
-          />
+          <ActiveTripCard trip={item} onPress={() => void handleBookingPress(item)} />
         </View>
       );
     },
@@ -219,6 +237,38 @@ export function BookingsScreen() {
   );
 
   const keyExtractor = useCallback((item: ActiveTripCardVm) => item.id, []);
+
+  const openNewBooking = useCallback(() => {
+    navigation.navigate('MainTabs', { screen: 'Map' });
+  }, [navigation]);
+
+  const emptyCopy = useMemo(() => {
+    if (activeStatusTab === 'pending') {
+      return {
+        eyebrow: 'All clear',
+        title: 'No pending bookings',
+        body: 'New delivery requests and open quotes will appear here as soon as you create them.',
+        icon: 'time-outline' as const,
+        meta: undefined,
+      };
+    }
+    if (activeStatusTab === 'failed') {
+      return {
+        eyebrow: 'Nothing failed',
+        title: 'No failed bookings',
+        body: 'Cancelled, expired, or failed delivery requests will be kept here for quick review.',
+        icon: 'shield-checkmark-outline' as const,
+        meta: undefined,
+      };
+    }
+    return {
+      eyebrow: 'Start a delivery',
+      title: 'Your bookings will live here',
+      body: 'Create your first DropYou delivery and track quotes, payments, status, and driver movement from this tab.',
+      icon: 'calendar-outline' as const,
+      meta: undefined,
+    };
+  }, [activeStatusTab]);
 
   if (profileLoading) {
     return (
@@ -233,7 +283,8 @@ export function BookingsScreen() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.center}>
           <Text style={styles.muted}>
-            We couldn’t load your account id. Try signing out and signing in again, or contact support if this continues.
+            We couldn’t load your account id. Try signing out and signing in again, or
+            contact support if this continues.
           </Text>
         </View>
       </SafeAreaView>
@@ -270,21 +321,37 @@ export function BookingsScreen() {
           contentContainerStyle={[
             styles.listContent,
             { paddingBottom: tabBarHeight + spacing.lg },
-            filteredBookings.length === 0 && { flexGrow: 1 },
+            filteredBookings.length === 0 && { flexGrow: 1, paddingTop: spacing.xl },
           ]}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={onRefresh} tintColor={colors.primary} />
+            <RefreshControl
+              refreshing={isRefetching}
+              onRefresh={onRefresh}
+              tintColor={colors.primary}
+            />
           }
           ListEmptyComponent={
-            <View style={styles.listItem}>
-              <Text style={styles.muted}>
-                {activeStatusTab === 'pending'
-                  ? 'No pending loads right now.'
-                  : activeStatusTab === 'failed'
-                    ? 'No failed loads right now.'
-                    : 'No bookings yet. When you book a delivery, it will show here.'}
-              </Text>
-            </View>
+            <InteractiveEmptyState
+              eyebrow={emptyCopy.eyebrow}
+              title={emptyCopy.title}
+              body={emptyCopy.body}
+              icon={emptyCopy.icon}
+              meta={emptyCopy.meta}
+              primaryAction={
+                activeStatusTab === 'all'
+                  ? {
+                      label: 'Book a delivery',
+                      icon: 'map-outline',
+                      onPress: openNewBooking,
+                    }
+                  : {
+                      label: 'View all bookings',
+                      icon: 'albums-outline',
+                      onPress: () => setActiveStatusTab('all'),
+                    }
+              }
+              style={{ flex: 1 }}
+            />
           }
           showsVerticalScrollIndicator={false}
         />

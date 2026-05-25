@@ -12,24 +12,8 @@ import MapView, {
 import { MapMarkerBadge } from '@/features/map/components/MapMarker';
 import { PulsingDot } from '@/features/map/components/PulsingDot';
 import { useMapColors } from '@/features/map/theme/useMapColors';
+import { DARK_MAP_STYLE } from '@/shared/theme/mapStyle';
 import type { DeliveryStop, LatLng } from '@/features/map/types';
-
-/**
- * Minimal dark-mode map style for Android (Google Maps). iOS uses the
- * `userInterfaceStyle` prop to switch Apple Maps' appearance automatically.
- * This is a small, conservative palette (no poi tweaking) chosen to blend
- * with the app's dark surfaces without changing road legibility.
- */
-const DARK_MAP_STYLE = [
-  { elementType: 'geometry', stylers: [{ color: '#1f2937' }] },
-  { elementType: 'labels.text.fill', stylers: [{ color: '#e5e7eb' }] },
-  { elementType: 'labels.text.stroke', stylers: [{ color: '#1f2937' }] },
-  { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#374151' }] },
-  { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4b5563' }] },
-  { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#0f172a' }] },
-  { featureType: 'poi', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-  { featureType: 'transit', elementType: 'labels.icon', stylers: [{ visibility: 'off' }] },
-];
 
 export type MapLayerHandle = {
   animateTo: (coords: LatLng, durationMs?: number) => void;
@@ -141,6 +125,7 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
   return (
     <View style={StyleSheet.absoluteFill}>
       <MapView
+        key={c.isDark ? 'delivery-map-dark' : 'delivery-map-light'}
         ref={(r) => {
           mapRef.current = r;
         }}
@@ -154,6 +139,7 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
         showsMyLocationButton={false}
         toolbarEnabled={false}
         loadingEnabled
+        loadingBackgroundColor={c.background}
         // Apple Maps (iOS) honors this automatically; Google Maps (Android)
         // reads `customMapStyle` below instead.
         userInterfaceStyle={c.isDark ? 'dark' : 'light'}

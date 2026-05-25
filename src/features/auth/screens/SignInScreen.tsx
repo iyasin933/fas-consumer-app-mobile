@@ -7,6 +7,7 @@ import {
   ScrollView,
   StyleSheet,
   Text,
+  useWindowDimensions,
   View,
 } from 'react-native';
 
@@ -33,9 +34,15 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
     },
     scroll: {
+      flexGrow: 1,
+      justifyContent: 'center',
       paddingHorizontal: spacing.lg,
-      paddingTop: spacing.xl,
-      paddingBottom: spacing.xl * 2,
+      paddingVertical: spacing.xl,
+      gap: spacing.lg,
+    },
+    content: {
+      width: '100%',
+      alignSelf: 'center',
       gap: spacing.lg,
     },
     header: {
@@ -83,7 +90,9 @@ function createStyles(colors: ThemeColors) {
 export function SignInScreen({ navigation }: Props) {
   const { signInWithPassword } = useAuth();
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const maxWidth = width >= 768 ? 520 : 430;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -118,46 +127,48 @@ export function SignInScreen({ navigation }: Props) {
           contentContainerStyle={styles.scroll}
           showsVerticalScrollIndicator={false}
         >
-          <View style={styles.header}>
-            <BrandLogo variant="header" />
-            <Text style={styles.title}>Welcome back</Text>
-            <Text style={styles.subtitle}>Sign in to DropYou</Text>
-          </View>
+          <View style={[styles.content, { maxWidth }]}>
+            <View style={styles.header}>
+              <BrandLogo variant="header" />
+              <Text style={styles.title}>Welcome back</Text>
+              <Text style={styles.subtitle}>Sign in to DropYou</Text>
+            </View>
 
-          <View style={styles.form}>
-            <TextField
-              label="Email"
-              keyboardType="email-address"
-              autoCapitalize="none"
-              autoCorrect={false}
-              value={email}
-              onChangeText={setEmail}
-              placeholder="you@example.com"
-            />
-            <PasswordTextField
-              label="Password"
-              value={password}
-              onChangeText={setPassword}
-              placeholder="••••••••"
-            />
-            {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
+            <View style={styles.form}>
+              <TextField
+                label="Email"
+                keyboardType="email-address"
+                autoCapitalize="none"
+                autoCorrect={false}
+                value={email}
+                onChangeText={setEmail}
+                placeholder="you@example.com"
+              />
+              <PasswordTextField
+                label="Password"
+                value={password}
+                onChangeText={setPassword}
+                placeholder="••••••••"
+              />
+              {error ? <Text style={styles.errorBanner}>{error}</Text> : null}
 
-            <Button title="Sign in" onPress={() => void onSubmit()} loading={loading} />
+              <Button title="Sign in" onPress={() => void onSubmit()} loading={loading} />
 
-            <GoogleSignInButton />
+              <GoogleSignInButton />
 
-            <Pressable
-              onPress={() => navigation.navigate('ForgotPassword')}
-              style={styles.linkRow}
-            >
-              <Text style={styles.link}>Forgot password?</Text>
-            </Pressable>
-
-            <View style={styles.signUpRow}>
-              <Text style={styles.muted}>New to DropYou? </Text>
-              <Pressable onPress={() => navigation.navigate('SignUp')}>
-                <Text style={styles.link}>Create account</Text>
+              <Pressable
+                onPress={() => navigation.navigate('ForgotPassword')}
+                style={styles.linkRow}
+              >
+                <Text style={styles.link}>Forgot password?</Text>
               </Pressable>
+
+              <View style={styles.signUpRow}>
+                <Text style={styles.muted}>New to DropYou? </Text>
+                <Pressable onPress={() => navigation.navigate('SignUp')}>
+                  <Text style={styles.link}>Create account</Text>
+                </Pressable>
+              </View>
             </View>
           </View>
         </ScrollView>

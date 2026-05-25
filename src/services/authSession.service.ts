@@ -39,7 +39,7 @@ async function migrateLegacyTokens(): Promise<void> {
 
 async function persistAfterAuth(accessToken: string, refresh?: string) {
   logGoogleAuth('persist tokens start', {
-    accessTokenLength: accessToken.length,
+    hasAccessToken: Boolean(accessToken),
     hasRefreshToken: Boolean(refresh),
   });
   await tokenStorage.setAccessToken(accessToken);
@@ -187,10 +187,10 @@ export async function signInWithGoogleToken(
   params: GoogleSignInMobileParams,
 ): Promise<void> {
   logGoogleAuth('start backend sign-in', {
+    platform: params.platform,
     hasCode: Boolean(params.code),
     codeLength: params.code.length,
     hasCodeVerifier: Boolean(params.codeVerifier),
-    codeVerifierLength: params.codeVerifier?.length ?? 0,
     redirectUri: params.redirectUri,
   });
   const { accessToken, refreshToken } = await authApi.googleLogin({
@@ -199,7 +199,6 @@ export async function signInWithGoogleToken(
   });
   logGoogleAuth('backend exchange parsed', {
     hasAccessToken: Boolean(accessToken),
-    accessTokenLength: accessToken?.length ?? 0,
     hasRefreshToken: Boolean(refreshToken),
   });
   if (!accessToken) throw new Error('Google login did not return an access token.');

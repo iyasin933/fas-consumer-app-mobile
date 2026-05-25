@@ -23,6 +23,7 @@ import MapView, {
   Polyline,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
+  type LatLng,
   type Region,
 } from 'react-native-maps';
 import Animated, {
@@ -51,6 +52,7 @@ import {
 import { MapRecenterButton } from '@/features/map/components/MapRecenterButton';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { useTheme } from '@/hooks/useTheme';
+import { DARK_MAP_STYLE } from '@/shared/theme/mapStyle';
 import { ROUTE_MARKER_COLORS } from '@/shared/theme/routeMarkers';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
@@ -64,6 +66,7 @@ const DEFAULT_REGION: Region = {
   latitudeDelta: 0.035,
   longitudeDelta: 0.035,
 };
+const QUOTES_MAP_EDGE_PADDING = { top: 92, right: 52, bottom: 430, left: 52 };
 
 function seededUnit(seed: number): number {
   const value = Math.sin(seed) * 10000;
@@ -209,11 +212,12 @@ const headerBackStyles = StyleSheet.create({
 });
 
 export function ChooseQuotesScreen({ route }: Props) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const mapRef = useRef<MapView | null>(null);
+  const didFrameMapRef = useRef(false);
   const quoteListRef = useRef<FlatList<LoadQuoteRow> | null>(null);
   const latestQuoteKeyRef = useRef<string | null>(null);
   const { loadId, bookingId: routeBookingId, vehicleName, amountPence } = route.params;
@@ -292,6 +296,13 @@ export function ChooseQuotesScreen({ route }: Props) {
       })),
     [driverOffsets, pickupRegion.latitude, pickupRegion.longitude],
   );
+  const mapFramePoints = useMemo(() => {
+    const points: LatLng[] = [];
+    if (pickupCoords) points.push(pickupCoords);
+    if (dropoffCoords) points.push(dropoffCoords);
+    points.push(...driverCoords);
+    return points;
+  }, [driverCoords, dropoffCoords, pickupCoords]);
   const sortedQuotes = useMemo(
     () =>
       [...quotes].sort((a, b) => {
@@ -367,14 +378,27 @@ export function ChooseQuotesScreen({ route }: Props) {
     });
   }, [sheetHeight, sheetSnaps.collapsed, sheetSnaps.expanded]);
 
-  const centerOnPickup = useCallback(() => {
-    mapRef.current?.animateToRegion(pickupRegion, 450);
-  }, [pickupRegion]);
+  const centerOnRoute = useCallback((animated = true) => {
+    if (mapFramePoints.length >= 2) {
+      mapRef.current?.fitToCoordinates(mapFramePoints, {
+        animated,
+        edgePadding: {
+          ...QUOTES_MAP_EDGE_PADDING,
+          bottom: Math.round(sheetSnaps.normal) + 88 + Math.max(insets.bottom, 0),
+        },
+      });
+      return;
+    }
+    mapRef.current?.animateToRegion(pickupRegion, animated ? 450 : 0);
+  }, [insets.bottom, mapFramePoints, pickupRegion, sheetSnaps.normal]);
 
   useEffect(() => {
-    const handle = setTimeout(centerOnPickup, 350);
+    const handle = setTimeout(() => {
+      centerOnRoute(didFrameMapRef.current);
+      didFrameMapRef.current = true;
+    }, 350);
     return () => clearTimeout(handle);
-  }, [centerOnPickup]);
+  }, [centerOnRoute]);
 
   useEffect(() => {
     progress.value = withRepeat(
@@ -409,7 +433,7 @@ export function ChooseQuotesScreen({ route }: Props) {
         safe: { flex: 1, backgroundColor: colors.background },
         mapStage: {
           flex: 1,
-          backgroundColor: '#EEF2F7',
+          backgroundColor: colors.background,
           overflow: 'hidden',
           zIndex: 0,
         },
@@ -501,9 +525,9 @@ export function ChooseQuotesScreen({ route }: Props) {
         cancelButton: {
           minHeight: 54,
           borderRadius: 16,
-          borderWidth: 1,
-          borderColor: '#FCA5A5',
-          backgroundColor: '#FEF2F2',
+          borderWidth: 1.5,
+          borderColor: colors.danger,
+          backgroundColor: 'transparent',
           paddingHorizontal: spacing.md,
           alignItems: 'center',
           justifyContent: 'center',
@@ -511,10 +535,10 @@ export function ChooseQuotesScreen({ route }: Props) {
           gap: 8,
         },
         cancelButtonPressed: {
-          backgroundColor: '#FEE2E2',
+          backgroundColor: colors.danger + '12',
         },
         cancelText: {
-          color: '#DC2626',
+          color: colors.danger,
           fontSize: typography.fontSize.md,
           fontWeight: '700',
         },
@@ -608,6 +632,7 @@ export function ChooseQuotesScreen({ route }: Props) {
         }
         await acceptDropyouQuote(model.bookingId, model.quoteId);
         navigation.navigate('DeliveryPayment', {
+          backTitle: 'Quotes',
           amountPence: majorToPence(model.price, model.currency),
           vehicleName: model.vehicleType || vehicleName,
           loadId: model.loadId,
@@ -714,6 +739,7 @@ export function ChooseQuotesScreen({ route }: Props) {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <View style={styles.mapStage}>
         <MapView
+          key={isDark ? 'quotes-map-dark' : 'quotes-map-light'}
           ref={mapRef}
           style={styles.map}
           provider={Platform.OS === 'android' ? PROVIDER_GOOGLE : PROVIDER_DEFAULT}
@@ -726,6 +752,9 @@ export function ChooseQuotesScreen({ route }: Props) {
           showsMyLocationButton={false}
           toolbarEnabled={false}
           loadingEnabled
+          loadingBackgroundColor={colors.background}
+          userInterfaceStyle={isDark ? 'dark' : 'light'}
+          customMapStyle={isDark && Platform.OS === 'android' ? DARK_MAP_STYLE : undefined}
         >
           {pickupCoords ? (
             <Marker coordinate={pickupCoords} anchor={{ x: 0.5, y: 0.5 }} zIndex={30}>
@@ -758,7 +787,10 @@ export function ChooseQuotesScreen({ route }: Props) {
             </Marker>
           ))}
         </MapView>
-        <MapRecenterButton accessibilityLabel="Center pickup on map" onPress={centerOnPickup} />
+        <MapRecenterButton
+          accessibilityLabel="Recenter quotes map"
+          onPress={() => centerOnRoute(true)}
+        />
       </View>
 
       {sortedQuotes.length > 0 ? (
@@ -836,7 +868,9 @@ export function ChooseQuotesScreen({ route }: Props) {
             onPress={onCancelBooking}
             disabled={cancelling}
           >
-            {!cancelling ? <Ionicons name="close-circle-outline" size={20} color="#DC2626" /> : null}
+            {!cancelling ? (
+              <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+            ) : null}
             <Text style={styles.cancelText}>{cancelling ? 'Cancelling booking' : 'Cancel Booking'}</Text>
           </Pressable>
       </View>

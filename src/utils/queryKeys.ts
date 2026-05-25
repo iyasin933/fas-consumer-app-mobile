@@ -15,8 +15,11 @@ export const queryKeys = {
     activeTrips: ['dropyou', 'active-trips'] as const,
     /** `GET /dropyou/user/:id` — all bookings for that user */
     userBookings: (userId: number) => ['dropyou', 'user-bookings', userId] as const,
-    quotes: (limit: number) => ['dropyou', 'quotes', { limit, shape: 'result-v2' }] as const,
-    quotesSummary: ['dropyou', 'quotes', 'summary', { shape: 'result-v2' }] as const,
-    quotesLastSeenTotal: ['dropyou', 'quotes', 'last-seen-total'] as const,
+    quotes: (userId: number, limit: number) =>
+      ['dropyou', 'quotes', userId, { limit, shape: 'result-v2' }] as const,
+    quotesSummary: (userId: number) =>
+      ['dropyou', 'quotes', 'summary', userId, { shape: 'result-v2' }] as const,
+    quotesLastSeenTotal: (userId: number) =>
+      ['dropyou', 'quotes', 'last-seen-total', userId] as const,
   },
 } as const;

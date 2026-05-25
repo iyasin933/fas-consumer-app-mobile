@@ -52,6 +52,12 @@ function objectKeys(value: unknown) {
   return value && typeof value === 'object' ? Object.keys(value) : [];
 }
 
+function readApiMessage(data: unknown): string | undefined {
+  if (!data || typeof data !== 'object') return undefined;
+  const message = (data as Record<string, unknown>).message;
+  return typeof message === 'string' && message.trim() ? message : undefined;
+}
+
 export async function login(dto: UserLoginDto): Promise<AuthTokensResult> {
   const { data } = await api.post<unknown>('/auth/login', dto);
   return withTokens(data);
@@ -105,10 +111,10 @@ export async function googleLogin(dto: GoogleLoginDto): Promise<AuthTokensResult
   };
   logGoogleAuth('request /auth/google/login', {
     source: body.source,
+    platform: body.platform,
     hasCode: Boolean(body.code),
     codeLength: body.code?.length ?? 0,
     hasCodeVerifier: Boolean(body.codeVerifier),
-    codeVerifierLength: body.codeVerifier?.length ?? 0,
     redirectUri: body.redirectUri,
   });
   try {
@@ -126,17 +132,18 @@ export async function googleLogin(dto: GoogleLoginDto): Promise<AuthTokensResult
           ? objectKeys((data as Record<string, unknown>).result)
           : [],
       hasAccessToken: Boolean(tokens.accessToken),
-      accessTokenLength: tokens.accessToken?.length ?? 0,
       hasRefreshToken: Boolean(tokens.refreshToken),
     });
     return tokens;
   } catch (error: unknown) {
     if (isAxiosError(error)) {
+      const message = readApiMessage(error.response?.data) ?? error.message;
       logGoogleAuth('error /auth/google/login', {
         status: error.response?.status,
-        message: error.response?.data?.message ?? error.message,
+        message,
         responseKeys: objectKeys(error.response?.data),
       });
+      throw new Error(message);
     } else {
       logGoogleAuth('error /auth/google/login', {
         message: error instanceof Error ? error.message : String(error),

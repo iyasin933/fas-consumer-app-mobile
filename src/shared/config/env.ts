@@ -46,4 +46,9 @@ export const env = {
    */
   socketPath:
     trimTrailingSlashes(process.env.EXPO_PUBLIC_SOCKET_PATH ?? '') || '/socket.io',
+  /**
+   * Dev-only mobile tracking simulation. Leave unset/false for production.
+   * Set `EXPO_PUBLIC_SIMULATE_TRACKING=true` to move a local vehicle marker when the backend has no live location.
+   */
+  simulateTracking: process.env.EXPO_PUBLIC_SIMULATE_TRACKING === 'true',
 };

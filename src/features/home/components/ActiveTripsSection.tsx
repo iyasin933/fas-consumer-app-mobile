@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, type RefObject } from 'react';
 import {
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -68,16 +68,38 @@ function createStyles(colors: ThemeColors, width: number) {
   const offerWidth = getOfferWidth(width);
   const isNarrow = width < 370;
   return StyleSheet.create({
-    section: { paddingBottom: spacing.xl, gap: spacing.sm },
+    section: { paddingBottom: spacing.xl, gap: spacing.lg },
     header: {
       flexDirection: 'row',
       alignItems: 'center',
+      justifyContent: 'space-between',
       paddingHorizontal: spacing.md,
     },
     h: {
       fontSize: typography.fontSize.lg,
       fontWeight: typography.fontWeight.bold,
       color: colors.textPrimary,
+    },
+    subH: {
+      color: colors.textSecondary,
+      fontSize: typography.fontSize.sm,
+      lineHeight: 20,
+      fontWeight: typography.fontWeight.medium,
+      marginTop: 2,
+    },
+    countPill: {
+      minWidth: 30,
+      height: 30,
+      borderRadius: 15,
+      paddingHorizontal: spacing.sm,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.primary + '18',
+    },
+    countText: {
+      color: colors.primary,
+      fontSize: typography.fontSize.sm,
+      fontWeight: '900',
     },
     hScroll: { paddingLeft: spacing.md, paddingRight: spacing.sm, gap: spacing.sm },
     slide: { width: slideWidth },
@@ -261,13 +283,95 @@ function createStyles(colors: ThemeColors, width: number) {
   });
 }
 
+function SectionHeader({
+  title,
+  subtitle,
+  count,
+  styles,
+}: {
+  title: string;
+  subtitle?: string;
+  count?: number;
+  styles: ReturnType<typeof createStyles>;
+}) {
+  return (
+    <View style={styles.header}>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Text style={styles.h}>{title}</Text>
+        {subtitle ? <Text style={styles.subH}>{subtitle}</Text> : null}
+      </View>
+      {typeof count === 'number' ? (
+        <View style={styles.countPill}>
+          <Text style={styles.countText}>{count}</Text>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function OffersCarousel({
+  colors,
+  styles,
+  offerScrollRef,
+  offerSnapInterval,
+  onBookNow,
+  onOfferScrollBeginDrag,
+  onOfferScrollEndDrag,
+  onOfferMomentumScrollEnd,
+}: {
+  colors: ThemeColors;
+  styles: ReturnType<typeof createStyles>;
+  offerScrollRef: RefObject<ScrollView | null>;
+  offerSnapInterval: number;
+  onBookNow: () => void;
+  onOfferScrollBeginDrag: () => void;
+  onOfferScrollEndDrag: () => void;
+  onOfferMomentumScrollEnd: (event: NativeSyntheticEvent<NativeScrollEvent>) => void;
+}) {
+  return (
+    <ScrollView
+      ref={offerScrollRef}
+      horizontal
+      decelerationRate="fast"
+      disableIntervalMomentum
+      snapToAlignment="start"
+      snapToInterval={offerSnapInterval}
+      scrollEventThrottle={16}
+      onScrollBeginDrag={onOfferScrollBeginDrag}
+      onScrollEndDrag={onOfferScrollEndDrag}
+      onMomentumScrollEnd={onOfferMomentumScrollEnd}
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={styles.emptyOffersScroll}
+    >
+      {LOOPED_OFFERS.map((offer, index) => {
+        const accent = offerAccent(colors, offer.tone);
+        return (
+          <IllustratedActionCard
+            key={`${offer.id}-${index}`}
+            containerStyle={styles.emptyCard}
+            eyebrow={offer.eyebrow}
+            title={offer.title}
+            body={offer.body}
+            code={'code' in offer ? offer.code : undefined}
+            accent={accent}
+            iconName={offer.icon}
+            actionLabel={offer.cta}
+            actionIcon="add-circle-outline"
+            onActionPress={onBookNow}
+          />
+        );
+      })}
+    </ScrollView>
+  );
+}
+
 export function ActiveTripsSection() {
   const { trips, isLoading, isError, refetch } = useActiveTrips();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(colors, width), [colors, width]);
   const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const isEmpty = !isLoading && !isError && trips.length === 0;
+  const hasActiveTrips = !isLoading && !isError && trips.length > 0;
   const offerSnapInterval = getOfferWidth(width) + spacing.sm;
   const offerScrollRef = useRef<ScrollView | null>(null);
   const offerIndexRef = useRef(0);
@@ -318,7 +422,7 @@ export function ActiveTripsSection() {
   };
 
   useEffect(() => {
-    if (!isEmpty) return;
+    if (isLoading || isError) return;
     offerIndexRef.current = 0;
     offerDraggingRef.current = false;
     offerScrollRef.current?.scrollTo({ x: 0, animated: false });
@@ -345,76 +449,87 @@ export function ActiveTripsSection() {
         offerResetTimerRef.current = null;
       }
     };
-  }, [isEmpty, offerSnapInterval]);
+  }, [isError, isLoading, offerSnapInterval]);
 
   return (
     <View style={styles.section}>
-      {/* <View style={styles.header}>
-        <Text style={styles.h}>{isEmpty ? 'Next Booking' : 'Active Trips'}</Text>
-      </View> */}
-
       {isLoading ? (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hScroll}
-        >
-          {[0, 1].map((item) => (
-            <View key={item} style={styles.slide}>
-              <ActiveTripSkeletonCard />
-            </View>
-          ))}
-        </ScrollView>
+        <>
+          <SectionHeader title="Active Bookings" styles={styles} />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            {[0, 1].map((item) => (
+              <View key={item} style={styles.slide}>
+                <ActiveTripSkeletonCard />
+              </View>
+            ))}
+          </ScrollView>
+        </>
       ) : isError ? (
         <Pressable onPress={refetch} style={styles.errBox}>
           <Text style={styles.err}>Could not load trips. Tap to retry.</Text>
         </Pressable>
       ) : trips.length === 0 ? (
-        <ScrollView
-          ref={offerScrollRef}
-          horizontal
-          decelerationRate="fast"
-          disableIntervalMomentum
-          snapToAlignment="start"
-          snapToInterval={offerSnapInterval}
-          scrollEventThrottle={16}
-          onScrollBeginDrag={onOfferScrollBeginDrag}
-          onScrollEndDrag={onOfferScrollEndDrag}
-          onMomentumScrollEnd={onOfferMomentumScrollEnd}
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.emptyOffersScroll}
-        >
-          {LOOPED_OFFERS.map((offer, index) => {
-            const accent = offerAccent(colors, offer.tone);
-            return (
-              <IllustratedActionCard
-                key={`${offer.id}-${index}`}
-                containerStyle={styles.emptyCard}
-                eyebrow={offer.eyebrow}
-                title={offer.title}
-                body={offer.body}
-                code={'code' in offer ? offer.code : undefined}
-                accent={accent}
-                iconName={offer.icon}
-                actionLabel={offer.cta}
-                actionIcon="add-circle-outline"
-                onActionPress={onBookNow}
-              />
-            );
-          })}
-        </ScrollView>
+        <>
+          <SectionHeader
+            title="Next Booking"
+            subtitle="Offers and booking ideas for your next delivery."
+            styles={styles}
+          />
+          <OffersCarousel
+            colors={colors}
+            styles={styles}
+            offerScrollRef={offerScrollRef}
+            offerSnapInterval={offerSnapInterval}
+            onBookNow={onBookNow}
+            onOfferScrollBeginDrag={onOfferScrollBeginDrag}
+            onOfferScrollEndDrag={onOfferScrollEndDrag}
+            onOfferMomentumScrollEnd={onOfferMomentumScrollEnd}
+          />
+        </>
       ) : (
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.hScroll}
-        >
-          {trips.map((t) => (
-            <View key={t.id} style={styles.slide}>
-              <ActiveTripCard trip={t} />
-            </View>
-          ))}
-        </ScrollView>
+        <>
+          <SectionHeader
+            title="Active Bookings"
+            subtitle="Track the deliveries already in motion."
+            count={trips.length}
+            styles={styles}
+          />
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            contentContainerStyle={styles.hScroll}
+          >
+            {trips.map((t) => (
+              <View key={t.id} style={styles.slide}>
+                <ActiveTripCard trip={t} />
+              </View>
+            ))}
+          </ScrollView>
+
+          {hasActiveTrips ? (
+            <>
+              <SectionHeader
+                title="For Your Next Delivery"
+                subtitle="Offers and quick starts stay below active bookings."
+                styles={styles}
+              />
+              <OffersCarousel
+                colors={colors}
+                styles={styles}
+                offerScrollRef={offerScrollRef}
+                offerSnapInterval={offerSnapInterval}
+                onBookNow={onBookNow}
+                onOfferScrollBeginDrag={onOfferScrollBeginDrag}
+                onOfferScrollEndDrag={onOfferScrollEndDrag}
+                onOfferMomentumScrollEnd={onOfferMomentumScrollEnd}
+              />
+            </>
+          ) : null}
+        </>
       )}
     </View>
   );

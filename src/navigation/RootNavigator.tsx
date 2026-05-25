@@ -1,6 +1,6 @@
 import { DarkTheme, DefaultTheme, NavigationContainer } from '@react-navigation/native';
 import { useEffect, useMemo, useRef } from 'react';
-import { Animated, Easing, StyleSheet, Text, View } from 'react-native';
+import { Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -8,7 +8,6 @@ import { AppNavigator } from '@/navigation/AppNavigator';
 import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { ThemeColors } from '@/shared/theme/colors';
-import { typography } from '@/shared/theme/typography';
 
 export function RootNavigator() {
   const { session, isReady } = useAuth();
@@ -80,7 +79,6 @@ function BootSplash({ colors }: { colors: ThemeColors }) {
     <View style={styles.boot}>
       <Animated.View style={[styles.logoWrap, { opacity, transform: [{ scale }] }]}>
         <BrandLogo variant="hero" />
-        <Text style={styles.brandText}>DropYou</Text>
       </Animated.View>
     </View>
   );
@@ -97,13 +95,6 @@ function createStyles(colors: ThemeColors) {
     logoWrap: {
       alignItems: 'center',
       justifyContent: 'center',
-      gap: 10,
-    },
-    brandText: {
-      color: colors.textPrimary,
-      fontSize: typography.fontSize.lg,
-      fontWeight: typography.fontWeight.bold,
-      letterSpacing: 0.4,
     },
   });
 }

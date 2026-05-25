@@ -115,6 +115,7 @@ export function MapScreen() {
   const setStopExtraDropoff = useDeliveryFormStore((s) => s.setStopExtraDropoff);
   const setWindow = useDeliveryFormStore((s) => s.setWindow);
   const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
+  const syncPickupScheduleToNow = useDeliveryFormStore((s) => s.syncPickupScheduleToNow);
   const setRouteMetrics = useDeliveryFormStore((s) => s.setRouteMetrics);
   const routeDurationSec = useDeliveryFormStore((s) => s.routeDurationSec);
   const routeDistanceM = useDeliveryFormStore((s) => s.routeDistanceM);
@@ -139,6 +140,10 @@ export function MapScreen() {
   const placesTargetRef = useRef<PlacesTarget | null>(null);
   /** When true, skip overwriting dropoff schedule from fresh Directions ETA. */
   const dropoffScheduleUserEditedRef = useRef(false);
+
+  useEffect(() => {
+    syncPickupScheduleToNow();
+  }, [syncPickupScheduleToNow]);
 
   // ── Apply nav params (initialDropoff + initialSnapIndex) once per mount ───
   useEffect(() => {

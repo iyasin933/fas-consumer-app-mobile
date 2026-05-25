@@ -28,9 +28,14 @@ import {
 } from '@/features/map/hooks/usePlacesAutocomplete';
 import { useReverseGeocode } from '@/features/map/hooks/useReverseGeocode';
 import { PlacesAutocompleteModal } from '@/features/map/components/PlacesAutocompleteModal';
-import { DROPOFF_ID, PICKUP_ID, useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
+import {
+  DROPOFF_ID,
+  PICKUP_ID,
+  useDeliveryFormStore,
+} from '@/features/map/store/deliveryFormStore';
 import type { PlaceValue, PlacesTarget } from '@/features/map/types';
 import { useTheme } from '@/hooks/useTheme';
+import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -41,7 +46,9 @@ export function AddDeliveryContentsScreen() {
   const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const isNarrow = width < 380;
-  const syncLocationsFromRows = useDeliveryOrderDraftStore((s) => s.syncLocationsFromRows);
+  const syncLocationsFromRows = useDeliveryOrderDraftStore(
+    (s) => s.syncLocationsFromRows,
+  );
   const setPlace = useDeliveryFormStore((s) => s.setPlace);
   const setPickup = useDeliveryOrderDraftStore((s) => s.setPickup);
   const setDropoff = useDeliveryOrderDraftStore((s) => s.setDropoff);
@@ -59,8 +66,12 @@ export function AddDeliveryContentsScreen() {
   const pallets = useDeliveryOrderDraftStore((s) => s.pallets);
 
   const setDimensions = useDeliveryOrderDraftStore((s) => s.setDimensions);
-  const addContentImagePlaceholder = useDeliveryOrderDraftStore((s) => s.addContentImagePlaceholder);
-  const removeContentImageKey = useDeliveryOrderDraftStore((s) => s.removeContentImageKey);
+  const addContentImagePlaceholder = useDeliveryOrderDraftStore(
+    (s) => s.addContentImagePlaceholder,
+  );
+  const removeContentImageKey = useDeliveryOrderDraftStore(
+    (s) => s.removeContentImageKey,
+  );
   const setPalletField = useDeliveryOrderDraftStore((s) => s.setPalletField);
   const addPalletLine = useDeliveryOrderDraftStore((s) => s.addPalletLine);
   const removePalletLine = useDeliveryOrderDraftStore((s) => s.removePalletLine);
@@ -87,13 +98,34 @@ export function AddDeliveryContentsScreen() {
           fontWeight: typography.fontWeight.bold,
           color: colors.textPrimary,
         },
-        sub: { fontSize: typography.fontSize.md, color: colors.textSecondary, lineHeight: 22 },
-        sectionHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: spacing.md },
+        sub: {
+          fontSize: typography.fontSize.md,
+          color: colors.textSecondary,
+          lineHeight: 22,
+        },
+        sectionHead: {
+          flexDirection: 'row',
+          alignItems: 'flex-start',
+          justifyContent: 'space-between',
+          gap: spacing.md,
+        },
         dimRow: { flexDirection: isNarrow ? 'column' : 'row', gap: spacing.sm },
         dimCell: { flex: 1 },
-        palletHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-        palletTitle: { fontSize: typography.fontSize.md, fontWeight: typography.fontWeight.bold, color: colors.textPrimary },
-        addMore: { fontSize: typography.fontSize.sm, fontWeight: typography.fontWeight.bold, color: colors.primary },
+        palletHead: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        },
+        palletTitle: {
+          fontSize: typography.fontSize.md,
+          fontWeight: typography.fontWeight.bold,
+          color: colors.textPrimary,
+        },
+        addMore: {
+          fontSize: typography.fontSize.sm,
+          fontWeight: typography.fontWeight.bold,
+          color: colors.primary,
+        },
         palletCard: {
           borderRadius: 12,
           padding: spacing.md,
@@ -122,7 +154,12 @@ export function AddDeliveryContentsScreen() {
           fontWeight: typography.fontWeight.bold,
           letterSpacing: 0.5,
         },
-        empty: { flex: 1, padding: spacing.lg, gap: spacing.md, justifyContent: 'center' },
+        empty: {
+          flex: 1,
+          padding: spacing.lg,
+          gap: spacing.md,
+          justifyContent: 'center',
+        },
         emptyTxt: { fontSize: typography.fontSize.md, color: colors.textSecondary },
         ghostBtn: {
           alignSelf: 'flex-start',
@@ -174,7 +211,9 @@ export function AddDeliveryContentsScreen() {
         });
       } catch (err) {
         const message =
-          err instanceof PlacesDetailsError ? err.message : 'Unknown error resolving place.';
+          err instanceof PlacesDetailsError
+            ? err.message
+            : 'Unknown error resolving place.';
         Alert.alert("Couldn't load that place", message);
       }
     },
@@ -186,7 +225,10 @@ export function AddDeliveryContentsScreen() {
     if (!target || (target.kind !== 'pickup' && target.kind !== 'dropoff')) return;
     const pos = coords ?? (await refresh());
     if (!pos) {
-      Alert.alert('Location unavailable', 'Please enable location services and try again.');
+      Alert.alert(
+        'Location unavailable',
+        'Please enable location services and try again.',
+      );
       return;
     }
     const rev = await reverse(pos.latitude, pos.longitude);
@@ -205,13 +247,18 @@ export function AddDeliveryContentsScreen() {
   if (!pickup?.address || !dropoff?.address) {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
-        <View style={styles.empty}>
-          <Text style={styles.title}>Delivery details missing</Text>
-          <Text style={styles.emptyTxt}>Pick pickup and dropoff on the map, then tap Proceed again.</Text>
-          <Pressable style={styles.ghostBtn} onPress={() => navigation.goBack()}>
-            <Text style={styles.ghostBtnTxt}>Back to map</Text>
-          </Pressable>
-        </View>
+        <InteractiveEmptyState
+          eyebrow="Almost there"
+          title="Delivery details missing"
+          body="Pick both pickup and dropoff on the map, then continue here to add the parcel details."
+          icon="map-outline"
+          primaryAction={{
+            label: 'Back to map',
+            icon: 'map',
+            onPress: () => navigation.goBack(),
+          }}
+          style={{ flex: 1 }}
+        />
       </SafeAreaView>
     );
   }
@@ -239,7 +286,9 @@ export function AddDeliveryContentsScreen() {
           <View style={styles.sectionHead}>
             <View style={{ flex: 1, gap: spacing.xs }}>
               <Text style={styles.title}>Add your contents</Text>
-              <Text style={styles.sub}>Add details so we can suggest the right vehicle.</Text>
+              <Text style={styles.sub}>
+                Add details so we can suggest the right vehicle.
+              </Text>
             </View>
             <Ionicons name="chevron-down" size={20} color={colors.muted} />
           </View>
@@ -319,7 +368,8 @@ export function AddDeliveryContentsScreen() {
             <Pressable
               onPress={() => {
                 const { ok } = addPalletLine();
-                if (!ok) Alert.alert('Limit reached', 'You can add up to five pallet lines.');
+                if (!ok)
+                  Alert.alert('Limit reached', 'You can add up to five pallet lines.');
               }}
               hitSlop={8}
             >
@@ -327,7 +377,9 @@ export function AddDeliveryContentsScreen() {
             </Pressable>
           </View>
         </ScrollView>
-        <View style={[styles.ctaWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+        <View
+          style={[styles.ctaWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+        >
           <Pressable style={styles.cta} onPress={onChooseVehicle}>
             <Text style={styles.ctaTxt}>CHOOSE VEHICLE</Text>
           </Pressable>

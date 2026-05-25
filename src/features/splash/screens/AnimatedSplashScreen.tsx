@@ -2,21 +2,18 @@ import { useEffect, useMemo, useRef } from 'react';
 import {
   Animated,
   Easing,
-  Image,
-  type ImageSourcePropType,
   StyleSheet,
   useWindowDimensions,
   View,
 } from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
+import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { ThemeColors } from '@/shared/theme/colors';
 
 type AnimatedSplashScreenProps = {
   onAnimationComplete: () => void;
 };
-
-const FULL_LOGO: ImageSourcePropType = require('../../../../assets/images/dropyou-full-logo.png');
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -28,11 +25,7 @@ function createStyles(colors: ThemeColors) {
     },
     logoWrap: {
       alignItems: 'center',
-      justifyContent: 'flex-start',
-    },
-    logo: {
-      width: '100%',
-      height: '100%',
+      justifyContent: 'center',
     },
   });
 }
@@ -42,8 +35,7 @@ export function AnimatedSplashScreen({ onAnimationComplete }: AnimatedSplashScre
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
-  const logoWidth = Math.min(300, Math.max(220, screenW * 0.62));
-  const logoHeight = logoWidth * (671 / 2137);
+  const logoSize = Math.min(220, Math.max(148, screenW * 0.42));
   const translateY = useRef(new Animated.Value(height * 0.28)).current;
   const scale = useRef(new Animated.Value(0.86)).current;
   const opacity = useRef(new Animated.Value(0)).current;
@@ -122,20 +114,15 @@ export function AnimatedSplashScreen({ onAnimationComplete }: AnimatedSplashScre
         style={[
           styles.logoWrap,
           {
-            width: logoWidth,
-            height: logoHeight,
+            width: logoSize,
+            height: logoSize + 48,
             alignSelf: 'center',
             opacity,
             transform: [{ translateY }, { scale }],
           },
         ]}
       >
-        <Image
-          source={FULL_LOGO}
-          style={styles.logo}
-          resizeMode="contain"
-          accessibilityIgnoresInvertColors
-        />
+        <BrandLogo variant="hero" size={logoSize} />
       </Animated.View>
     </View>
   );

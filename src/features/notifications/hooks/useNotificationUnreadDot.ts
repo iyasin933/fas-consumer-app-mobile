@@ -8,34 +8,44 @@ import {
   setLastSeenQuotesTotal,
 } from '@/features/notifications/services/notificationReadState';
 import { useAuthStore } from '@/store/authStore';
+import { pickUserIdFromProfile } from '@/utils/authIdentity';
 import { queryKeys } from '@/utils/queryKeys';
 
 export function useNotificationUnreadDot() {
   const authed = useAuthStore((s) => s.session === 'authed');
+  const user = useAuthStore((s) => s.user);
+  const userId = pickUserIdFromProfile(user);
   const queryClient = useQueryClient();
 
   const lastSeenQuery = useQuery({
-    queryKey: queryKeys.dropyou.quotesLastSeenTotal,
-    queryFn: getLastSeenQuotesTotal,
-    enabled: authed,
+    queryKey:
+      userId != null
+        ? queryKeys.dropyou.quotesLastSeenTotal(userId)
+        : ['dropyou', 'quotes', 'last-seen-total', 'pending-user'],
+    queryFn: () => getLastSeenQuotesTotal(userId ?? 0),
+    enabled: authed && userId != null,
     staleTime: Infinity,
     gcTime: Infinity,
   });
 
   const summaryQuery = useQuery({
-    queryKey: queryKeys.dropyou.quotesSummary,
+    queryKey:
+      userId != null
+        ? queryKeys.dropyou.quotesSummary(userId)
+        : ['dropyou', 'quotes', 'summary', 'pending-user'],
     queryFn: async () => {
       const page = await fetchDropyouQuotesPage({ page: 1, limit: 1 });
       return page.meta.total;
     },
-    enabled: authed,
+    enabled: authed && userId != null,
     staleTime: 30_000,
   });
 
   const markSeenMutation = useMutation({
     mutationFn: setLastSeenQuotesTotal,
     onSuccess: (savedTotal) => {
-      queryClient.setQueryData(queryKeys.dropyou.quotesLastSeenTotal, savedTotal);
+      if (userId == null) return;
+      queryClient.setQueryData(queryKeys.dropyou.quotesLastSeenTotal(userId), savedTotal);
     },
   });
 
@@ -46,7 +56,10 @@ export function useNotificationUnreadDot() {
   return {
     hasUnread,
     latestTotal,
-    markSeen: markSeenMutation.mutate,
+    markSeen: (total: number) => {
+      if (userId == null) return;
+      markSeenMutation.mutate({ userId, total });
+    },
   };
 }
 

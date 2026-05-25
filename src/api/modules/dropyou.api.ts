@@ -81,7 +81,11 @@ function numberFrom(value: unknown, fallback: number): number {
   return fallback;
 }
 
-function quotePageFromResponse(data: unknown, fallbackPage: number, fallbackLimit: number): DropyouQuotesPage {
+function quotePageFromResponse(
+  data: unknown,
+  fallbackPage: number,
+  fallbackLimit: number,
+): DropyouQuotesPage {
   const fallback = {
     total: 0,
     page: fallbackPage,
@@ -112,7 +116,10 @@ function quotePageFromResponse(data: unknown, fallbackPage: number, fallbackLimi
           ? (body.pagination as Record<string, unknown>)
           : body;
     const rows = body.result;
-    const total = numberFrom(rawMeta.total ?? rawMeta.itemCount ?? rawMeta.count, rows.length);
+    const total = numberFrom(
+      rawMeta.total ?? rawMeta.itemCount ?? rawMeta.count,
+      rows.length,
+    );
     const page = numberFrom(rawMeta.page, fallbackPage);
     const limit = numberFrom(rawMeta.limit ?? rawMeta.take, fallbackLimit);
     const totalPages = Math.max(
@@ -132,7 +139,10 @@ function quotePageFromResponse(data: unknown, fallbackPage: number, fallbackLimi
     };
   }
 
-  const result = body.result && typeof body.result === 'object' ? (body.result as Record<string, unknown>) : null;
+  const result =
+    body.result && typeof body.result === 'object'
+      ? (body.result as Record<string, unknown>)
+      : null;
   const source = result ?? body;
   const rows =
     (Array.isArray(source.data) && source.data) ||
@@ -145,10 +155,16 @@ function quotePageFromResponse(data: unknown, fallbackPage: number, fallbackLimi
       : source.pagination && typeof source.pagination === 'object'
         ? (source.pagination as Record<string, unknown>)
         : source;
-  const total = numberFrom(rawMeta.total ?? rawMeta.itemCount ?? rawMeta.count, rows.length);
+  const total = numberFrom(
+    rawMeta.total ?? rawMeta.itemCount ?? rawMeta.count,
+    rows.length,
+  );
   const page = numberFrom(rawMeta.page, fallbackPage);
   const limit = numberFrom(rawMeta.limit ?? rawMeta.take, fallbackLimit);
-  const totalPages = Math.max(1, numberFrom(rawMeta.totalPages ?? rawMeta.pageCount, Math.ceil(total / limit) || 1));
+  const totalPages = Math.max(
+    1,
+    numberFrom(rawMeta.totalPages ?? rawMeta.pageCount, Math.ceil(total / limit) || 1),
+  );
   const hasNextPage =
     typeof rawMeta.hasNextPage === 'boolean'
       ? rawMeta.hasNextPage
@@ -182,6 +198,16 @@ export async function fetchLoadDetailsById(loadId: string | number): Promise<unk
   const id = String(loadId).trim();
   if (!id) throw new Error('Missing load id');
   const res = await api.get<unknown>(`/dropyou/load-by-id/${id}`);
+  return res.data;
+}
+
+/** Matches web app manual refresh: `GET /dropyou/current-location/:loadId`. */
+export async function fetchCurrentDropyouLocation(
+  loadId: string | number,
+): Promise<unknown> {
+  const id = String(loadId).trim();
+  if (!id) throw new Error('Missing load id');
+  const res = await api.get<unknown>(`/dropyou/current-location/${id}`);
   return res.data;
 }
 

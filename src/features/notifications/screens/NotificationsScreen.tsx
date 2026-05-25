@@ -4,10 +4,8 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
 import {
-  ActivityIndicator,
   Alert,
   FlatList,
-  Pressable,
   RefreshControl,
   StyleSheet,
   Text,
@@ -24,6 +22,7 @@ import { useDropyouQuotes } from '@/features/notifications/hooks/useDropyouQuote
 import { useMarkNotificationsSeenOnFocus } from '@/features/notifications/hooks/useNotificationUnreadDot';
 import { useTheme } from '@/hooks/useTheme';
 import { IllustratedActionCard } from '@/shared/components/IllustratedActionCard';
+import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import { StatusChip } from '@/shared/components/StatusChip';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -113,7 +112,9 @@ function formatUkQuoteTimestamp(iso: string): string {
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
-  return value != null && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+  return value != null && typeof value === 'object'
+    ? (value as Record<string, unknown>)
+    : null;
 }
 
 function pickVehicleName(record: Record<string, unknown> | null): string | null {
@@ -186,10 +187,18 @@ function mapQuoteToNotification(quote: DropyouQuote, index: number): QuoteNotifi
 
 function bookingAccent(colors: ThemeColors, status: string) {
   const normalized = status.toLowerCase();
-  if (normalized.includes('cancel') || normalized.includes('declin') || normalized.includes('reject')) {
+  if (
+    normalized.includes('cancel') ||
+    normalized.includes('declin') ||
+    normalized.includes('reject')
+  ) {
     return colors.danger;
   }
-  if (normalized.includes('post') || normalized.includes('active') || normalized.includes('accept')) {
+  if (
+    normalized.includes('post') ||
+    normalized.includes('active') ||
+    normalized.includes('accept')
+  ) {
     return colors.primary;
   }
   return colors.textSecondary;
@@ -395,6 +404,7 @@ export function NotificationsScreen() {
 
       const hasCachedDetails = Boolean(detailsByBookingId[bookingId]);
       const routeParams = {
+        backTitle: 'Notifications',
         loadId: bookingId,
         passengerLabel: quote.company,
         statusLabel: quote.status,
@@ -418,8 +428,12 @@ export function NotificationsScreen() {
           const response = await fetchLoadDetailsById(bookingId);
           setDetails(bookingId, response);
         } catch (err) {
-          const message = err instanceof Error ? err.message : 'Failed to load booking details.';
-          console.warn(`[Notifications] GET /dropyou/load-by-id/${bookingId} failed`, err);
+          const message =
+            err instanceof Error ? err.message : 'Failed to load booking details.';
+          console.warn(
+            `[Notifications] GET /dropyou/load-by-id/${bookingId} failed`,
+            err,
+          );
           setDetailsError(bookingId, message);
         } finally {
           if (!hasCachedDetails) {
@@ -442,10 +456,7 @@ export function NotificationsScreen() {
 
   const renderItem = useCallback(
     ({ item }: { item: QuoteNotificationVm }) => (
-      <QuoteNotificationCard
-        quote={item}
-        onPress={() => handleBookingPress(item)}
-      />
+      <QuoteNotificationCard quote={item} onPress={() => handleBookingPress(item)} />
     ),
     [handleBookingPress],
   );
@@ -477,17 +488,19 @@ export function NotificationsScreen() {
         data={quoteItems}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={
-          quoteItems.length > 0 ? <QuoteListHeader /> : null
-        }
+        ListHeaderComponent={quoteItems.length > 0 ? <QuoteListHeader /> : null}
         contentContainerStyle={[
           styles.listContent,
           adaptiveListContent,
           { paddingBottom: tabBarHeight + spacing.lg },
-          quoteItems.length === 0 && { flexGrow: 1, justifyContent: 'center' },
+          quoteItems.length === 0 && { flexGrow: 1, paddingTop: spacing.xl },
         ]}
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={onRefresh} tintColor={colors.primary} />
+          <RefreshControl
+            refreshing={isRefreshing}
+            onRefresh={onRefresh}
+            tintColor={colors.primary}
+          />
         }
         onEndReached={onEndReached}
         onEndReachedThreshold={0.45}
@@ -496,13 +509,7 @@ export function NotificationsScreen() {
         updateCellsBatchingPeriod={60}
         windowSize={7}
         removeClippedSubviews
-        ListEmptyComponent={
-          <QuoteEmptyState
-            isAuthed={isAuthed}
-            isRefreshing={isRefreshing}
-            onRefresh={onRefresh}
-          />
-        }
+        ListEmptyComponent={<QuoteEmptyState isAuthed={isAuthed} />}
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.footer}>
@@ -516,53 +523,22 @@ export function NotificationsScreen() {
   );
 }
 
-function QuoteEmptyState({
-  isAuthed,
-  isRefreshing,
-  onRefresh,
-}: {
-  isAuthed: boolean;
-  isRefreshing: boolean;
-  onRefresh: () => void;
-}) {
+function QuoteEmptyState({ isAuthed }: { isAuthed: boolean }) {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={styles.emptyCard}>
-      <View style={styles.emptyIcon}>
-        <Ionicons name="notifications-outline" size={30} color={colors.primary} />
-      </View>
-      <Text style={styles.emptyTitle}>
-        {isAuthed ? 'No booking updates yet' : 'Sign in to view updates'}
-      </Text>
-      <Text style={styles.emptyBody}>
-        {isAuthed
-          ? 'Carrier quotes will appear here as soon as they are available.'
-          : 'Your booking notifications are linked to your DropYou account.'}
-      </Text>
-      {isAuthed ? (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Refresh booking notifications"
-          disabled={isRefreshing}
-          onPress={onRefresh}
-          style={({ pressed }) => [
-            styles.refreshButton,
-            pressed && !isRefreshing && styles.refreshButtonPressed,
-          ]}
-        >
-          {isRefreshing ? (
-            <ActivityIndicator color={colors.onPrimary} size="small" />
-          ) : (
-            <Ionicons name="refresh" size={17} color={colors.onPrimary} />
-          )}
-          <Text style={styles.refreshButtonText}>
-            {isRefreshing ? 'Checking' : 'Check Again'}
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
+    <InteractiveEmptyState
+      eyebrow={isAuthed ? 'No updates' : 'Account required'}
+      title={isAuthed ? 'No booking updates yet' : 'Sign in to view updates'}
+      body={
+        isAuthed
+          ? 'Carrier quotes, booking changes, and live delivery updates will appear here as they arrive.'
+          : 'Your booking notifications are linked to your DropYou account.'
+      }
+      icon="notifications-outline"
+      accent={colors.primary}
+      style={{ flex: 1 }}
+    />
   );
 }
 
@@ -574,38 +550,21 @@ function QuoteErrorState({
   onRefresh: () => void;
 }) {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
-    <View style={styles.emptyCard}>
-      <View style={[styles.emptyIcon, styles.errorIcon]}>
-        <Ionicons name="alert-circle-outline" size={32} color={colors.danger} />
-      </View>
-      <Text style={styles.emptyTitle}>Couldn’t load notifications</Text>
-      <Text style={styles.emptyBody}>
-        We couldn’t fetch your booking updates. Check your connection and try again.
-      </Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Retry booking notifications"
-        disabled={isRefreshing}
-        onPress={onRefresh}
-        style={({ pressed }) => [
-          styles.refreshButton,
-          styles.errorButton,
-          pressed && !isRefreshing && styles.errorButtonPressed,
-        ]}
-      >
-        {isRefreshing ? (
-          <ActivityIndicator color={colors.onPrimary} size="small" />
-        ) : (
-          <Ionicons name="refresh" size={17} color={colors.onPrimary} />
-        )}
-        <Text style={styles.refreshButtonText}>
-          {isRefreshing ? 'Retrying' : 'Try Again'}
-        </Text>
-      </Pressable>
-    </View>
+    <InteractiveEmptyState
+      eyebrow="Connection issue"
+      title="Couldn’t load notifications"
+      body="We couldn’t fetch your booking updates. Check your connection and try again."
+      icon="alert-circle-outline"
+      accent={colors.danger}
+      primaryAction={{
+        label: isRefreshing ? 'Retrying' : 'Try again',
+        icon: 'refresh',
+        loading: isRefreshing,
+        onPress: onRefresh,
+      }}
+    />
   );
 }
 
@@ -692,11 +651,23 @@ function QuoteSkeletonList({ bottomPadding }: { bottomPadding: number }) {
             </View>
             <Skeleton width={56} height={56} radius={14} />
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+            }}
+          >
             <Skeleton width={86} height={20} radius={999} />
             <Skeleton width={74} height={22} />
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+            }}
+          >
             <Skeleton width="38%" height={16} />
             <Skeleton width="28%" height={16} />
           </View>
@@ -719,11 +690,23 @@ function QuoteSkeletonCards() {
             </View>
             <Skeleton width={56} height={56} radius={14} />
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+            }}
+          >
             <Skeleton width={86} height={20} radius={999} />
             <Skeleton width={74} height={22} />
           </View>
-          <View style={{ flexDirection: 'row', justifyContent: 'space-between', gap: spacing.sm }}>
+          <View
+            style={{
+              flexDirection: 'row',
+              justifyContent: 'space-between',
+              gap: spacing.sm,
+            }}
+          >
             <Skeleton width="38%" height={16} />
             <Skeleton width="28%" height={16} />
           </View>

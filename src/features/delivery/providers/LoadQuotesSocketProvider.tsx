@@ -1,5 +1,9 @@
 import type { PropsWithChildren } from 'react';
 import {
+  Platform,
+  Vibration,
+} from 'react-native';
+import {
   createContext,
   useCallback,
   useContext,
@@ -8,6 +12,7 @@ import {
   useRef,
   useState,
 } from 'react';
+import { useQueryClient } from '@tanstack/react-query';
 import { io, type Socket } from 'socket.io-client';
 
 import { setLoadQuotesSubscriptionSubscriber } from '@/features/delivery/socket/loadQuotesSubscriptionBridge';
@@ -17,6 +22,7 @@ import { env } from '@/shared/config/env';
 import { useAuthStore } from '@/store/authStore';
 import type { AuthUserProfile } from '@/types/auth.types';
 import { debugLog } from '@/utils/debugLog';
+import { queryKeys } from '@/utils/queryKeys';
 
 function readUserId(user: AuthUserProfile | null): number | null {
   if (!user || typeof user !== 'object') return null;
@@ -51,6 +57,75 @@ type VehicleLocation = {
   timestamp?: string;
 };
 
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' ? (value as Record<string, unknown>) : null;
+}
+
+function numberFrom(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (typeof value === 'string' && value.trim()) {
+    const n = Number(value);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function stringFrom(value: unknown): string | undefined {
+  if (typeof value === 'string' && value.trim()) return value.trim();
+  if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  return undefined;
+}
+
+function normalizeVehicleLocation(data: unknown): VehicleLocation | null {
+  const envelope = asRecord(data);
+  const raw = asRecord(envelope?.result) ?? asRecord(envelope?.data) ?? envelope;
+  if (!raw) return null;
+
+  const location = asRecord(raw.location) ?? asRecord(raw.currentLocation);
+  const vehicleId = stringFrom(
+    raw.vehicleId ??
+      raw.vehicle_id ??
+      raw.id ??
+      raw.executorVehicleId ??
+      raw.executor_vehicle_id,
+  );
+  const lat = numberFrom(
+    location?.lat ??
+      location?.latitude ??
+      raw.lat ??
+      raw.latitude ??
+      raw.currentLat ??
+      raw.currentLatitude,
+  );
+  const lng = numberFrom(
+    location?.lng ??
+      location?.longitude ??
+      raw.lng ??
+      raw.longitude ??
+      raw.currentLng ??
+      raw.currentLongitude,
+  );
+
+  if (!vehicleId || lat == null || lng == null) return null;
+
+  const addressRaw = raw.address;
+  const address =
+    stringFrom(addressRaw) ??
+    stringFrom(asRecord(addressRaw)?.fullAddress) ??
+    stringFrom(asRecord(addressRaw)?.address);
+
+  return {
+    vehicleId,
+    location: { lat, lng },
+    address,
+    timestamp:
+      stringFrom(raw.timestamp) ??
+      stringFrom(raw.createdAt) ??
+      stringFrom(raw.recordedAt) ??
+      stringFrom(raw.updatedAt),
+  };
+}
+
 const LoadQuotesSocketContext = createContext<LoadQuotesSocketContextValue>({
   isConnected: false,
   subscribeToLoad: () => {},
@@ -77,14 +152,67 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
   const session = useAuthStore((s) => s.session);
   const user = useAuthStore((s) => s.user);
   const userId = readUserId(user);
+  const queryClient = useQueryClient();
 
   const socketRef = useRef<Socket | null>(null);
   const subscribedLoadsRef = useRef<Set<string>>(new Set());
   const subscribedVehiclesRef = useRef<Set<string>>(new Set());
+  const lastServerEventAtRef = useRef<Record<string, number>>({});
+  const lastQuoteFeedbackAtRef = useRef(0);
   const [connected, setConnected] = useState(false);
-  const [vehicleLocations, setVehicleLocations] = useState<Record<string, VehicleLocation>>({});
+  const [vehicleLocations, setVehicleLocations] = useState<
+    Record<string, VehicleLocation>
+  >({});
+
+  const notifyNewQuote = useCallback(
+    (loadId?: string) => {
+      const now = Date.now();
+      if (now - lastQuoteFeedbackAtRef.current > 1500) {
+        lastQuoteFeedbackAtRef.current = now;
+        Vibration.vibrate(Platform.OS === 'android' ? [0, 180] : undefined);
+      }
+
+      if (userId != null) {
+        queryClient.setQueryData<number>(
+          queryKeys.dropyou.quotesSummary(userId),
+          (current) => (typeof current === 'number' ? current + 1 : 1),
+        );
+        void queryClient.invalidateQueries({
+          queryKey: queryKeys.dropyou.quotesSummary(userId),
+        });
+        void queryClient.invalidateQueries({
+          predicate: (query) =>
+            query.queryKey[0] === 'dropyou' && query.queryKey[1] === 'quotes',
+        });
+      }
+
+      if (__DEV__) {
+        console.log('[LoadQuotesSocket] new quote feedback', {
+          loadId,
+          userId,
+          feedback: 'vibration + notification badge refresh',
+        });
+      }
+    },
+    [queryClient, userId],
+  );
 
   const attachQuoteListeners = useCallback((socket: Socket) => {
+    const logServerTiming = (event: string, key?: string) => {
+      if (!__DEV__) return;
+      const now = Date.now();
+      const timingKey = key ? `${event}:${key}` : event;
+      const previous = lastServerEventAtRef.current[timingKey];
+      lastServerEventAtRef.current[timingKey] = now;
+      console.log('[LoadQuotesSocket] server data timing', {
+        event,
+        key,
+        receivedAt: new Date(now).toISOString(),
+        deltaMs: previous == null ? null : now - previous,
+        deltaSeconds: previous == null ? null : Number(((now - previous) / 1000).toFixed(2)),
+      });
+    };
+
     const logPayload = (event: string, data: unknown) => {
       if (!__DEV__) return;
       try {
@@ -95,30 +223,38 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
     };
 
     const onDropyou = (data: unknown) => {
+      const row = asRecord(data);
+      const loadId = stringFrom(
+        asRecord(row?.quote)?.loadId ??
+          asRecord(row?.quote)?.load_id ??
+          row?.loadId ??
+          row?.load_id,
+      );
+      logServerTiming('dropyou_quote_received', loadId);
       logPayload('dropyou_quote_received', data);
-      useLoadQuotesStore.getState().ingestQuote(data, 'dropyou_quote_received');
+      const added = useLoadQuotesStore
+        .getState()
+        .ingestQuote(data, 'dropyou_quote_received');
+      if (added) notifyNewQuote(loadId);
     };
     const onTeg = (data: unknown) => {
+      const row = asRecord(data);
+      const loadId = stringFrom(
+        asRecord(row?.quote)?.loadId ??
+          asRecord(row?.quote)?.load_id ??
+          row?.loadId ??
+          row?.load_id,
+      );
+      logServerTiming('teg_quotes', loadId);
       logPayload('teg_quotes', data);
-      useLoadQuotesStore.getState().ingestQuote(data, 'teg_quotes');
+      const added = useLoadQuotesStore.getState().ingestQuote(data, 'teg_quotes');
+      if (added) notifyNewQuote(loadId);
     };
     const onVehicleLocation = (data: unknown) => {
+      const normalized = normalizeVehicleLocation(data);
+      logServerTiming('vehicle_location_updates', normalized?.vehicleId);
       logPayload('vehicle_location_updates', data);
-      if (!data || typeof data !== 'object') return;
-      const raw = data as Record<string, unknown>;
-      const vehicleIdRaw = raw.vehicleId ?? raw.vehicle_id ?? raw.id;
-      const locationRaw = raw.location;
-      if (!vehicleIdRaw || !locationRaw || typeof locationRaw !== 'object') return;
-      const loc = locationRaw as Record<string, unknown>;
-      const lat = typeof loc.lat === 'number' ? loc.lat : Number(loc.lat);
-      const lng = typeof loc.lng === 'number' ? loc.lng : Number(loc.lng);
-      if (!Number.isFinite(lat) || !Number.isFinite(lng)) return;
-      const normalized: VehicleLocation = {
-        vehicleId: String(vehicleIdRaw),
-        location: { lat, lng },
-        address: typeof raw.address === 'string' ? raw.address : undefined,
-        timestamp: typeof raw.timestamp === 'string' ? raw.timestamp : undefined,
-      };
+      if (!normalized) return;
       setVehicleLocations((prev) => ({ ...prev, [normalized.vehicleId]: normalized }));
     };
     socket.on('dropyou_quote_received', onDropyou);
@@ -129,7 +265,7 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
       socket.off('teg_quotes', onTeg);
       socket.off('vehicle_location_updates', onVehicleLocation);
     };
-  }, []);
+  }, [notifyNewQuote]);
 
   const emitJoinRooms = useCallback((socket: Socket, uid: number) => {
     socket.emit('join_user', { userId: uid });
@@ -139,11 +275,20 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
   const resubscribeAllLoads = useCallback((socket: Socket) => {
     for (const loadId of subscribedLoadsRef.current) {
       if (__DEV__) {
-        console.log('[LoadQuotesSocket] emit subscribe_to_load (after connect / reconnect)', { loadId });
+        console.log(
+          '[LoadQuotesSocket] emit subscribe_to_load (after connect / reconnect)',
+          { loadId },
+        );
       }
       socket.emit('subscribe_to_load', { loadId });
     }
     for (const vehicleId of subscribedVehiclesRef.current) {
+      if (__DEV__) {
+        console.log(
+          '[LoadQuotesSocket] emit subscribe_to_vehicle (after connect / reconnect)',
+          { vehicleId },
+        );
+      }
       socket.emit('subscribe_to_vehicle', { vehicleId });
     }
   }, []);
@@ -172,7 +317,8 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
     void (async () => {
       const token = await tokenStorage.getAccessToken();
       if (cancelled || !token) {
-        if (!token && __DEV__) debugLog('LoadQuotesSocket', 'No access token; socket not started');
+        if (!token && __DEV__)
+          debugLog('LoadQuotesSocket', 'No access token; socket not started');
         return;
       }
 
@@ -220,18 +366,21 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
         setConnected(false);
       });
 
-      socket.on('connect_error', (err: Error & { description?: string; type?: string; data?: unknown }) => {
-        if (__DEV__) {
-          console.warn('[LoadQuotesSocket] connect_error', {
-            message: err?.message,
-            description: err?.description,
-            type: err?.type,
-            url: baseUrl,
-            path: socketPath,
-          });
-        }
-        debugLog('LoadQuotesSocket', 'connect_error', err?.message ?? err);
-      });
+      socket.on(
+        'connect_error',
+        (err: Error & { description?: string; type?: string; data?: unknown }) => {
+          if (__DEV__) {
+            console.warn('[LoadQuotesSocket] connect_error', {
+              message: err?.message,
+              description: err?.description,
+              type: err?.type,
+              url: baseUrl,
+              path: socketPath,
+            });
+          }
+          debugLog('LoadQuotesSocket', 'connect_error', err?.message ?? err);
+        },
+      );
     })();
 
     return () => {
@@ -257,10 +406,13 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
       }
       s.emit('subscribe_to_load', { loadId: id });
     } else if (__DEV__) {
-      console.log('[LoadQuotesSocket] subscribe_to_load queued (socket not connected yet)', {
-        loadId: id,
-        hint: 'Will emit on connect with join_user + pending subscriptions',
-      });
+      console.log(
+        '[LoadQuotesSocket] subscribe_to_load queued (socket not connected yet)',
+        {
+          loadId: id,
+          hint: 'Will emit on connect with join_user + pending subscriptions',
+        },
+      );
     }
   }, []);
 
@@ -288,7 +440,19 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
     if (!id) return;
     subscribedVehiclesRef.current.add(id);
     const s = socketRef.current;
-    if (s?.connected) s.emit('subscribe_to_vehicle', { vehicleId: id });
+    if (s?.connected) {
+      if (__DEV__) {
+        console.log('[LoadQuotesSocket] emit subscribe_to_vehicle', { vehicleId: id });
+      }
+      s.emit('subscribe_to_vehicle', { vehicleId: id });
+    } else if (__DEV__) {
+      console.log(
+        '[LoadQuotesSocket] subscribe_to_vehicle queued (socket not connected yet)',
+        {
+          vehicleId: id,
+        },
+      );
+    }
   }, []);
 
   const unsubscribeFromVehicle = useCallback((vehicleId: string) => {
@@ -296,7 +460,14 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
     if (!id) return;
     subscribedVehiclesRef.current.delete(id);
     const s = socketRef.current;
-    if (s?.connected) s.emit('unsubscribe_from_vehicle', { vehicleId: id });
+    if (s?.connected) {
+      if (__DEV__) {
+        console.log('[LoadQuotesSocket] emit unsubscribe_from_vehicle', {
+          vehicleId: id,
+        });
+      }
+      s.emit('unsubscribe_from_vehicle', { vehicleId: id });
+    }
   }, []);
 
   const value = useMemo<LoadQuotesSocketContextValue>(
@@ -308,8 +479,19 @@ export function LoadQuotesSocketProvider({ children }: PropsWithChildren) {
       unsubscribeFromVehicle,
       vehicleLocations,
     }),
-    [connected, subscribeToLoad, subscribeToVehicle, unsubscribeFromLoad, unsubscribeFromVehicle, vehicleLocations],
+    [
+      connected,
+      subscribeToLoad,
+      subscribeToVehicle,
+      unsubscribeFromLoad,
+      unsubscribeFromVehicle,
+      vehicleLocations,
+    ],
   );
 
-  return <LoadQuotesSocketContext.Provider value={value}>{children}</LoadQuotesSocketContext.Provider>;
+  return (
+    <LoadQuotesSocketContext.Provider value={value}>
+      {children}
+    </LoadQuotesSocketContext.Provider>
+  );
 }

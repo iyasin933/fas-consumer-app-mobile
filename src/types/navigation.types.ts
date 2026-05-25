@@ -44,6 +44,7 @@ export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
   Users: undefined;
   BookingDetails: {
+    backTitle?: string;
     loadId: string;
     bookingId?: string;
     passengerLabel?: string;
@@ -65,6 +66,7 @@ export type AppStackParamList = {
     vehicleName: string;
   };
   DeliveryPayment: {
+    backTitle?: string;
     /** Charged amount in smallest currency unit (pence for GBP). */
     amountPence: number;
     vehicleName: string;
@@ -79,12 +81,17 @@ export type AppStackParamList = {
     agreedRate?: number;
   };
   DeliveryTracking: {
+    backTitle?: string;
     loadId: string;
     bookingId?: string;
-    vehicleName: string;
-    amountPence: number;
+    vehicleName?: string;
+    amountPence?: number;
     carrierName?: string;
     quoteId?: string;
+    pickupAddress?: string;
+    dropoffAddress?: string;
+    pickupTimeLabel?: string;
+    dropoffTimeLabel?: string;
   };
 };
 

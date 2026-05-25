@@ -29,6 +29,11 @@ function getPlatformGoogleClientId() {
   return env.googleWebClientId;
 }
 
+function getGoogleAuthPlatform() {
+  if (Platform.OS === 'ios' || Platform.OS === 'android') return Platform.OS;
+  return undefined;
+}
+
 function googleIosUrlScheme(clientId: string) {
   if (!clientId.endsWith('.apps.googleusercontent.com')) return '';
   return `com.googleusercontent.apps.${clientId.replace('.apps.googleusercontent.com', '')}`;
@@ -53,6 +58,7 @@ export function GoogleSignInButton({
   const handled = useRef(false);
   const platformClientId = getPlatformGoogleClientId();
   const hasPlatformClientId = Boolean(platformClientId);
+  const googleAuthPlatform = getGoogleAuthPlatform();
 
   const redirectUri = getRedirectUri();
 
@@ -73,9 +79,8 @@ export function GoogleSignInButton({
       redirectUri,
       hasRequest: Boolean(request),
       hasCodeVerifier: Boolean(request?.codeVerifier),
-      clientIdTail: platformClientId ? platformClientId.slice(-32) : null,
     });
-  }, [hasPlatformClientId, platformClientId, redirectUri, request]);
+  }, [hasPlatformClientId, redirectUri, request]);
 
   useEffect(() => {
     if (response?.type !== 'success' || handled.current) return;
@@ -84,6 +89,7 @@ export function GoogleSignInButton({
     logGoogleAuth('google response received', {
       type: response.type,
       hasCode: Boolean(code),
+      codeLength: code?.length ?? 0,
       hasCodeVerifier: Boolean(request?.codeVerifier),
       redirectUri,
       paramsKeys: Object.keys(params),
@@ -99,12 +105,15 @@ export function GoogleSignInButton({
     void (async () => {
       try {
         logGoogleAuth('sending code to backend', {
+          platform: googleAuthPlatform,
+          hasCode: Boolean(code),
           codeLength: code.length,
-          codeVerifierLength: codeVerifier?.length ?? 0,
+          hasCodeVerifier: Boolean(codeVerifier),
           redirectUri,
         });
         await signInWithGoogleToken({
           code,
+          platform: googleAuthPlatform,
           codeVerifier,
           redirectUri,
         });
@@ -118,7 +127,7 @@ export function GoogleSignInButton({
         handled.current = false;
       }
     })();
-  }, [redirectUri, request?.codeVerifier, response, signInWithGoogleToken]);
+  }, [googleAuthPlatform, redirectUri, request?.codeVerifier, response, signInWithGoogleToken]);
 
   const onPress = useCallback(() => {
     if (!hasPlatformClientId) {

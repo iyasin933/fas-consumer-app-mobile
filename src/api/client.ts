@@ -46,7 +46,12 @@ async function clearAuthSession(): Promise<void> {
 
 function isRefreshableAuthPath(url: string | undefined): boolean {
   if (!url) return true;
-  return ![
+  return !isPublicAuthPath(url);
+}
+
+function isPublicAuthPath(url: string | undefined): boolean {
+  if (!url) return false;
+  return [
     '/auth/login',
     '/auth/login/verify/otp',
     '/auth/signup',
@@ -82,6 +87,10 @@ async function refreshAccessToken(): Promise<string> {
 
 api.interceptors.request.use(
   async (config) => {
+    if (isPublicAuthPath(config.url)) {
+      return config;
+    }
+
     const token = await tokenStorage.getAccessToken();
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
@@ -96,6 +105,10 @@ api.interceptors.response.use(
   async (error) => {
     if (isAxiosError(error) && error.response?.status === 401) {
       const originalConfig = error.config as RetriableRequestConfig | undefined;
+      if (isPublicAuthPath(originalConfig?.url)) {
+        return Promise.reject(error);
+      }
+
       if (
         originalConfig &&
         !originalConfig._authRetry &&

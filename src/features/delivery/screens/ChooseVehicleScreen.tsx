@@ -24,15 +24,19 @@ import {
   type DeliveryVehicleDto,
 } from '@/features/delivery/api/consumerBookingPriceApi';
 import { buildDropyouLoadPayload } from '@/features/delivery/api/buildDropyouLoadPayload';
-import { createDropyouLoad, summarizeDropyouLoadError } from '@/features/delivery/api/dropyouLoadApi';
+import {
+  createDropyouLoad,
+  summarizeDropyouLoadError,
+} from '@/features/delivery/api/dropyouLoadApi';
 import { VehicleOptionCard } from '@/features/delivery/components/VehicleOptionCard';
 import { useConsumerBookingPriceVehicles } from '@/features/delivery/hooks/useConsumerBookingPriceVehicles';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { getScheduledPickupDropoffOrderError } from '@/features/map/utils/deliverySchedule';
 import { useTheme } from '@/hooks/useTheme';
-import { env } from '@/shared/config/env';
+import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { Skeleton } from '@/shared/components/Skeleton';
+import { env } from '@/shared/config/env';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -52,12 +56,15 @@ export function ChooseVehicleScreen() {
   const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
   const [loadErrorText, setLoadErrorText] = useState<string | null>(null);
-  const { data, isLoading, isError, error, refetch, isRefetching } = useConsumerBookingPriceVehicles();
+  const { data, isLoading, isError, error, refetch, isRefetching } =
+    useConsumerBookingPriceVehicles();
   const selectedVehicleId = useDeliveryOrderDraftStore((s) => s.selectedVehicleId);
   const setSelectedVehicleId = useDeliveryOrderDraftStore((s) => s.setSelectedVehicleId);
   const draftPickup = useDeliveryOrderDraftStore((s) => s.pickup);
   const draftDropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
-  const syncLocationsFromRows = useDeliveryOrderDraftStore((s) => s.syncLocationsFromRows);
+  const syncLocationsFromRows = useDeliveryOrderDraftStore(
+    (s) => s.syncLocationsFromRows,
+  );
   const pallets = useDeliveryOrderDraftStore((s) => s.pallets);
   const dimensions = useDeliveryOrderDraftStore((s) => s.dimensions);
   const rows = useDeliveryFormStore((s) => s.rows);
@@ -85,26 +92,47 @@ export function ChooseVehicleScreen() {
 
   const routeReady = Boolean(
     pickup?.address &&
-      dropoff?.address &&
-      Number.isFinite(pickup.lat) &&
-      Number.isFinite(pickup.lng) &&
-      Number.isFinite(dropoff.lat) &&
-      Number.isFinite(dropoff.lng),
+    dropoff?.address &&
+    Number.isFinite(pickup.lat) &&
+    Number.isFinite(pickup.lng) &&
+    Number.isFinite(dropoff.lat) &&
+    Number.isFinite(dropoff.lng),
   );
 
   useEffect(() => {
     if ((draftPickup && draftDropoff) || !rowPickup || !rowDropoff) return;
     syncLocationsFromRows(rows, tab);
-  }, [draftDropoff, draftPickup, rowDropoff, rowPickup, rows, syncLocationsFromRows, tab]);
+  }, [
+    draftDropoff,
+    draftPickup,
+    rowDropoff,
+    rowPickup,
+    rows,
+    syncLocationsFromRows,
+    tab,
+  ]);
 
-  const errorDetail = useMemo(() => (error ? summarizeConsumerBookingPriceError(error) : ''), [error]);
+  const errorDetail = useMemo(
+    () => (error ? summarizeConsumerBookingPriceError(error) : ''),
+    [error],
+  );
 
   const styles = useMemo(
     () =>
       StyleSheet.create({
         safe: { flex: 1, backgroundColor: colors.background },
-        center: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: spacing.lg, gap: spacing.md },
-        err: { fontSize: typography.fontSize.md, color: colors.textSecondary, textAlign: 'center' },
+        center: {
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: spacing.lg,
+          gap: spacing.md,
+        },
+        err: {
+          fontSize: typography.fontSize.md,
+          color: colors.textSecondary,
+          textAlign: 'center',
+        },
         retry: {
           paddingVertical: spacing.sm,
           paddingHorizontal: spacing.lg,
@@ -159,7 +187,11 @@ export function ChooseVehicleScreen() {
           fontSize: 12,
           lineHeight: 17,
           color: colors.textPrimary,
-          fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
+          fontFamily: Platform.select({
+            ios: 'Menlo',
+            android: 'monospace',
+            default: 'monospace',
+          }),
         },
         errOverlayHost: {
           ...StyleSheet.absoluteFillObject,
@@ -183,8 +215,16 @@ export function ChooseVehicleScreen() {
           padding: spacing.lg,
           gap: spacing.sm,
         },
-        errTitle: { fontSize: typography.fontSize.lg, fontWeight: '800', color: colors.textPrimary },
-        errBody: { fontSize: typography.fontSize.md, color: colors.textSecondary, lineHeight: 22 },
+        errTitle: {
+          fontSize: typography.fontSize.lg,
+          fontWeight: '800',
+          color: colors.textPrimary,
+        },
+        errBody: {
+          fontSize: typography.fontSize.md,
+          color: colors.textSecondary,
+          lineHeight: 22,
+        },
         errBtn: {
           marginTop: spacing.md,
           backgroundColor: colors.primary,
@@ -194,7 +234,11 @@ export function ChooseVehicleScreen() {
           alignItems: 'center',
           justifyContent: 'center',
         },
-        errBtnTxt: { color: colors.onPrimary, fontWeight: '700', fontSize: typography.fontSize.md },
+        errBtnTxt: {
+          color: colors.onPrimary,
+          fontWeight: '700',
+          fontSize: typography.fontSize.md,
+        },
       }),
     [colors],
   );
@@ -272,7 +316,10 @@ export function ChooseVehicleScreen() {
               : '(no body)',
           );
         } catch {
-          console.warn('[ChooseVehicle] create load response.data (non-JSONable)', e.response?.data);
+          console.warn(
+            '[ChooseVehicle] create load response.data (non-JSONable)',
+            e.response?.data,
+          );
         }
       } else {
         console.warn('[ChooseVehicle] create load failed (non-HTTP)', e);
@@ -299,7 +346,9 @@ export function ChooseVehicleScreen() {
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <View style={styles.center}>
           <Text style={styles.err}>Delivery route is missing.</Text>
-          <Text style={styles.err}>Go back to the map, select pickup and dropoff again, then continue.</Text>
+          <Text style={styles.err}>
+            Go back to the map, select pickup and dropoff again, then continue.
+          </Text>
           <Pressable style={styles.retry} onPress={() => navigation.goBack()}>
             <Text style={styles.retryTxt}>Back</Text>
           </Pressable>
@@ -320,7 +369,10 @@ export function ChooseVehicleScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['bottom']}>
         <ScrollView
-          contentContainerStyle={[styles.center, { paddingVertical: spacing.lg, flexGrow: 1 }]}
+          contentContainerStyle={[
+            styles.center,
+            { paddingVertical: spacing.lg, flexGrow: 1 },
+          ]}
           keyboardShouldPersistTaps="handled"
         >
           <Text style={styles.err}>Could not load vehicles.</Text>
@@ -337,7 +389,10 @@ export function ChooseVehicleScreen() {
               {errorDetail || 'Unknown error'}
             </Text>
           </View>
-          <Pressable style={[styles.retry, { marginTop: spacing.lg }]} onPress={() => refetch()}>
+          <Pressable
+            style={[styles.retry, { marginTop: spacing.lg }]}
+            onPress={() => refetch()}
+          >
             <Text style={styles.retryTxt}>Try again</Text>
           </Pressable>
         </ScrollView>
@@ -355,14 +410,26 @@ export function ChooseVehicleScreen() {
         renderItem={renderItem}
         contentContainerStyle={list.length === 0 ? { flexGrow: 1 } : styles.list}
         ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
-        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor={colors.primary} />}
+        refreshControl={
+          <RefreshControl
+            refreshing={isRefetching}
+            onRefresh={() => refetch()}
+            tintColor={colors.primary}
+          />
+        }
         ListEmptyComponent={
-          <View style={styles.center}>
-            <Text style={styles.err}>No vehicles returned for this route yet.</Text>
-          </View>
+          <InteractiveEmptyState
+            eyebrow="Route checked"
+            title="No vehicles available yet"
+            body="We could not find a vehicle for this route right now. Adjust the pickup, dropoff, or delivery details and try again."
+            icon="car-outline"
+            style={{ flex: 1 }}
+          />
         }
       />
-      <View style={[styles.ctaWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}>
+      <View
+        style={[styles.ctaWrap, { paddingBottom: Math.max(insets.bottom, spacing.md) }]}
+      >
         <Pressable
           style={[styles.cta, (!selectedVehicleId || submitting) && styles.ctaDisabled]}
           onPress={() => void onRequest()}
@@ -384,7 +451,11 @@ export function ChooseVehicleScreen() {
           accessibilityViewIsModal
         >
           <GestureHandlerRootView style={styles.errGhRoot}>
-            <Pressable style={styles.errDim} onPress={() => setLoadErrorText(null)} accessibilityLabel="Dismiss error">
+            <Pressable
+              style={styles.errDim}
+              onPress={() => setLoadErrorText(null)}
+              accessibilityLabel="Dismiss error"
+            >
               <View style={styles.errCardWrap} pointerEvents="box-none">
                 <Pressable
                   onPress={(ev) => {
@@ -466,7 +537,15 @@ function VehicleOptionsSkeleton() {
           backgroundColor: colors.surface,
         },
       }),
-    [artHeight, artWidth, colors.background, colors.border, colors.surface, insets.bottom, isNarrow],
+    [
+      artHeight,
+      artWidth,
+      colors.background,
+      colors.border,
+      colors.surface,
+      insets.bottom,
+      isNarrow,
+    ],
   );
 
   return (

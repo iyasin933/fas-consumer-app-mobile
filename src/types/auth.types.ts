@@ -49,6 +49,7 @@ export type SendEmailOtpDto = {
 export type GoogleLoginDto = {
   code: string;
   source?: string;
+  platform?: 'ios' | 'android';
   codeVerifier?: string;
   redirectUri?: string;
 };
@@ -56,6 +57,7 @@ export type GoogleLoginDto = {
 /** Same fields sent from mobile into `authSession.signInWithGoogleToken` (service adds `source`). */
 export type GoogleSignInMobileParams = {
   code: string;
+  platform?: 'ios' | 'android';
   codeVerifier?: string;
   redirectUri?: string;
 };

@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 import { isAxiosError } from 'axios';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -17,13 +18,19 @@ import MapView, {
   Polyline,
   PROVIDER_DEFAULT,
   PROVIDER_GOOGLE,
+  type LatLng,
   type Region,
 } from 'react-native-maps';
+import Animated, {
+  FadeIn,
+  ZoomIn,
+} from 'react-native-reanimated';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchLoadDetailsById, fetchQuotesByLoadId } from '@/api/modules/dropyou.api';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { acceptDropyouQuote } from '@/features/delivery/api/dropyouAcceptQuoteApi';
+import { cancelDropyouBooking } from '@/features/delivery/api/dropyouCancelBookingApi';
 import { summarizePaymentApiError } from '@/features/delivery/api/deliveryPaymentApi';
 import { DropyouQuoteCard } from '@/features/delivery/components/DropyouQuoteCard';
 import type { LoadQuoteRow } from '@/features/delivery/socket/loadQuotesSocket.types';
@@ -38,6 +45,7 @@ import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import { StatusChip } from '@/shared/components/StatusChip';
 import type { ThemeColors } from '@/shared/theme/colors';
+import { DARK_MAP_STYLE } from '@/shared/theme/mapStyle';
 import {
   ROUTE_MARKER_COLORS,
   ROUTE_MARKER_SOFT_COLORS,
@@ -45,14 +53,16 @@ import {
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
+import { queryKeys } from '@/utils/queryKeys';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'BookingDetails'>;
 
 type ObjectRecord = Record<string, unknown>;
-type RouteCoord = { latitude: number; longitude: number };
+type RouteCoord = LatLng;
 type DetailsTab = 'details' | 'quotes';
 
 const EMPTY_QUOTES: unknown[] = [];
+const ROUTE_MAP_EDGE_PADDING = { top: 44, right: 34, bottom: 44, left: 34 };
 
 const DEFAULT_ROUTE_REGION: Region = {
   latitude: 51.5074,
@@ -127,6 +137,31 @@ function truthyAt(value: unknown, paths: string[][]): boolean {
     }
   }
   return false;
+}
+
+function isCancelableStatus(status: string): boolean {
+  const normalized = status.trim().toLowerCase();
+  if (!normalized) return true;
+  return ![
+    'cancelled',
+    'canceled',
+    'completed',
+    'complete',
+    'delivered',
+    'failed',
+  ].includes(normalized);
+}
+
+function trackingUnavailableReason(status: string): string | null {
+  const normalized = status.trim().toLowerCase();
+  if (!normalized) return null;
+  if (normalized.includes('cancel')) {
+    return 'This booking was cancelled, so live tracking is no longer available.';
+  }
+  if (normalized.includes('pending')) {
+    return 'Your driver is not on the way yet. Live tracking will be available once the booking is confirmed and the driver starts moving.';
+  }
+  return null;
 }
 
 function routeCoordFromDetails(
@@ -294,9 +329,12 @@ function RouteMapMarker({
   color: string;
 }) {
   return (
-    <View style={[mapMarkerStyles.pin, { backgroundColor: color }]}>
+    <Animated.View
+      entering={ZoomIn.duration(280)}
+      style={[mapMarkerStyles.pin, { backgroundColor: color }]}
+    >
       <Ionicons name={icon} size={17} color="#ffffff" />
-    </View>
+    </Animated.View>
   );
 }
 
@@ -414,6 +452,41 @@ function createStyles(colors: ThemeColors) {
       fontSize: typography.fontSize.sm,
       fontWeight: '700',
     },
+    actionsRow: {
+      flexDirection: 'row',
+      gap: spacing.sm,
+      alignItems: 'stretch',
+    },
+    actionButton: {
+      flex: 1,
+      minHeight: 50,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.xs,
+      paddingHorizontal: spacing.md,
+    },
+    actionPrimary: {
+      backgroundColor: colors.primary + '10',
+      borderWidth: 1,
+      borderColor: colors.primary,
+    },
+    actionDanger: {
+      backgroundColor: '#DC262610',
+      borderWidth: 1,
+      borderColor: '#DC2626',
+    },
+    actionTextPrimary: {
+      color: colors.primary,
+      fontSize: typography.fontSize.sm,
+      fontWeight: '800',
+    },
+    actionTextDanger: {
+      color: '#DC2626',
+      fontSize: typography.fontSize.sm,
+      fontWeight: '800',
+    },
     row: {
       gap: spacing.xs,
     },
@@ -498,11 +571,14 @@ const mapMarkerStyles = StyleSheet.create({
 
 export function BookingDetailsScreen({ route, navigation }: Props) {
   const { loadId } = route.params;
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
+  const queryClient = useQueryClient();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const mapRef = useRef<MapView | null>(null);
+  const didFrameRouteMapRef = useRef(false);
   const [activeTab, setActiveTab] = useState<DetailsTab>('details');
   const [acceptingKey, setAcceptingKey] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
   const detailsResponse = useBookingDetailsStore((s) => s.detailsByLoadId[loadId]);
   const rawQuotes = useBookingDetailsStore(
     (s) => s.quotesByLoadId[loadId] ?? EMPTY_QUOTES,
@@ -674,6 +750,23 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
   const routeCoords = pickupCoord && dropoffCoord ? [pickupCoord, dropoffCoord] : [];
   const hasRouteMap = Boolean(pickupCoord || dropoffCoord);
   const mapRegion = routeRegion(pickupCoord, dropoffCoord);
+  const canCancel = isCancelableStatus(status);
+
+  useEffect(() => {
+    if (!mapRef.current || activeTab !== 'details' || !hasRouteMap) return;
+    const points = [pickupCoord, dropoffCoord].filter(
+      (coord): coord is RouteCoord => Boolean(coord),
+    );
+    if (points.length >= 2) {
+      mapRef.current.fitToCoordinates(points, {
+        animated: didFrameRouteMapRef.current,
+        edgePadding: ROUTE_MAP_EDGE_PADDING,
+      });
+    } else {
+      mapRef.current.animateToRegion(mapRegion, didFrameRouteMapRef.current ? 350 : 0);
+    }
+    didFrameRouteMapRef.current = true;
+  }, [activeTab, dropoffCoord, hasRouteMap, mapRegion, pickupCoord]);
 
   const openMaps = () => {
     const origin = pickupCoord
@@ -692,7 +785,69 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
   };
 
   const recenterMap = () => {
+    if (routeCoords.length >= 2) {
+      mapRef.current?.fitToCoordinates(routeCoords, {
+        animated: true,
+        edgePadding: ROUTE_MAP_EDGE_PADDING,
+      });
+      return;
+    }
     mapRef.current?.animateToRegion(mapRegion, 350);
+  };
+
+  const openTracking = () => {
+    const unavailableReason = trackingUnavailableReason(status);
+    if (unavailableReason) {
+      Alert.alert('Tracking unavailable', unavailableReason, [{ text: 'Got it' }]);
+      return;
+    }
+
+    navigation.navigate('DeliveryTracking', {
+      backTitle: 'Booking details',
+      loadId,
+      bookingId: acceptBookingId ?? route.params.bookingId,
+      vehicleName: vehicle,
+      carrierName: owner === '—' ? undefined : owner,
+      pickupAddress: pickup,
+      dropoffAddress: dropoff,
+      pickupTimeLabel: pickupTime,
+      dropoffTimeLabel: dropoffTime,
+    });
+  };
+
+  const cancelBookingNow = async () => {
+    setCancelling(true);
+    try {
+      await cancelDropyouBooking(loadId);
+      await queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
+      await queryClient.invalidateQueries({
+        predicate: (query) => query.queryKey[0] === 'dropyou',
+      });
+      Alert.alert('Booking cancelled', 'This booking has been cancelled.');
+      navigation.goBack();
+    } catch (err) {
+      if (isAxiosError(err)) {
+        console.warn(
+          '[BookingDetails] cancel booking failed',
+          err.response?.status,
+          err.response?.data,
+        );
+      }
+      Alert.alert('Cancel booking', summarizePaymentApiError(err));
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const confirmCancelBooking = () => {
+    Alert.alert('Cancel booking', 'Are you sure you want to cancel this booking?', [
+      { text: 'No', style: 'cancel' },
+      {
+        text: 'Yes',
+        style: 'destructive',
+        onPress: () => void cancelBookingNow(),
+      },
+    ]);
   };
 
   const quoteModels = rawQuotes
@@ -742,6 +897,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
       }
       await acceptDropyouQuote(bookingIdForAccept, model.quoteId);
       navigation.navigate('DeliveryPayment', {
+        backTitle: 'Booking details',
         amountPence: majorToPence(model.price, model.currency),
         vehicleName: model.vehicleType || vehicle,
         loadId: model.loadId,
@@ -803,8 +959,9 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
         {activeTab === 'details' ? (
           <View style={styles.tabPanel}>
             {hasRouteMap ? (
-              <View style={styles.mapCard}>
+              <Animated.View entering={FadeIn.duration(240)} style={styles.mapCard}>
                 <MapView
+                  key={isDark ? 'booking-details-map-dark' : 'booking-details-map-light'}
                   ref={mapRef}
                   style={styles.map}
                   provider={
@@ -814,6 +971,11 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                   rotateEnabled={false}
                   showsCompass={false}
                   toolbarEnabled={false}
+                  loadingBackgroundColor={colors.background}
+                  userInterfaceStyle={isDark ? 'dark' : 'light'}
+                  customMapStyle={
+                    isDark && Platform.OS === 'android' ? DARK_MAP_STYLE : undefined
+                  }
                 >
                   {routeCoords.length === 2 ? (
                     <Polyline
@@ -865,8 +1027,41 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                     <Text style={styles.mapActionText}>Open route</Text>
                   </Pressable>
                 </View>
-              </View>
+              </Animated.View>
             ) : null}
+
+            <View style={styles.actionsRow}>
+              <Pressable
+                style={({ pressed }) => [
+                  styles.actionButton,
+                  styles.actionPrimary,
+                  pressed && styles.outlineButtonPressed,
+                ]}
+                onPress={openTracking}
+                accessibilityRole="button"
+              >
+                <Ionicons name="navigate" size={18} color={colors.primary} />
+                <Text style={styles.actionTextPrimary}>Track</Text>
+              </Pressable>
+
+              {canCancel ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.actionDanger,
+                    pressed && styles.outlineButtonPressed,
+                  ]}
+                  onPress={confirmCancelBooking}
+                  disabled={cancelling}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="close-circle" size={18} color="#DC2626" />
+                  <Text style={styles.actionTextDanger}>
+                    {cancelling ? 'Cancelling' : 'Cancel'}
+                  </Text>
+                </Pressable>
+              ) : null}
+            </View>
 
             <IllustratedActionCard
               title="Route"

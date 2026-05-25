@@ -2,7 +2,10 @@ import { create } from 'zustand';
 
 import type { DeliveryStop, DeliveryTab, PlaceValue, TimeWindow } from '@/features/map/types';
 import { MAX_STOPS } from '@/features/map/types';
-import { isScheduledPickupBeforeDropoffEnd } from '@/features/map/utils/deliverySchedule';
+import {
+  isScheduledPickupBeforeDropoffEnd,
+  mergeStopDateTime,
+} from '@/features/map/utils/deliverySchedule';
 
 const genId = () => Math.random().toString(36).slice(2, 10);
 
@@ -27,6 +30,11 @@ function currentPickupSchedule(): Pick<DeliveryStop, 'dateISO' | 'window'> {
       toISO: fromISO,
     },
   };
+}
+
+function pickupScheduleIsPast(row: DeliveryStop): boolean {
+  if (!row.window?.fromISO) return true;
+  return mergeStopDateTime(row.dateISO, row.window.fromISO).getTime() < Date.now();
 }
 
 const makeRow = (kind: DeliveryStop['kind'], withSchedule = true): DeliveryStop => ({
@@ -64,6 +72,7 @@ type Actions = {
   reorder: (nextRows: DeliveryStop[]) => void;
   setToast: (msg: string | null) => void;
   setRouteMetrics: (durationSec: number | null, distanceM: number | null) => void;
+  syncPickupScheduleToNow: () => void;
 };
 
 const initialRows = (): DeliveryStop[] => [makeRow('pickup'), makeRow('dropoff')];
@@ -176,6 +185,18 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
 
   setRouteMetrics: (durationSec, distanceM) =>
     set({ routeDurationSec: durationSec, routeDistanceM: distanceM }),
+
+  syncPickupScheduleToNow: () =>
+    set((s) => {
+      if (s.tab !== 'scheduled') return s;
+      let changed = false;
+      const rows = s.rows.map((r) => {
+        if (r.kind !== 'pickup' || !pickupScheduleIsPast(r)) return r;
+        changed = true;
+        return { ...r, ...currentPickupSchedule() };
+      });
+      return changed ? { rows } : s;
+    }),
 }));
 
 /** Selector helpers. */

@@ -32,7 +32,10 @@ export function AppNavigator() {
       <Stack.Screen
         name="BookingDetails"
         component={BookingDetailsScreen}
-        options={{ title: 'Booking details', headerBackTitle: 'Bookings' }}
+        options={({ route }) => ({
+          title: 'Booking details',
+          headerBackTitle: route.params?.backTitle ?? 'Bookings',
+        })}
       />
       <Stack.Screen
         name="AddDeliveryContents"
@@ -79,12 +82,18 @@ export function AppNavigator() {
       <Stack.Screen
         name="DeliveryPayment"
         component={DeliveryPaymentScreen}
-        options={{ title: 'Pay', headerBackTitle: 'Quotes' }}
+        options={({ route }) => ({
+          title: 'Pay',
+          headerBackTitle: route.params?.backTitle ?? 'Quotes',
+        })}
       />
       <Stack.Screen
         name="DeliveryTracking"
         component={DeliveryTrackingScreen}
-        options={{ title: 'Tracking', headerBackTitle: 'Payment' }}
+        options={({ route }) => ({
+          title: 'Tracking',
+          headerBackTitle: route.params?.backTitle ?? 'Payment',
+        })}
       />
     </Stack.Navigator>
   );
