@@ -666,6 +666,27 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
   }, [quotesFetched, quotesLoading, refreshQuotes]);
 
   const details = loadResult(detailsResponse);
+  const pickupCoord = routeCoordFromDetails(details, 'pickup');
+  const dropoffCoord = routeCoordFromDetails(details, 'dropoff');
+  const routeCoords = pickupCoord && dropoffCoord ? [pickupCoord, dropoffCoord] : [];
+  const hasRouteMap = Boolean(pickupCoord || dropoffCoord);
+  const mapRegion = routeRegion(pickupCoord, dropoffCoord);
+
+  useEffect(() => {
+    if (!mapRef.current || activeTab !== 'details' || !hasRouteMap) return;
+    const points = [pickupCoord, dropoffCoord].filter(
+      (coord): coord is RouteCoord => Boolean(coord),
+    );
+    if (points.length >= 2) {
+      mapRef.current.fitToCoordinates(points, {
+        animated: didFrameRouteMapRef.current,
+        edgePadding: ROUTE_MAP_EDGE_PADDING,
+      });
+    } else {
+      mapRef.current.animateToRegion(mapRegion, didFrameRouteMapRef.current ? 350 : 0);
+    }
+    didFrameRouteMapRef.current = true;
+  }, [activeTab, dropoffCoord, hasRouteMap, mapRegion, pickupCoord]);
 
   if (!detailsResponse && loading) {
     return (
@@ -745,28 +766,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
     ['quotesEnabled'],
     ['booking', 'quotesEnabled'],
   ]);
-  const pickupCoord = routeCoordFromDetails(details, 'pickup');
-  const dropoffCoord = routeCoordFromDetails(details, 'dropoff');
-  const routeCoords = pickupCoord && dropoffCoord ? [pickupCoord, dropoffCoord] : [];
-  const hasRouteMap = Boolean(pickupCoord || dropoffCoord);
-  const mapRegion = routeRegion(pickupCoord, dropoffCoord);
   const canCancel = isCancelableStatus(status);
-
-  useEffect(() => {
-    if (!mapRef.current || activeTab !== 'details' || !hasRouteMap) return;
-    const points = [pickupCoord, dropoffCoord].filter(
-      (coord): coord is RouteCoord => Boolean(coord),
-    );
-    if (points.length >= 2) {
-      mapRef.current.fitToCoordinates(points, {
-        animated: didFrameRouteMapRef.current,
-        edgePadding: ROUTE_MAP_EDGE_PADDING,
-      });
-    } else {
-      mapRef.current.animateToRegion(mapRegion, didFrameRouteMapRef.current ? 350 : 0);
-    }
-    didFrameRouteMapRef.current = true;
-  }, [activeTab, dropoffCoord, hasRouteMap, mapRegion, pickupCoord]);
 
   const openMaps = () => {
     const origin = pickupCoord
