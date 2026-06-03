@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 
+import { AppleSignInButton } from '@/features/auth/components/AppleSignInButton';
 import { GoogleSignInButton } from '@/features/auth/components/GoogleSignInButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
@@ -154,6 +155,7 @@ export function SignInScreen({ navigation }: Props) {
 
               <Button title="Sign in" onPress={() => void onSubmit()} loading={loading} />
 
+              <AppleSignInButton />
               <GoogleSignInButton />
 
               <Pressable

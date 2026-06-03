@@ -1,11 +1,13 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import * as authApi from '@/api/modules/auth.api';
+import * as usersApi from '@/api/modules/users.api';
 import { queryClient } from '@/lib/queryClient';
 import * as tokenStorage from '@/services/tokenStorage';
 import { pickUserIdFromProfile, userIdFromJwt } from '@/utils/authIdentity';
 import { env } from '@/shared/config/env';
 import type {
+  AppleSignInMobileParams,
   ForgotPasswordCompleteDto,
   GoogleSignInMobileParams,
   MeResponse,
@@ -60,6 +62,12 @@ async function loadMeIntoStore() {
 function logGoogleAuth(step: string, details?: Record<string, unknown>) {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     console.log(`[google-auth][session] ${step}`, details ?? '');
+  }
+}
+
+function logAppleAuth(step: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[apple-auth][session] ${step}`, details ?? '');
   }
 }
 
@@ -211,6 +219,40 @@ export async function signInWithGoogleToken(
   void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
 }
 
+export async function signInWithAppleToken(
+  params: AppleSignInMobileParams,
+): Promise<void> {
+  logAppleAuth('start backend sign-in', {
+    platform: params.platform,
+    hasIdentityToken: Boolean(params.identityToken),
+    identityTokenLength: params.identityToken.length,
+    hasAuthorizationCode: Boolean(params.authorizationCode),
+    authorizationCodeLength: params.authorizationCode?.length ?? 0,
+    hasFirstName: Boolean(params.fullName?.givenName),
+    hasLastName: Boolean(params.fullName?.familyName),
+  });
+  const { accessToken, refreshToken } = await authApi.appleLogin({
+    identityToken: params.identityToken,
+    authorizationCode: params.authorizationCode,
+    source: 'mobile',
+    platform: 'ios',
+    firstName: params.fullName?.givenName,
+    lastName: params.fullName?.familyName,
+  });
+  logAppleAuth('backend exchange parsed', {
+    hasAccessToken: Boolean(accessToken),
+    hasRefreshToken: Boolean(refreshToken),
+  });
+  if (!accessToken) throw new Error('Apple login did not return an access token.');
+  await persistAfterAuth(accessToken, refreshToken);
+  await loadMeIntoStore();
+  useAuthStore.getState().setSession({ session: 'authed' });
+  logAppleAuth('session authed');
+  void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
+  void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
+  void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
+}
+
 /** Clears local session; calls `GET /auth/logout` with Bearer while token still exists (see API docs). */
 export async function signOut(): Promise<void> {
   const token = await tokenStorage.getAccessToken();
@@ -221,6 +263,14 @@ export async function signOut(): Promise<void> {
       // Unreachable server or stale session — still sign out locally.
     }
   }
+  await tokenStorage.clearTokens();
+  useAuthStore.getState().clearSession();
+  await queryClient.cancelQueries();
+  queryClient.clear();
+}
+
+export async function deleteAccount(userId: string | number): Promise<void> {
+  await usersApi.deleteUserAccount(userId);
   await tokenStorage.clearTokens();
   useAuthStore.getState().clearSession();
   await queryClient.cancelQueries();

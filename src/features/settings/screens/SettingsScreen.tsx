@@ -33,11 +33,12 @@ import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import { pickUserIdFromProfile } from '@/utils/authIdentity';
 
-const APPEARANCE_OPTIONS: { value: AppearancePreference; label: string; hint: string }[] = [
-  { value: 'system', label: 'System', hint: 'Match device light or dark mode' },
-  { value: 'light', label: 'Light', hint: 'Always use light appearance' },
-  { value: 'dark', label: 'Dark', hint: 'Always use dark appearance' },
-];
+const APPEARANCE_OPTIONS: { value: AppearancePreference; label: string; hint: string }[] =
+  [
+    { value: 'system', label: 'System', hint: 'Match device light or dark mode' },
+    { value: 'light', label: 'Light', hint: 'Always use light appearance' },
+    { value: 'dark', label: 'Dark', hint: 'Always use dark appearance' },
+  ];
 
 type ProfileForm = {
   firstName: string;
@@ -96,7 +97,10 @@ function readProfileField(user: unknown, key: string): string {
   return asString(direct?.[key] ?? nestedUser?.[key] ?? result?.[key]);
 }
 
-function parseStoredAddress(address: string, postalCode: string): Pick<ProfileForm, 'streetAddress' | 'city' | 'postalCode'> {
+function parseStoredAddress(
+  address: string,
+  postalCode: string,
+): Pick<ProfileForm, 'streetAddress' | 'city' | 'postalCode'> {
   const pieces = address
     .split(',')
     .map((piece) => piece.trim())
@@ -114,7 +118,8 @@ function parseStoredAddress(address: string, postalCode: string): Pick<ProfileFo
 
 function profileFormFromUser(user: unknown): ProfileForm {
   const address = readProfileField(user, 'address');
-  const postalCode = readProfileField(user, 'postalCode') || readProfileField(user, 'zipCode');
+  const postalCode =
+    readProfileField(user, 'postalCode') || readProfileField(user, 'zipCode');
   const parsedAddress = parseStoredAddress(address, postalCode);
 
   return {
@@ -336,6 +341,10 @@ function createStyles(colors: ThemeColors) {
       alignItems: 'center',
       justifyContent: 'center',
     },
+    sectionTextBlock: {
+      flex: 1,
+      minWidth: 0,
+    },
     sectionTitle: {
       color: colors.textPrimary,
       fontSize: typography.fontSize.md,
@@ -345,6 +354,8 @@ function createStyles(colors: ThemeColors) {
       color: colors.textSecondary,
       fontSize: typography.fontSize.sm,
       marginTop: 2,
+      lineHeight: 20,
+      flexShrink: 1,
     },
     successBanner: {
       flexDirection: 'row',
@@ -375,6 +386,34 @@ function createStyles(colors: ThemeColors) {
       fontSize: typography.fontSize.sm,
       fontWeight: typography.fontWeight.medium,
       flex: 1,
+    },
+    dangerCard: {
+      borderColor: colors.danger + '33',
+    },
+    dangerIcon: {
+      backgroundColor: colors.danger + '12',
+    },
+    dangerTitle: {
+      color: colors.danger,
+    },
+    dangerAction: {
+      minHeight: 52,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.danger,
+      alignItems: 'center',
+      justifyContent: 'center',
+      flexDirection: 'row',
+      gap: spacing.xs,
+      backgroundColor: colors.danger + '10',
+    },
+    dangerActionDisabled: {
+      opacity: 0.58,
+    },
+    dangerActionText: {
+      color: colors.danger,
+      fontSize: typography.fontSize.md,
+      fontWeight: typography.fontWeight.bold,
     },
     formGrid: {
       flexDirection: 'row',
@@ -518,7 +557,11 @@ function createStyles(colors: ThemeColors) {
     outPressed: {
       opacity: 0.86,
     },
-    outTxt: { color: colors.danger, fontWeight: typography.fontWeight.bold, fontSize: typography.fontSize.md },
+    outTxt: {
+      color: colors.danger,
+      fontWeight: typography.fontWeight.bold,
+      fontSize: typography.fontSize.md,
+    },
   });
 }
 
@@ -539,8 +582,10 @@ export function SettingsScreen() {
   const isDirty = JSON.stringify(form) !== JSON.stringify(originalForm);
   const hasValidRequiredNames = Boolean(form.firstName.trim() && form.lastName.trim());
   const showNameErrors = submitAttempted || isDirty;
-  const firstNameError = showNameErrors && !form.firstName.trim() ? 'First name is required.' : undefined;
-  const lastNameError = showNameErrors && !form.lastName.trim() ? 'Last name is required.' : undefined;
+  const firstNameError =
+    showNameErrors && !form.firstName.trim() ? 'First name is required.' : undefined;
+  const lastNameError =
+    showNameErrors && !form.lastName.trim() ? 'Last name is required.' : undefined;
   const addressQuery = addressSearchActive ? form.streetAddress : '';
   const { suggestions: addressSuggestions, loading: addressSuggestionsLoading } =
     usePlacesAutocomplete(addressQuery);
@@ -548,7 +593,9 @@ export function SettingsScreen() {
     ? addressSuggestions.slice(0, 4)
     : [];
   const avatarUrl = form.avatar;
-  const isVerified = readProfileField(user, 'isVerified') === 'true' || asRecord(user)?.isVerified === true;
+  const isVerified =
+    readProfileField(user, 'isVerified') === 'true' ||
+    asRecord(user)?.isVerified === true;
 
   useEffect(() => {
     setForm(profileFormFromUser(user));
@@ -606,7 +653,10 @@ export function SettingsScreen() {
       logProfileImage('profile save failed', {
         message: error instanceof Error ? error.message : String(error),
       });
-      Alert.alert('Profile', error instanceof Error ? error.message : 'Could not update profile.');
+      Alert.alert(
+        'Profile',
+        error instanceof Error ? error.message : 'Could not update profile.',
+      );
     },
   });
 
@@ -624,7 +674,28 @@ export function SettingsScreen() {
       });
     },
     onError: (error) => {
-      Alert.alert('Appearance', error instanceof Error ? error.message : 'Could not update appearance.');
+      Alert.alert(
+        'Appearance',
+        error instanceof Error ? error.message : 'Could not update appearance.',
+      );
+    },
+  });
+
+  const deleteAccountMutation = useMutation({
+    mutationFn: async () => {
+      const userId = pickUserIdFromProfile(user);
+      if (userId == null) {
+        throw new Error('We could not find your user id. Please sign in again.');
+      }
+      await authSession.deleteAccount(userId);
+    },
+    onError: (error) => {
+      Alert.alert(
+        'Delete account',
+        error instanceof Error
+          ? error.message
+          : 'Could not delete your account. Please try again.',
+      );
     },
   });
 
@@ -716,7 +787,10 @@ export function SettingsScreen() {
     const permission = await imagePicker.requestMediaLibraryPermissionsAsync();
     logProfileImage('media library permission result', { granted: permission.granted });
     if (!permission.granted) {
-      Alert.alert('Profile photo', 'Please allow photo library access to change your profile image.');
+      Alert.alert(
+        'Profile photo',
+        'Please allow photo library access to change your profile image.',
+      );
       return;
     }
 
@@ -739,7 +813,9 @@ export function SettingsScreen() {
       fileSize: asset.fileSize,
     });
     if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
-      logProfileImage('image rejected because it is too large', { fileSize: asset.fileSize });
+      logProfileImage('image rejected because it is too large', {
+        fileSize: asset.fileSize,
+      });
       Alert.alert('Profile photo', 'Please choose an image under 10 MB.');
       return;
     }
@@ -761,13 +837,28 @@ export function SettingsScreen() {
     setSuccessMessage('');
   };
 
-  const displayName = `${form.firstName.trim()} ${form.lastName.trim()}`.trim() || 'DropYou';
+  const confirmDeleteAccount = () => {
+    if (deleteAccountMutation.isPending) return;
+    Alert.alert(
+      'Delete account?',
+      'This permanently deletes your DropYou account and signs you out. This cannot be undone.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: () => deleteAccountMutation.mutate(),
+        },
+      ],
+    );
+  };
+
+  const displayName =
+    `${form.firstName.trim()} ${form.lastName.trim()}`.trim() || 'DropYou';
   const displayEmail = form.email.trim() || form.phone.trim() || 'Profile';
   const horizontalPadding = width < 380 ? spacing.md : spacing.lg;
-  const availableFormWidth = Math.min(
-    680,
-    Math.max(0, width - horizontalPadding * 2),
-  ) - spacing.md * 2;
+  const availableFormWidth =
+    Math.min(680, Math.max(0, width - horizontalPadding * 2)) - spacing.md * 2;
   const twoColumnCellWidth = Math.floor((availableFormWidth - spacing.md) / 2);
   const useFormGrid = twoColumnCellWidth >= 132;
   const nameCellStyle = useFormGrid
@@ -803,9 +894,15 @@ export function SettingsScreen() {
                 testID="profile-photo-change-button"
               >
                 {avatarUrl ? (
-                  <Image source={{ uri: avatarUrl }} style={styles.avatarImage} resizeMode="cover" />
+                  <Image
+                    source={{ uri: avatarUrl }}
+                    style={styles.avatarImage}
+                    resizeMode="cover"
+                  />
                 ) : (
-                  <Text style={styles.avatarText}>{initials(form.firstName, form.lastName, form.email)}</Text>
+                  <Text style={styles.avatarText}>
+                    {initials(form.firstName, form.lastName, form.email)}
+                  </Text>
                 )}
               </Pressable>
               <View pointerEvents="none" style={styles.cameraBadge}>
@@ -813,8 +910,12 @@ export function SettingsScreen() {
               </View>
             </View>
             <View style={styles.heroTextBlock}>
-              <Text style={styles.profileName} numberOfLines={1}>{displayName}</Text>
-              <Text style={styles.profileEmail} numberOfLines={1}>{displayEmail}</Text>
+              <Text style={styles.profileName} numberOfLines={1}>
+                {displayName}
+              </Text>
+              <Text style={styles.profileEmail} numberOfLines={1}>
+                {displayEmail}
+              </Text>
             </View>
             <View style={styles.heroStatusRow}>
               <View style={styles.heroPill}>
@@ -823,7 +924,9 @@ export function SettingsScreen() {
                   size={14}
                   color={colors.primary}
                 />
-                <Text style={styles.heroPillText}>{isVerified ? 'Verified' : 'Verification pending'}</Text>
+                <Text style={styles.heroPillText}>
+                  {isVerified ? 'Verified' : 'Verification pending'}
+                </Text>
               </View>
               <View style={styles.heroPill}>
                 <Ionicons name="briefcase-outline" size={14} color={colors.primary} />
@@ -835,8 +938,16 @@ export function SettingsScreen() {
 
         <View style={[styles.modeTabs, styles.screenItem]}>
           {[
-            { value: 'account' as const, label: 'Account', icon: 'person-outline' as const },
-            { value: 'preferences' as const, label: 'Preferences', icon: 'options-outline' as const },
+            {
+              value: 'account' as const,
+              label: 'Account',
+              icon: 'person-outline' as const,
+            },
+            {
+              value: 'preferences' as const,
+              label: 'Preferences',
+              icon: 'options-outline' as const,
+            },
           ].map((item) => {
             const selected = mode === item.value;
             return (
@@ -861,214 +972,225 @@ export function SettingsScreen() {
         </View>
 
         {mode === 'account' ? (
-          <View style={[styles.card, styles.screenItem]}>
-            <View style={styles.sectionHeader}>
-              <View style={styles.sectionHeaderCopy}>
-                <View style={styles.sectionIcon}>
-                  <Ionicons name="person-outline" size={19} color={colors.primary} />
-                </View>
-                <View>
-                  <Text style={styles.sectionTitle}>Profile</Text>
-                  <Text style={styles.sectionBody}>Keep your booking account current.</Text>
-                </View>
-              </View>
-            </View>
-
-            {successMessage ? (
-              <View style={styles.successBanner}>
-                <Ionicons name="checkmark-circle" size={17} color={colors.primary} />
-                <Text style={styles.successText}>{successMessage}</Text>
-              </View>
-            ) : null}
-
-            {profileMutation.isError ? (
-              <View style={styles.errorBanner}>
-                <Ionicons name="alert-circle-outline" size={17} color={colors.danger} />
-                <Text style={styles.errorText}>
-                  {profileMutation.error instanceof Error
-                    ? profileMutation.error.message
-                    : 'Could not update profile.'}
-                </Text>
-              </View>
-            ) : null}
-
-            <View style={styles.formGrid}>
-              <View style={nameCellStyle}>
-                <TextField
-                  label="First name"
-                  value={form.firstName}
-                  onChangeText={updateField('firstName')}
-                  autoCapitalize="words"
-                  editable={!profileMutation.isPending}
-                  error={firstNameError}
-                />
-              </View>
-              <View style={nameCellStyle}>
-                <TextField
-                  label="Last name"
-                  value={form.lastName}
-                  onChangeText={updateField('lastName')}
-                  autoCapitalize="words"
-                  editable={!profileMutation.isPending}
-                  error={lastNameError}
-                />
-              </View>
-              <View style={styles.formCellFull}>
-                <TextField
-                  label="Email"
-                  value={form.email}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  editable={false}
-                  style={styles.lockedInput}
-                />
-              </View>
-              <View style={styles.formCellFull}>
-                <TextField
-                  label="Phone"
-                  value={form.phone}
-                  keyboardType="phone-pad"
-                  editable={false}
-                  style={styles.lockedInput}
-                />
-              </View>
-              <View style={[styles.formCellFull, styles.addressCell]}>
-                <TextField
-                  label="Street address"
-                  value={form.streetAddress}
-                  onChangeText={updateStreetAddress}
-                  onFocus={() => setAddressSearchActive(Boolean(form.streetAddress.trim()))}
-                  autoCapitalize="words"
-                  editable={!profileMutation.isPending && !addressResolving}
-                  placeholder="Start typing an address"
-                />
-                {addressSuggestionsLoading && form.streetAddress.trim().length >= 2 ? (
-                  <View style={styles.addressLoading}>
-                    <ActivityIndicator size="small" color={colors.primary} />
-                    <Text style={styles.addressLoadingText}>Finding addresses</Text>
+          <>
+            <View style={[styles.card, styles.screenItem]}>
+              <View style={styles.sectionHeader}>
+                <View style={styles.sectionHeaderCopy}>
+                  <View style={styles.sectionIcon}>
+                    <Ionicons name="person-outline" size={19} color={colors.primary} />
                   </View>
-                ) : null}
-                {visibleAddressSuggestions.length > 0 ? (
-                  <View style={styles.suggestionPanel}>
-                    {visibleAddressSuggestions.map((suggestion, index) => (
-                      <Pressable
-                        key={suggestion.placeId}
-                        accessibilityRole="button"
-                        accessibilityLabel={`Use ${suggestion.fullText}`}
-                        disabled={addressResolving}
-                        onPress={() => void pickAddressSuggestion(suggestion)}
-                        style={({ pressed }) => [
-                          styles.suggestionRow,
-                          index === visibleAddressSuggestions.length - 1 && styles.suggestionRowLast,
-                          pressed && { opacity: 0.74 },
-                        ]}
-                      >
-                        <View style={styles.suggestionIcon}>
-                          <Ionicons name="location" size={16} color={colors.primary} />
-                        </View>
-                        <View style={styles.suggestionCopy}>
-                          <Text style={styles.suggestionTitle} numberOfLines={1}>
-                            {suggestion.primaryText}
-                          </Text>
-                          {suggestion.secondaryText ? (
-                            <Text style={styles.suggestionBody} numberOfLines={1}>
-                              {suggestion.secondaryText}
+                  <View style={styles.sectionTextBlock}>
+                    <Text style={styles.sectionTitle}>Profile</Text>
+                    <Text style={styles.sectionBody}>
+                      Keep your booking account current.
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {successMessage ? (
+                <View style={styles.successBanner}>
+                  <Ionicons name="checkmark-circle" size={17} color={colors.primary} />
+                  <Text style={styles.successText}>{successMessage}</Text>
+                </View>
+              ) : null}
+
+              {profileMutation.isError ? (
+                <View style={styles.errorBanner}>
+                  <Ionicons name="alert-circle-outline" size={17} color={colors.danger} />
+                  <Text style={styles.errorText}>
+                    {profileMutation.error instanceof Error
+                      ? profileMutation.error.message
+                      : 'Could not update profile.'}
+                  </Text>
+                </View>
+              ) : null}
+
+              <View style={styles.formGrid}>
+                <View style={nameCellStyle}>
+                  <TextField
+                    label="First name"
+                    value={form.firstName}
+                    onChangeText={updateField('firstName')}
+                    autoCapitalize="words"
+                    editable={!profileMutation.isPending}
+                    error={firstNameError}
+                  />
+                </View>
+                <View style={nameCellStyle}>
+                  <TextField
+                    label="Last name"
+                    value={form.lastName}
+                    onChangeText={updateField('lastName')}
+                    autoCapitalize="words"
+                    editable={!profileMutation.isPending}
+                    error={lastNameError}
+                  />
+                </View>
+                <View style={styles.formCellFull}>
+                  <TextField
+                    label="Email"
+                    value={form.email}
+                    keyboardType="email-address"
+                    autoCapitalize="none"
+                    autoCorrect={false}
+                    editable={false}
+                    style={styles.lockedInput}
+                  />
+                </View>
+                <View style={styles.formCellFull}>
+                  <TextField
+                    label="Phone"
+                    value={form.phone}
+                    keyboardType="phone-pad"
+                    editable={false}
+                    style={styles.lockedInput}
+                  />
+                </View>
+                <View style={[styles.formCellFull, styles.addressCell]}>
+                  <TextField
+                    label="Street address"
+                    value={form.streetAddress}
+                    onChangeText={updateStreetAddress}
+                    onFocus={() =>
+                      setAddressSearchActive(Boolean(form.streetAddress.trim()))
+                    }
+                    autoCapitalize="words"
+                    editable={!profileMutation.isPending && !addressResolving}
+                    placeholder="Start typing an address"
+                  />
+                  {addressSuggestionsLoading && form.streetAddress.trim().length >= 2 ? (
+                    <View style={styles.addressLoading}>
+                      <ActivityIndicator size="small" color={colors.primary} />
+                      <Text style={styles.addressLoadingText}>Finding addresses</Text>
+                    </View>
+                  ) : null}
+                  {visibleAddressSuggestions.length > 0 ? (
+                    <View style={styles.suggestionPanel}>
+                      {visibleAddressSuggestions.map((suggestion, index) => (
+                        <Pressable
+                          key={suggestion.placeId}
+                          accessibilityRole="button"
+                          accessibilityLabel={`Use ${suggestion.fullText}`}
+                          disabled={addressResolving}
+                          onPress={() => void pickAddressSuggestion(suggestion)}
+                          style={({ pressed }) => [
+                            styles.suggestionRow,
+                            index === visibleAddressSuggestions.length - 1 &&
+                              styles.suggestionRowLast,
+                            pressed && { opacity: 0.74 },
+                          ]}
+                        >
+                          <View style={styles.suggestionIcon}>
+                            <Ionicons name="location" size={16} color={colors.primary} />
+                          </View>
+                          <View style={styles.suggestionCopy}>
+                            <Text style={styles.suggestionTitle} numberOfLines={1}>
+                              {suggestion.primaryText}
                             </Text>
-                          ) : null}
-                        </View>
-                      </Pressable>
-                    ))}
-                  </View>
-                ) : null}
+                            {suggestion.secondaryText ? (
+                              <Text style={styles.suggestionBody} numberOfLines={1}>
+                                {suggestion.secondaryText}
+                              </Text>
+                            ) : null}
+                          </View>
+                        </Pressable>
+                      ))}
+                    </View>
+                  ) : null}
+                </View>
+                <View style={halfCellStyle}>
+                  <TextField
+                    label="City"
+                    value={form.city}
+                    onChangeText={updateField('city')}
+                    autoCapitalize="words"
+                    editable={!profileMutation.isPending}
+                    placeholder="Town or city"
+                  />
+                </View>
+                <View style={halfCellStyle}>
+                  <TextField
+                    label="Postcode"
+                    value={form.postalCode}
+                    onChangeText={updateField('postalCode')}
+                    autoCapitalize="characters"
+                    editable={!profileMutation.isPending}
+                    placeholder="UK postcode"
+                  />
+                </View>
               </View>
-              <View style={halfCellStyle}>
-                <TextField
-                  label="City"
-                  value={form.city}
-                  onChangeText={updateField('city')}
-                  autoCapitalize="words"
-                  editable={!profileMutation.isPending}
-                  placeholder="Town or city"
-                />
-              </View>
-              <View style={halfCellStyle}>
-                <TextField
-                  label="Postcode"
-                  value={form.postalCode}
-                  onChangeText={updateField('postalCode')}
-                  autoCapitalize="characters"
-                  editable={!profileMutation.isPending}
-                  placeholder="UK postcode"
-                />
-              </View>
-            </View>
 
-            <View style={styles.saveRow}>
-              <Button
-                title="Discard"
-                variant="outline"
-                onPress={resetProfile}
-                disabled={!isDirty || profileMutation.isPending}
-                style={styles.resetButton}
-                testID="profile-discard-button"
-              />
-              <Button
-                title="Save Changes"
-                onPress={submitProfile}
-                disabled={!isDirty || !hasValidRequiredNames}
-                loading={profileMutation.isPending}
-                style={styles.saveButton}
-                testID="profile-save-button"
-                leftAccessory={
-                  profileMutation.isPending ? (
-                    <ActivityIndicator color={colors.onPrimary} size="small" />
-                  ) : undefined
-                }
-              />
+              <View style={styles.saveRow}>
+                <Button
+                  title="Discard"
+                  variant="outline"
+                  onPress={resetProfile}
+                  disabled={!isDirty || profileMutation.isPending}
+                  style={styles.resetButton}
+                  testID="profile-discard-button"
+                />
+                <Button
+                  title="Save Changes"
+                  onPress={submitProfile}
+                  disabled={!isDirty || !hasValidRequiredNames}
+                  loading={profileMutation.isPending}
+                  style={styles.saveButton}
+                  testID="profile-save-button"
+                  leftAccessory={
+                    profileMutation.isPending ? (
+                      <ActivityIndicator color={colors.onPrimary} size="small" />
+                    ) : undefined
+                  }
+                />
+              </View>
             </View>
-          </View>
+          </>
         ) : null}
 
         {mode === 'preferences' ? (
           <View style={[styles.card, styles.screenItem]}>
-          <View style={styles.sectionHeader}>
-            <View style={styles.sectionHeaderCopy}>
-              <View style={styles.sectionIcon}>
-                <Ionicons name="contrast-outline" size={19} color={colors.primary} />
-              </View>
-              <View>
-                <Text style={styles.sectionTitle}>Appearance</Text>
-                <Text style={styles.sectionBody}>Choose how the app should look.</Text>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderCopy}>
+                <View style={styles.sectionIcon}>
+                  <Ionicons name="contrast-outline" size={19} color={colors.primary} />
+                </View>
+                <View style={styles.sectionTextBlock}>
+                  <Text style={styles.sectionTitle}>Appearance</Text>
+                  <Text style={styles.sectionBody}>Choose how the app should look.</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {APPEARANCE_OPTIONS.map(({ value, label, hint }) => {
-            const selected = appearancePreference === value;
-            return (
-              <Pressable
-                key={value}
-                style={[styles.option, selected && styles.optionSelected]}
-                onPress={() => updateAppearance(value)}
-                accessibilityRole="radio"
-                accessibilityState={{ selected }}
-              >
-                <View style={styles.optionTexts}>
-                  <Text style={styles.optionLabel}>{label}</Text>
-                  <Text style={styles.optionHint}>{hint}</Text>
-                </View>
-                <View style={styles.radio}>
-                  {selected ? <View style={styles.radioInner} /> : null}
-                </View>
-              </Pressable>
-            );
-          })}
+            {APPEARANCE_OPTIONS.map(({ value, label, hint }) => {
+              const selected = appearancePreference === value;
+              return (
+                <Pressable
+                  key={value}
+                  style={[styles.option, selected && styles.optionSelected]}
+                  onPress={() => updateAppearance(value)}
+                  accessibilityRole="radio"
+                  accessibilityState={{ selected }}
+                >
+                  <View style={styles.optionTexts}>
+                    <Text style={styles.optionLabel}>{label}</Text>
+                    <Text style={styles.optionHint}>{hint}</Text>
+                  </View>
+                  <View style={styles.radio}>
+                    {selected ? <View style={styles.radioInner} /> : null}
+                  </View>
+                </Pressable>
+              );
+            })}
           </View>
         ) : null}
 
         <Pressable
-          style={({ pressed }) => [styles.out, styles.screenItem, pressed && styles.outPressed]}
+          style={({ pressed }) => [
+            styles.out,
+            styles.screenItem,
+            pressed && styles.outPressed,
+          ]}
           onPress={() => void signOut()}
           accessibilityRole="button"
           hitSlop={{ top: 6, bottom: 6, left: 6, right: 6 }}
@@ -1076,6 +1198,60 @@ export function SettingsScreen() {
           <Ionicons name="log-out-outline" size={18} color={colors.danger} />
           <Text style={styles.outTxt}>Sign out</Text>
         </Pressable>
+
+        {mode === 'account' ? (
+          <View style={[styles.card, styles.screenItem, styles.dangerCard]}>
+            <View style={styles.sectionHeader}>
+              <View style={styles.sectionHeaderCopy}>
+                <View style={[styles.sectionIcon, styles.dangerIcon]}>
+                  <Ionicons name="trash-outline" size={19} color={colors.danger} />
+                </View>
+                <View style={styles.sectionTextBlock}>
+                  <Text style={[styles.sectionTitle, styles.dangerTitle]}>
+                    Delete account
+                  </Text>
+                  <Text style={styles.sectionBody}>
+                    Permanently remove your profile and sign out of this device.
+                  </Text>
+                </View>
+              </View>
+            </View>
+
+            {deleteAccountMutation.isError ? (
+              <View style={styles.errorBanner}>
+                <Ionicons name="alert-circle-outline" size={17} color={colors.danger} />
+                <Text style={styles.errorText}>
+                  {deleteAccountMutation.error instanceof Error
+                    ? deleteAccountMutation.error.message
+                    : 'Could not delete your account.'}
+                </Text>
+              </View>
+            ) : null}
+
+            <Pressable
+              style={({ pressed }) => [
+                styles.dangerAction,
+                (pressed || deleteAccountMutation.isPending) && styles.outPressed,
+                deleteAccountMutation.isPending && styles.dangerActionDisabled,
+              ]}
+              onPress={confirmDeleteAccount}
+              disabled={deleteAccountMutation.isPending}
+              accessibilityRole="button"
+              accessibilityLabel="Delete account"
+              accessibilityHint="Permanently deletes your DropYou account"
+              testID="delete-account-button"
+            >
+              {deleteAccountMutation.isPending ? (
+                <ActivityIndicator size="small" color={colors.danger} />
+              ) : (
+                <Ionicons name="trash-outline" size={18} color={colors.danger} />
+              )}
+              <Text style={styles.dangerActionText}>
+                {deleteAccountMutation.isPending ? 'Deleting Account' : 'Delete Account'}
+              </Text>
+            </Pressable>
+          </View>
+        ) : null}
       </ScrollView>
     </SafeAreaView>
   );

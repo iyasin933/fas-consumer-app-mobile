@@ -45,6 +45,7 @@ module.exports = () => {
       ios: {
         supportsTablet: true,
         bundleIdentifier: 'co.uk.dropyou.app',
+        usesAppleSignIn: true,
         infoPlist: {
           NSLocationWhenInUseUsageDescription:
             'DropYou needs your location to find nearby pickups and plan deliveries.',
@@ -52,6 +53,8 @@ module.exports = () => {
             'DropYou needs your location to find nearby pickups and plan deliveries.',
           NSCameraUsageDescription:
             'DropYou may use the camera so you can add delivery item photos or scan card details during secure checkout.',
+          NSPhotoLibraryUsageDescription:
+            'DropYou lets you choose a photo from your library, for example to update the profile picture shown on your account.',
           // Declares the app uses only standard/exempt encryption (skips yearly
           // export-compliance wizard when submitting to App Store Connect).
           ITSAppUsesNonExemptEncryption: false,
@@ -73,6 +76,7 @@ module.exports = () => {
         favicon: './assets/favicon.png',
       },
       plugins: [
+        'expo-apple-authentication',
         'expo-web-browser',
         'expo-secure-store',
         'expo-dev-client',

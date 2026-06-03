@@ -59,6 +59,7 @@ function isPublicAuthPath(url: string | undefined): boolean {
     '/auth/password/forgot/initiate',
     '/auth/password/forgot/complete',
     '/auth/google/login',
+    '/auth/apple/login',
     '/auth/refresh',
   ].some((path) => url.includes(path));
 }
@@ -73,7 +74,8 @@ async function refreshAccessToken(): Promise<string> {
         headers: { Authorization: `Bearer ${refreshToken}` },
       });
       const { accessToken, refreshToken: nextRefreshToken } = pickTokens(data);
-      if (!accessToken) throw new Error('Refresh succeeded but no access token was returned.');
+      if (!accessToken)
+        throw new Error('Refresh succeeded but no access token was returned.');
 
       await tokenStorage.setAccessToken(accessToken);
       if (nextRefreshToken) await tokenStorage.setRefreshToken(nextRefreshToken);

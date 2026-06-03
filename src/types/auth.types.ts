@@ -62,6 +62,25 @@ export type GoogleSignInMobileParams = {
   redirectUri?: string;
 };
 
+export type AppleLoginDto = {
+  identityToken: string;
+  authorizationCode?: string;
+  source?: string;
+  platform?: 'ios';
+  firstName?: string;
+  lastName?: string;
+};
+
+export type AppleSignInMobileParams = {
+  identityToken: string;
+  authorizationCode?: string;
+  fullName?: {
+    givenName?: string;
+    familyName?: string;
+  };
+  platform?: 'ios';
+};
+
 export type MeResponse = Record<string, unknown>;
 
 /** `/auth/me` profile held in Zustand (tokens stay in SecureStore only). */

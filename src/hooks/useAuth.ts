@@ -59,6 +59,12 @@ export function useAuth() {
     [],
   );
 
+  const signInWithAppleToken = useCallback(
+    (params: Parameters<typeof authSession.signInWithAppleToken>[0]) =>
+      authSession.signInWithAppleToken(params),
+    [],
+  );
+
   const signOut = useCallback(() => authSession.signOut(), []);
 
   const hydrate = useCallback(() => authSession.hydrateAuthSession(), []);
@@ -76,6 +82,7 @@ export function useAuth() {
       resendSignupOtp,
       resendSignupEmailOtp,
       signInWithGoogleToken,
+      signInWithAppleToken,
       signOut,
       hydrate,
     }),
@@ -91,6 +98,7 @@ export function useAuth() {
       resendSignupOtp,
       resendSignupEmailOtp,
       signInWithGoogleToken,
+      signInWithAppleToken,
       signOut,
       hydrate,
     ],

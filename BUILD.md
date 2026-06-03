@@ -30,6 +30,7 @@ Use this when native packages changed, or when you need a real development clien
 ## Production 
 npx eas-cli@latest login
 npx eas-cli@latest build -p ios --profile production
+npx eas-cli@latest submit -p ios --profile production --latest
 
 
 For App Store/TestFlight submit after build:
@@ -85,6 +86,19 @@ Submit the latest production build to App Store Connect:
 npx eas-cli@latest submit -p ios --profile production --latest
 ```
 
+If App Store Connect rejects the upload because the build number was already
+used, bump EAS' remote iOS build number, rebuild, then submit the new build:
+
+```bash
+npx eas-cli@latest build:version:set -p ios
+npx eas-cli@latest build -p ios --profile production
+npx eas-cli@latest submit -p ios --profile production --latest
+```
+
+Use a build number higher than the rejected one. For example, if build `8` was
+already used for version `1.0.0`, choose `9` when the command prompts for the
+new iOS build number.
+
 ## 6. Important notes
 
 - This project uses EAS Cloud through `eas.json`.
@@ -101,3 +115,4 @@ npx expo start --dev-client -c
 
 - Production builds do not update your development client.
 - `production.autoIncrement` is enabled in `eas.json`, so each production build gets a new iOS build number.
+- `eas submit` uploads an existing build; it does not change that build's number.

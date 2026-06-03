@@ -7,6 +7,7 @@ import {
   AuthPhoneNumberField,
   normalizePhoneNumber,
 } from '@/features/auth/components/AuthPhoneNumberField';
+import { AppleSignInButton } from '@/features/auth/components/AppleSignInButton';
 import { GoogleSignInButton } from '@/features/auth/components/GoogleSignInButton';
 import {
   getPasswordRules,
@@ -313,6 +314,7 @@ export function SignUpScreen({ navigation }: Props) {
         <View style={styles.dividerLine} />
       </View>
 
+      <AppleSignInButton />
       <GoogleSignInButton buttonText="Continue with Google" />
     </AuthFormScaffold>
   );

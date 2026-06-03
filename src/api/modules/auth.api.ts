@@ -2,6 +2,7 @@ import { api } from '@/api/client';
 import { pickTokens } from '@/api/authTokens';
 import { isAxiosError } from 'axios';
 import type {
+  AppleLoginDto,
   ForgotPasswordCompleteDto,
   ForgotPasswordInitiateDto,
   GoogleLoginDto,
@@ -45,6 +46,12 @@ function withTokens(data: unknown): AuthTokensResult {
 function logGoogleAuth(step: string, details?: Record<string, unknown>) {
   if (typeof __DEV__ !== 'undefined' && __DEV__) {
     console.log(`[google-auth][api] ${step}`, details ?? '');
+  }
+}
+
+function logAppleAuth(step: string, details?: Record<string, unknown>) {
+  if (typeof __DEV__ !== 'undefined' && __DEV__) {
+    console.log(`[apple-auth][api] ${step}`, details ?? '');
   }
 }
 
@@ -146,6 +153,58 @@ export async function googleLogin(dto: GoogleLoginDto): Promise<AuthTokensResult
       throw new Error(message);
     } else {
       logGoogleAuth('error /auth/google/login', {
+        message: error instanceof Error ? error.message : String(error),
+      });
+    }
+    throw error;
+  }
+}
+
+export async function appleLogin(dto: AppleLoginDto): Promise<AuthTokensResult> {
+  const body = {
+    ...dto,
+    source: dto.source ?? 'mobile',
+    platform: dto.platform ?? 'ios',
+  };
+  logAppleAuth('request /auth/apple/login', {
+    source: body.source,
+    platform: body.platform,
+    hasIdentityToken: Boolean(body.identityToken),
+    identityTokenLength: body.identityToken?.length ?? 0,
+    hasAuthorizationCode: Boolean(body.authorizationCode),
+    authorizationCodeLength: body.authorizationCode?.length ?? 0,
+    hasFirstName: Boolean(body.firstName),
+    hasLastName: Boolean(body.lastName),
+  });
+  try {
+    const { data, status } = await api.post<unknown>('/auth/apple/login', body);
+    const tokens = withTokens(data);
+    logAppleAuth('response /auth/apple/login', {
+      status,
+      rootKeys: objectKeys(data),
+      dataKeys:
+        data && typeof data === 'object'
+          ? objectKeys((data as Record<string, unknown>).data)
+          : [],
+      resultKeys:
+        data && typeof data === 'object'
+          ? objectKeys((data as Record<string, unknown>).result)
+          : [],
+      hasAccessToken: Boolean(tokens.accessToken),
+      hasRefreshToken: Boolean(tokens.refreshToken),
+    });
+    return tokens;
+  } catch (error: unknown) {
+    if (isAxiosError(error)) {
+      const message = readApiMessage(error.response?.data) ?? error.message;
+      logAppleAuth('error /auth/apple/login', {
+        status: error.response?.status,
+        message,
+        responseKeys: objectKeys(error.response?.data),
+      });
+      throw new Error(message);
+    } else {
+      logAppleAuth('error /auth/apple/login', {
         message: error instanceof Error ? error.message : String(error),
       });
     }
