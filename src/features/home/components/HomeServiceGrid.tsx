@@ -1,6 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useMutation } from '@tanstack/react-query';
+import { useNavigation } from '@react-navigation/native';
+import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 
 import { recordHomeServiceInterest } from '@/features/home/api/homeServiceInterestApi';
 import {
@@ -13,10 +15,12 @@ import { AppDialog } from '@/shared/components/AppDialog';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
+import type { MainTabParamList } from '@/types/navigation.types';
 
 const SERVICE_INTEREST_DIALOG_BODY =
   'We’re excited that you’re eager to use this service! Our team is working hard to bring you the best experience. Currently, this service is still in development, but we’ll notify you as soon as it’s ready to launch.\n\nStay tuned—great things are on the way!';
 const COMING_SOON_IMAGE = require('../../../../assets/images/comingsoon.png');
+const BOOKING_SERVICE_IDS = new Set(['delivery', 'courier']);
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -66,13 +70,24 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function IconSlot({ item, styles }: { item: HomeServiceItem; styles: ReturnType<typeof createStyles> }) {
+function IconSlot({
+  item,
+  styles,
+}: {
+  item: HomeServiceItem;
+  styles: ReturnType<typeof createStyles>;
+}) {
   const source = transportIconSource(item.assetKey);
   const glyph = item.label.trim().charAt(0).toUpperCase();
   return (
     <View style={styles.iconBox} accessibilityLabel={`${item.label}`}>
       {source ? (
-        <Image source={source} style={styles.iconImage} resizeMode="contain" accessibilityIgnoresInvertColors />
+        <Image
+          source={source}
+          style={styles.iconImage}
+          resizeMode="contain"
+          accessibilityIgnoresInvertColors
+        />
       ) : (
         <Text style={styles.iconGlyph}>{glyph}</Text>
       )}
@@ -82,6 +97,7 @@ function IconSlot({ item, styles }: { item: HomeServiceItem; styles: ReturnType<
 
 export function HomeServiceGrid() {
   const items = useHomeServiceCategories();
+  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
   const { colors } = useTheme();
   const [dialogVisible, setDialogVisible] = useState(false);
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -93,6 +109,11 @@ export function HomeServiceGrid() {
   });
 
   const onServicePress = (item: HomeServiceItem) => {
+    if (BOOKING_SERVICE_IDS.has(item.id)) {
+      navigation.navigate('Map', { initialSnapIndex: 1 });
+      return;
+    }
+
     setDialogVisible(true);
     serviceInterest.mutate({
       serviceId: item.id,
