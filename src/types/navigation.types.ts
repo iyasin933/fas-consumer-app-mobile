@@ -6,11 +6,16 @@ import type {
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 export type AuthStackParamList = {
-  SignIn: undefined;
-  SignUp: undefined;
+  SignIn: { returnTo?: 'ChooseVehicle' } | undefined;
+  SignUp: { returnTo?: 'ChooseVehicle' } | undefined;
   ForgotPassword: undefined;
   ResetPassword: { phone: string };
-  SignUpVerify: { phone: string; email: string; password?: string };
+  SignUpVerify: {
+    phone: string;
+    email: string;
+    password?: string;
+    returnTo?: 'ChooseVehicle';
+  };
 };
 
 /**
@@ -95,10 +100,12 @@ export type AppStackParamList = {
   };
 };
 
+export type RootStackParamList = AppStackParamList & AuthStackParamList;
+
 /** Use on the Map tab to push stack screens registered on `AppNavigator`. */
 export type MapTabScreenNavigationProp = CompositeNavigationProp<
   BottomTabNavigationProp<MainTabParamList, 'Map'>,
-  NativeStackNavigationProp<AppStackParamList>
+  NativeStackNavigationProp<RootStackParamList>
 >;
 
 declare global {

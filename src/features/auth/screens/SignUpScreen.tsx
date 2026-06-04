@@ -25,9 +25,9 @@ import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { toApiClientError } from '@/types/api.types';
 import type { UserSignupDto } from '@/types/auth.types';
-import type { AuthStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'SignUp'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'SignUp'>;
 type SignUpField = 'firstName' | 'lastName' | 'phone' | 'email' | 'password' | 'confirm';
 
 const INITIAL_TOUCHED: Record<SignUpField, boolean> = {
@@ -104,7 +104,7 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function SignUpScreen({ navigation }: Props) {
+export function SignUpScreen({ navigation, route }: Props) {
   const { signUp } = useAuth();
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -169,6 +169,7 @@ export function SignUpScreen({ navigation }: Props) {
         phone: trimmed.phone,
         email: trimmed.email ?? '',
         password: trimmed.password,
+        returnTo: route.params?.returnTo,
       });
     } catch (e: unknown) {
       setApiError(toApiClientError(e).message);
@@ -188,7 +189,11 @@ export function SignUpScreen({ navigation }: Props) {
             <Pressable
               accessibilityRole="button"
               hitSlop={10}
-              onPress={() => navigation.navigate('SignIn')}
+              onPress={() =>
+                navigation.navigate('SignIn', {
+                  returnTo: route.params?.returnTo,
+                })
+              }
             >
               <Text style={styles.link}>Sign in</Text>
             </Pressable>

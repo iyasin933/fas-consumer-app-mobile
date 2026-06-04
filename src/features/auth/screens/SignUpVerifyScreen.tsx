@@ -10,9 +10,9 @@ import { Button } from '@/shared/components/Button';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { toApiClientError } from '@/types/api.types';
-import type { AuthStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'SignUpVerify'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'SignUpVerify'>;
 
 const RESEND_SECONDS = 60;
 const OTP_LENGTH = 6;
@@ -83,7 +83,7 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function SignUpVerifyScreen({ route }: Props) {
+export function SignUpVerifyScreen({ navigation, route }: Props) {
   const {
     verifySignupOtp,
     verifySignupEmailOtp,
@@ -97,6 +97,7 @@ export function SignUpVerifyScreen({ route }: Props) {
   const phone = route.params.phone;
   const email = route.params.email;
   const password = route.params.password;
+  const returnTo = route.params.returnTo;
 
   const [phoneOtp, setPhoneOtp] = useState('');
   const [emailOtp, setEmailOtp] = useState('');
@@ -168,6 +169,12 @@ export function SignUpVerifyScreen({ route }: Props) {
       await verifySignupEmailOtp({ email, otp: emailCode });
       if (password) {
         await signInWithPassword({ email, password });
+        if (returnTo === 'ChooseVehicle') {
+          navigation.reset({
+            index: 1,
+            routes: [{ name: 'MainTabs' }, { name: 'ChooseVehicle' }],
+          });
+        }
       } else {
         setNotice('Account verified successfully.');
       }

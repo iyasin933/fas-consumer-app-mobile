@@ -24,6 +24,7 @@ import {
   usePlacesAutocomplete,
 } from '@/features/map/hooks/usePlacesAutocomplete';
 import { Button } from '@/shared/components/Button';
+import { AccountRequiredEmptyState } from '@/shared/components/AccountRequiredEmptyState';
 import { TextField } from '@/shared/components/TextField';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme, type AppearancePreference } from '@/hooks/useTheme';
@@ -566,7 +567,7 @@ function createStyles(colors: ThemeColors) {
 }
 
 export function SettingsScreen() {
-  const { signOut, user } = useAuth();
+  const { session, signOut, user } = useAuth();
   const { colors, appearancePreference, setAppearancePreference } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const { width } = useWindowDimensions();
@@ -852,6 +853,20 @@ export function SettingsScreen() {
       ],
     );
   };
+
+  if (session !== 'authed') {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <View style={{ flex: 1, justifyContent: 'center', paddingHorizontal: spacing.lg }}>
+          <AccountRequiredEmptyState
+            title="Sign in to manage profile"
+            body="Profile details, saved preferences, and account deletion are available after you sign in."
+            icon="person-circle-outline"
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   const displayName =
     `${form.firstName.trim()} ${form.lastName.trim()}`.trim() || 'DropYou';

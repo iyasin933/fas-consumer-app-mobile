@@ -3,6 +3,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { BookingDetailsScreen } from '@/features/bookings/screens/BookingDetailsScreen';
+import { ForgotPasswordScreen } from '@/features/auth/screens/ForgotPasswordScreen';
+import { ResetPasswordScreen } from '@/features/auth/screens/ResetPasswordScreen';
+import { SignInScreen } from '@/features/auth/screens/SignInScreen';
+import { SignUpScreen } from '@/features/auth/screens/SignUpScreen';
+import { SignUpVerifyScreen } from '@/features/auth/screens/SignUpVerifyScreen';
 import { AddDeliveryContentsScreen } from '@/features/delivery/screens/AddDeliveryContentsScreen';
 import { ChooseQuotesScreen } from '@/features/delivery/screens/ChooseQuotesScreen';
 import { ChooseVehicleScreen } from '@/features/delivery/screens/ChooseVehicleScreen';
@@ -13,9 +18,9 @@ import { useTheme } from '@/hooks/useTheme';
 import { createDefaultStackHeaderOptions } from '@/navigation/headerOptions';
 import { MainTabNavigator } from '@/navigation/MainTabNavigator';
 import { UsersScreen } from '@/screens/users/UsersScreen';
-import type { AppStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 
-const Stack = createNativeStackNavigator<AppStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AppNavigator() {
   const { colors } = useTheme();
@@ -24,6 +29,31 @@ export function AppNavigator() {
       screenOptions={createDefaultStackHeaderOptions(colors)}
     >
       <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false, title: 'Home' }} />
+      <Stack.Screen
+        name="SignIn"
+        component={SignInScreen}
+        options={{ headerShown: false }}
+      />
+      <Stack.Screen
+        name="SignUp"
+        component={SignUpScreen}
+        options={{ title: 'Create account', headerBackTitle: 'Sign in' }}
+      />
+      <Stack.Screen
+        name="ForgotPassword"
+        component={ForgotPasswordScreen}
+        options={{ title: 'Forgot password', headerBackTitle: 'Sign in' }}
+      />
+      <Stack.Screen
+        name="ResetPassword"
+        component={ResetPasswordScreen}
+        options={{ title: 'Set new password', headerBackTitle: 'Forgot' }}
+      />
+      <Stack.Screen
+        name="SignUpVerify"
+        component={SignUpVerifyScreen}
+        options={{ title: 'Verify account', headerBackTitle: 'Create account' }}
+      />
       <Stack.Screen
         name="Users"
         component={UsersScreen}

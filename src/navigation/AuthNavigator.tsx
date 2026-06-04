@@ -7,9 +7,9 @@ import { SignUpScreen } from '@/features/auth/screens/SignUpScreen';
 import { SignUpVerifyScreen } from '@/features/auth/screens/SignUpVerifyScreen';
 import { useTheme } from '@/hooks/useTheme';
 import { createDefaultStackHeaderOptions } from '@/navigation/headerOptions';
-import type { AuthStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 
-const Stack = createNativeStackNavigator<AuthStackParamList>();
+const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export function AuthNavigator() {
   const { colors } = useTheme();

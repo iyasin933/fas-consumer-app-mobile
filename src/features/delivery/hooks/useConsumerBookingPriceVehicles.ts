@@ -7,8 +7,10 @@ import {
 } from '@/features/delivery/api/consumerBookingPriceApi';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
+import { useAuthStore } from '@/store/authStore';
 
 export function useConsumerBookingPriceVehicles() {
+  const authed = useAuthStore((s) => s.session === 'authed');
   const draftPickup = useDeliveryOrderDraftStore((s) => s.pickup);
   const draftDropoff = useDeliveryOrderDraftStore((s) => s.dropoff);
   const pallets = useDeliveryOrderDraftStore((s) => s.pallets);
@@ -45,7 +47,8 @@ export function useConsumerBookingPriceVehicles() {
   );
 
   const enabled = Boolean(
-    pickup?.address &&
+    authed &&
+      pickup?.address &&
       dropoff?.address &&
       Number.isFinite(pickup.lat) &&
       Number.isFinite(pickup.lng) &&

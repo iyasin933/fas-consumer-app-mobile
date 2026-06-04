@@ -1,5 +1,5 @@
 import { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   KeyboardAvoidingView,
   Platform,
@@ -15,7 +15,7 @@ import { AppleSignInButton } from '@/features/auth/components/AppleSignInButton'
 import { GoogleSignInButton } from '@/features/auth/components/GoogleSignInButton';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
-import type { AuthStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 import { toApiClientError } from '@/types/api.types';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import { Button } from '@/shared/components/Button';
@@ -26,7 +26,7 @@ import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
-type Props = NativeStackScreenProps<AuthStackParamList, 'SignIn'>;
+type Props = NativeStackScreenProps<RootStackParamList, 'SignIn'>;
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -75,6 +75,11 @@ function createStyles(colors: ThemeColors) {
       fontWeight: '600',
       fontSize: 15,
     },
+    guestLink: {
+      color: colors.textSecondary,
+      fontWeight: '600',
+      fontSize: 15,
+    },
     signUpRow: {
       flexDirection: 'row',
       justifyContent: 'center',
@@ -88,8 +93,9 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-export function SignInScreen({ navigation }: Props) {
-  const { signInWithPassword } = useAuth();
+export function SignInScreen({ navigation, route }: Props) {
+  const returnTo = route.params?.returnTo;
+  const { session, signInWithPassword } = useAuth();
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -99,6 +105,21 @@ export function SignInScreen({ navigation }: Props) {
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (session !== 'authed') return;
+    if (returnTo === 'ChooseVehicle') {
+      navigation.reset({
+        index: 1,
+        routes: [{ name: 'MainTabs' }, { name: 'ChooseVehicle' }],
+      });
+      return;
+    }
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' }],
+    });
+  }, [navigation, returnTo, session]);
 
   const onSubmit = async () => {
     setError(null);
@@ -115,6 +136,17 @@ export function SignInScreen({ navigation }: Props) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const onContinueAsGuest = () => {
+    if (navigation.canGoBack()) {
+      navigation.goBack();
+      return;
+    }
+    navigation.reset({
+      index: 0,
+      routes: [{ name: 'MainTabs' }],
+    });
   };
 
   return (
@@ -165,9 +197,23 @@ export function SignInScreen({ navigation }: Props) {
                 <Text style={styles.link}>Forgot password?</Text>
               </Pressable>
 
+              <Pressable
+                onPress={onContinueAsGuest}
+                style={styles.linkRow}
+                accessibilityRole="button"
+              >
+                <Text style={styles.guestLink}>Continue as guest</Text>
+              </Pressable>
+
               <View style={styles.signUpRow}>
                 <Text style={styles.muted}>New to DropYou? </Text>
-                <Pressable onPress={() => navigation.navigate('SignUp')}>
+                <Pressable
+                  onPress={() =>
+                    navigation.navigate('SignUp', {
+                      returnTo,
+                    })
+                  }
+                >
                   <Text style={styles.link}>Create account</Text>
                 </Pressable>
               </View>

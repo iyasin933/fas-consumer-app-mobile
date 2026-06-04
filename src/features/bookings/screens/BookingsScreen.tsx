@@ -18,6 +18,8 @@ import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/store/authStore';
+import { AccountRequiredEmptyState } from '@/shared/components/AccountRequiredEmptyState';
 import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
@@ -110,6 +112,7 @@ export function BookingsScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const isAuthed = useAuthStore((s) => s.session === 'authed');
   const [activeStatusTab, setActiveStatusTab] = useState<LoadStatusTab>('all');
   const tabBarHeight = useBottomTabBarHeight();
   const detailsByLoadId = useBookingDetailsStore((s) => s.detailsByLoadId);
@@ -269,6 +272,20 @@ export function BookingsScreen() {
       meta: undefined,
     };
   }, [activeStatusTab]);
+
+  if (!isAuthed) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <View style={[styles.center, { paddingBottom: tabBarHeight }]}>
+          <AccountRequiredEmptyState
+            title="Sign in to view bookings"
+            body="Your delivery history, quotes, payments, and tracking updates are linked to your DropYou account."
+            icon="calendar-outline"
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (profileLoading) {
     return (

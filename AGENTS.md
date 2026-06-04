@@ -9,6 +9,15 @@
 - Keep empty states adaptive: centered in available space, safe around the bottom tab bar, readable on small iPhones, and free of text overlap.
 - Do not add decorative blobs/orbs for empty states; use product-relevant route, vehicle, map, booking, or notification visuals.
 
+## Guest Booking Flow
+
+- Logged-out users must be able to explore non-account features without being forced to register, including Home, Map, route entry, contents entry, recipient details, and the guest vehicle preview.
+- Preserve booking draft data while users move through guest exploration and auth. Do not clear `useDeliveryOrderDraftStore` or `useDeliveryFormStore` when navigating to Sign In, Sign Up, OTP verification, or back to the booking flow.
+- Account creation/sign-in should be required only before account-protected backend work, such as authenticated vehicle pricing, load creation, payment, quotes, bookings, notifications, and profile management.
+- The live vehicle pricing endpoint `/consumer/booking/price` is auth-protected. In guest mode, do not call it; show local dummy vehicle preview cards behind an interactive account-required state on `ChooseVehicle`.
+- After successful sign-in or signup verification from the booking flow, return the user to `ChooseVehicle` with their existing draft intact so they can continue booking.
+- Keep guest entry points visually secondary on auth screens. `Continue as guest` should be a quiet text link, not a prominent primary or outline button.
+
 ## App Store Versioning
 
 - For App Store, TestFlight, EAS build, or release work, follow the `expo-deployment` skill and this repo's EAS setup before changing version fields.

@@ -25,8 +25,8 @@ export function useActiveTrips(): {
 
   return {
     trips,
-    isLoading: q.isPending,
-    isError: q.isError,
+    isLoading: authed && q.isPending,
+    isError: authed && q.isError,
     refetch: () => {
       void q.refetch();
     },

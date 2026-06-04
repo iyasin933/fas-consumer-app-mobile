@@ -34,14 +34,42 @@ import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOr
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { getScheduledPickupDropoffOrderError } from '@/features/map/utils/deliverySchedule';
 import { useTheme } from '@/hooks/useTheme';
+import { useAuthStore } from '@/store/authStore';
 import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { Skeleton } from '@/shared/components/Skeleton';
 import { env } from '@/shared/config/env';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
-import type { AppStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 
 const BOOKING_PRICE_URL = `${env.apiUrl.replace(/\/$/, '')}/consumer/booking/price`;
+
+const GUEST_VEHICLE_PREVIEW: DeliveryVehicleDto[] = [
+  {
+    id: 'guest-small-van',
+    name: 'Small Van',
+    minPrice: 45,
+    maxPrice: 75,
+    loadCapacity: 400,
+    surfaceAreaCapacity: 2.4,
+  },
+  {
+    id: 'guest-transit-van',
+    name: 'Transit Van',
+    minPrice: 75,
+    maxPrice: 120,
+    loadCapacity: 900,
+    surfaceAreaCapacity: 4.8,
+  },
+  {
+    id: 'guest-luton-van',
+    name: 'Luton Van',
+    minPrice: 120,
+    maxPrice: 190,
+    loadCapacity: 1100,
+    surfaceAreaCapacity: 8.2,
+  },
+];
 
 /** GBP vehicle quote from API → pence for Stripe (`amount` smallest unit). */
 function vehicleQuoteToAmountPence(v: DeliveryVehicleDto): number {
@@ -51,11 +79,12 @@ function vehicleQuoteToAmountPence(v: DeliveryVehicleDto): number {
 }
 
 export function ChooseVehicleScreen() {
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
   const [loadErrorText, setLoadErrorText] = useState<string | null>(null);
+  const isAuthed = useAuthStore((s) => s.session === 'authed');
   const { data, isLoading, isError, error, refetch, isRefetching } =
     useConsumerBookingPriceVehicles();
   const selectedVehicleId = useDeliveryOrderDraftStore((s) => s.selectedVehicleId);
@@ -239,6 +268,23 @@ export function ChooseVehicleScreen() {
           fontWeight: '700',
           fontSize: typography.fontSize.md,
         },
+        guestPreview: {
+          flex: 1,
+        },
+        guestPreviewList: {
+          padding: spacing.lg,
+          paddingBottom: spacing.xl * 3,
+        },
+        guestOverlay: {
+          ...StyleSheet.absoluteFillObject,
+          justifyContent: 'center',
+          paddingHorizontal: spacing.lg,
+          paddingVertical: spacing.xl,
+        },
+        guestScrim: {
+          ...StyleSheet.absoluteFillObject,
+          backgroundColor: colors.background + '99',
+        },
       }),
     [colors],
   );
@@ -256,6 +302,10 @@ export function ChooseVehicleScreen() {
         'Payments',
         'Stripe is not configured. Add EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY to your .env and rebuild the app.',
       );
+      return;
+    }
+    if (!isAuthed) {
+      navigation.navigate('SignUp', { returnTo: 'ChooseVehicle' });
       return;
     }
 
@@ -328,7 +378,7 @@ export function ChooseVehicleScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [data, navigation]);
+  }, [data, isAuthed, navigation]);
 
   const renderItem = useCallback(
     ({ item }: { item: DeliveryVehicleDto }) => (
@@ -352,6 +402,47 @@ export function ChooseVehicleScreen() {
           <Pressable style={styles.retry} onPress={() => navigation.goBack()}>
             <Text style={styles.retryTxt}>Back</Text>
           </Pressable>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!isAuthed) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <FlatList
+          style={styles.guestPreview}
+          data={GUEST_VEHICLE_PREVIEW}
+          keyExtractor={(item) => item.id}
+          renderItem={({ item }) => (
+            <VehicleOptionCard
+              vehicle={item}
+              selected={item.id === selectedVehicleId}
+              onPress={() => setSelectedVehicleId(item.id)}
+            />
+          )}
+          ItemSeparatorComponent={() => <View style={{ height: spacing.md }} />}
+          contentContainerStyle={styles.guestPreviewList}
+          showsVerticalScrollIndicator={false}
+        />
+        <View style={styles.guestOverlay} pointerEvents="box-none">
+          <View style={styles.guestScrim} pointerEvents="none" />
+          <InteractiveEmptyState
+            eyebrow="Account required"
+            title="Create account to continue booking"
+            body="We’ll keep your delivery details ready while you create an account or sign in to continue your booking."
+            icon="car-outline"
+            primaryAction={{
+              label: 'Create account',
+              icon: 'person-add-outline',
+              onPress: () => navigation.navigate('SignUp', { returnTo: 'ChooseVehicle' }),
+            }}
+            secondaryAction={{
+              label: 'Sign in',
+              icon: 'log-in-outline',
+              onPress: () => navigation.navigate('SignIn', { returnTo: 'ChooseVehicle' }),
+            }}
+          />
         </View>
       </SafeAreaView>
     );

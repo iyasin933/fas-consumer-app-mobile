@@ -18,8 +18,11 @@ type Props = {
   title: string;
   children: ReactNode;
   actionLabel?: string;
+  secondaryActionLabel?: string;
   illustration?: ImageSourcePropType;
   onClose: () => void;
+  onActionPress?: () => void;
+  onSecondaryActionPress?: () => void;
 };
 
 function createStyles(colors: ThemeColors) {
@@ -77,6 +80,26 @@ function createStyles(colors: ThemeColors) {
       fontSize: typography.fontSize.md,
       fontWeight: typography.fontWeight.bold,
     },
+    secondaryAction: {
+      alignSelf: 'stretch',
+      minHeight: 48,
+      borderRadius: 12,
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: colors.surface,
+      borderWidth: 1,
+      borderColor: colors.border,
+      paddingHorizontal: spacing.md,
+    },
+    secondaryActionPressed: {
+      backgroundColor: colors.background,
+      transform: [{ scale: 0.99 }],
+    },
+    secondaryActionText: {
+      color: colors.textPrimary,
+      fontSize: typography.fontSize.md,
+      fontWeight: typography.fontWeight.bold,
+    },
   });
 }
 
@@ -85,8 +108,11 @@ export function AppDialog({
   title,
   children,
   actionLabel = 'OK',
+  secondaryActionLabel,
   illustration,
   onClose,
+  onActionPress,
+  onSecondaryActionPress,
 }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
@@ -117,11 +143,23 @@ export function AppDialog({
           <Text style={styles.body}>{children}</Text>
           <Pressable
             accessibilityRole="button"
-            onPress={onClose}
+            onPress={onActionPress ?? onClose}
             style={({ pressed }) => [styles.action, pressed && styles.actionPressed]}
           >
             <Text style={styles.actionText}>{actionLabel}</Text>
           </Pressable>
+          {secondaryActionLabel ? (
+            <Pressable
+              accessibilityRole="button"
+              onPress={onSecondaryActionPress ?? onClose}
+              style={({ pressed }) => [
+                styles.secondaryAction,
+                pressed && styles.secondaryActionPressed,
+              ]}
+            >
+              <Text style={styles.secondaryActionText}>{secondaryActionLabel}</Text>
+            </Pressable>
+          ) : null}
         </Pressable>
       </Pressable>
     </Modal>

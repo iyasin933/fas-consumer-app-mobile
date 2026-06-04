@@ -21,6 +21,7 @@ import { vehicleIconSource } from '@/features/home/utils/vehicleIconFromManifest
 import { useDropyouQuotes } from '@/features/notifications/hooks/useDropyouQuotes';
 import { useMarkNotificationsSeenOnFocus } from '@/features/notifications/hooks/useNotificationUnreadDot';
 import { useTheme } from '@/hooks/useTheme';
+import { AccountRequiredEmptyState } from '@/shared/components/AccountRequiredEmptyState';
 import { IllustratedActionCard } from '@/shared/components/IllustratedActionCard';
 import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
@@ -462,6 +463,20 @@ export function NotificationsScreen() {
   );
 
   const keyExtractor = useCallback((item: QuoteNotificationVm) => item.id, []);
+
+  if (!isAuthed) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['bottom']}>
+        <View style={[styles.listContent, { flex: 1, justifyContent: 'center' }]}>
+          <AccountRequiredEmptyState
+            title="Sign in to view updates"
+            body="Carrier quotes, booking changes, and live delivery updates are linked to your DropYou account."
+            icon="notifications-outline"
+          />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   if (isLoading) {
     return (

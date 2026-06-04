@@ -22,7 +22,7 @@ import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOr
 import { useTheme } from '@/hooks/useTheme';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
-import type { AppStackParamList } from '@/types/navigation.types';
+import type { RootStackParamList } from '@/types/navigation.types';
 
 const PROHIBITED_DISCLAIMER_BODY =
   'For safety and legal reasons, certain items cannot be transported, including: substances under the UK Misuse of Drugs Act; live animals (mammals, reptiles, fish, insects); pressurised containers (e.g. fire extinguishers, aerosols); and sharp instruments (e.g. scissors, knives, garden tools). By continuing you confirm your shipment does not contain prohibited goods.';
@@ -44,7 +44,7 @@ export function RecipientDetailsScreen() {
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
 
   const recipientName = useDeliveryOrderDraftStore((s) => s.recipientName);
   const recipientCompany = useDeliveryOrderDraftStore((s) => s.recipientCompany);

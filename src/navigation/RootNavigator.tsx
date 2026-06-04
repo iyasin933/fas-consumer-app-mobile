@@ -5,13 +5,11 @@ import { Animated, Easing, StyleSheet, View } from 'react-native';
 import { useAuth } from '@/hooks/useAuth';
 import { useTheme } from '@/hooks/useTheme';
 import { AppNavigator } from '@/navigation/AppNavigator';
-import { AuthNavigator } from '@/navigation/AuthNavigator';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { ThemeColors } from '@/shared/theme/colors';
 
 export function RootNavigator() {
-  const { session, isReady } = useAuth();
-  const isAuthed = session === 'authed';
+  const { isReady } = useAuth();
   const { colors, isDark } = useTheme();
 
   const navTheme = useMemo(
@@ -35,7 +33,7 @@ export function RootNavigator() {
 
   return (
     <NavigationContainer theme={navTheme}>
-      {isAuthed ? <AppNavigator /> : <AuthNavigator />}
+      <AppNavigator />
     </NavigationContainer>
   );
 }
