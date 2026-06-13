@@ -3,6 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Image,
   Pressable,
   StyleSheet,
   Text,
@@ -34,6 +35,8 @@ import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
+const KIKI_LOGO = require('../../../../assets/images/kikidropYou.svg');
+
 function createStyles(colors: ThemeColors, narrow: boolean) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
@@ -47,12 +50,10 @@ function createStyles(colors: ThemeColors, narrow: boolean) {
     headerLeft: {
       width: narrow ? 44 : 48,
     },
-    headerTitle: {
-      flex: 1,
-      fontSize: narrow ? typography.fontSize.md : typography.fontSize.lg,
-      fontWeight: '700',
-      color: colors.textPrimary,
-      textAlign: 'center',
+    headerLogo: {
+      width: narrow ? 160 : 200,
+      height: narrow ? 50 : 63,
+      alignSelf: 'center',
     },
     iconBtn: {
       width: narrow ? 44 : 48,
@@ -300,8 +301,12 @@ export function KikiChatScreen() {
         >
           <Ionicons name="menu" size={narrow ? 20 : 22} color={colors.textPrimary} />
         </Pressable>
-        <Text style={styles.headerTitle}>Kiki — Your Booking Agent</Text>
-        {/* Right spacer to keep title centered */}
+        <Image
+          source={KIKI_LOGO}
+          style={styles.headerLogo}
+          resizeMode="contain"
+          accessibilityLabel="Kiki — Your Booking Agent"
+        />
         <View style={styles.headerLeft} />
       </View>
 
@@ -377,7 +382,6 @@ export function KikiChatScreen() {
             <KikiChatInput
               onSend={handleSendMessage}
               disabled={isLoading}
-              placeholder="Ask Kiki..."
             />
           </View>
         </>

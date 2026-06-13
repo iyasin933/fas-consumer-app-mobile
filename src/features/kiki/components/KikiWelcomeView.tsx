@@ -89,7 +89,7 @@ export function KikiWelcomeView({ onStartChat }: Props) {
       </Text>
 
       <View style={styles.inputWrap}>
-        <KikiChatInput onSend={onStartChat} placeholder="Ask Kiki anything..." />
+        <KikiChatInput onSend={onStartChat} />
       </View>
 
       <View style={styles.actionsWrap}>

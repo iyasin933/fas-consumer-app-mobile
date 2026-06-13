@@ -1,8 +1,7 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { useHomeProfile } from '@/features/home/hooks/useHomeProfile';
@@ -33,15 +32,18 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.md,
       paddingVertical: 10,
     },
+    searchKikiIcon: {
+      width: 22,
+      height: 22,
+    },
     searchText: {
-      flex: 1,
       fontSize: typography.fontSize.md,
       color: colors.muted,
     },
-    kikiIcon: {
-      width: 20,
-      height: 20,
-      borderRadius: 4,
+    searchCursor: {
+      fontSize: typography.fontSize.md,
+      color: colors.primary,
+      fontWeight: '700',
     },
     avatar: { marginLeft: 2 },
     avatarInner: {
@@ -65,6 +67,20 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
+const PLACEHOLDERS = [
+  'Ask Kiki to book a delivery...',
+  'Track your parcel with Kiki...',
+  'How can I help you today?',
+  'Need delivery tips? Ask Kiki...',
+  'Find the nearest drop point...',
+];
+
+const POST_TYPING_PAUSE_MS = 2000;
+const TYPING_SPEED_MS = 60;
+const ERASING_SPEED_MS = 30;
+
+type TypePhase = 'typing' | 'pausing' | 'erasing';
+
 type Props = {
   onOpenWhereTo: () => void;
   resolving: boolean;
@@ -81,6 +97,67 @@ export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
+  const [placeholderIndex, setPlaceholderIndex] = useState(0);
+  const [displayedText, setDisplayedText] = useState('');
+  const phaseRef = useRef<TypePhase>('typing');
+  const charIndexRef = useRef(0);
+
+  const advance = useCallback(() => {
+    const fullText = PLACEHOLDERS[placeholderIndex] ?? '';
+    const phase = phaseRef.current;
+
+    if (phase === 'typing') {
+      if (charIndexRef.current < fullText.length) {
+        charIndexRef.current += 1;
+        setDisplayedText(fullText.slice(0, charIndexRef.current));
+        return TYPING_SPEED_MS;
+      }
+      phaseRef.current = 'pausing';
+      return POST_TYPING_PAUSE_MS;
+    }
+
+    if (phase === 'pausing') {
+      phaseRef.current = 'erasing';
+      return ERASING_SPEED_MS;
+    }
+
+    if (phase === 'erasing') {
+      if (charIndexRef.current > 0) {
+        charIndexRef.current -= 1;
+        setDisplayedText(fullText.slice(0, charIndexRef.current));
+        return ERASING_SPEED_MS;
+      }
+      phaseRef.current = 'typing';
+      charIndexRef.current = 0;
+      setPlaceholderIndex((prev) => (prev + 1) % PLACEHOLDERS.length);
+      return TYPING_SPEED_MS;
+    }
+
+    return TYPING_SPEED_MS;
+  }, [placeholderIndex]);
+
+  useEffect(() => {
+    charIndexRef.current = 0;
+    phaseRef.current = 'typing';
+    setDisplayedText('');
+
+    let timeoutId: ReturnType<typeof setTimeout>;
+
+    const tick = () => {
+      const delay = advance();
+      timeoutId = setTimeout(tick, delay);
+    };
+
+    const startDelay = setTimeout(() => {
+      tick();
+    }, 300);
+
+    return () => {
+      clearTimeout(startDelay);
+      clearTimeout(timeoutId!);
+    };
+  }, [placeholderIndex, advance]);
+
   return (
     <View style={styles.row}>
       <Pressable
@@ -90,10 +167,17 @@ export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
         accessibilityLabel="Ask Kiki"
         disabled={resolving}
       >
-        <Ionicons name="chatbubble-ellipses" size={20} color={colors.primary} />
-        <Text style={styles.searchText} numberOfLines={1}>
-          Ask Kiki...
-        </Text>
+        <Image
+          source={require('../../../../assets/images/kiki.png')}
+          style={styles.searchKikiIcon}
+          resizeMode="contain"
+        />
+        <View style={{ flexDirection: 'row', flex: 1 }}>
+          <Text style={styles.searchText} numberOfLines={1}>
+            {displayedText}
+          </Text>
+          <Text style={styles.searchCursor}>|</Text>
+        </View>
       </Pressable>
       <Pressable
         accessibilityLabel="Open profile"
