@@ -7,6 +7,7 @@ import { LoadQuotesSocketProvider } from '@/features/delivery/providers/LoadQuot
 import { useTheme } from '@/hooks/useTheme';
 import { RootNavigator } from '@/navigation/RootNavigator';
 import { AuthHydration } from '@/providers/AuthHydration';
+import { PostHogAnalyticsProvider } from '@/providers/PostHogAnalyticsProvider';
 import { QueryProvider } from '@/providers/QueryProvider';
 import { ThemeProvider } from '@/providers/ThemeProvider';
 import { env } from '@/shared/config/env';
@@ -19,16 +20,18 @@ function ThemedStatusBar() {
 export function AppRoot() {
   const tree = (
     <SafeAreaProvider>
-      <ThemeProvider>
-        <QueryProvider>
-          <AuthHydration>
-            <LoadQuotesSocketProvider>
-              <ThemedStatusBar />
-              <RootNavigator />
-            </LoadQuotesSocketProvider>
-          </AuthHydration>
-        </QueryProvider>
-      </ThemeProvider>
+      <PostHogAnalyticsProvider>
+        <ThemeProvider>
+          <QueryProvider>
+            <AuthHydration>
+              <LoadQuotesSocketProvider>
+                <ThemedStatusBar />
+                <RootNavigator />
+              </LoadQuotesSocketProvider>
+            </AuthHydration>
+          </QueryProvider>
+        </ThemeProvider>
+      </PostHogAnalyticsProvider>
     </SafeAreaProvider>
   );
 

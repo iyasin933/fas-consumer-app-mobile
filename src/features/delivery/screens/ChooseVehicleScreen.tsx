@@ -35,6 +35,7 @@ import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { getScheduledPickupDropoffOrderError } from '@/features/map/utils/deliverySchedule';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
+import { captureSafe } from '@/services/posthog';
 import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
 import { Skeleton } from '@/shared/components/Skeleton';
 import { env } from '@/shared/config/env';
@@ -349,6 +350,13 @@ export function ChooseVehicleScreen() {
       const { loadId, bookingId } = await createDropyouLoad(payload);
       useDeliveryOrderDraftStore.getState().setCreatedLoadIds({ loadId, bookingId });
       const amountPence = vehicleQuoteToAmountPence(v);
+      captureSafe('load_created', {
+        load_id: loadId,
+        booking_id: bookingId,
+        vehicle_name: v.name,
+        amount_pence: amountPence,
+        amount_gbp: amountPence / 100,
+      });
       navigation.navigate('ChooseQuotes', {
         loadId,
         bookingId: bookingId ?? undefined,
@@ -385,7 +393,15 @@ export function ChooseVehicleScreen() {
       <VehicleOptionCard
         vehicle={item}
         selected={item.id === selectedVehicleId}
-        onPress={() => setSelectedVehicleId(item.id)}
+        onPress={() => {
+          setSelectedVehicleId(item.id);
+          captureSafe('vehicle_selected', {
+            vehicle_id: item.id,
+            vehicle_name: item.name,
+            min_price_gbp: item.minPrice ?? null,
+            max_price_gbp: item.maxPrice ?? null,
+          });
+        }}
       />
     ),
     [selectedVehicleId, setSelectedVehicleId],

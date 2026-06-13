@@ -7,10 +7,12 @@ import { useTheme } from '@/hooks/useTheme';
 import { AppNavigator } from '@/navigation/AppNavigator';
 import { BrandLogo } from '@/shared/components/BrandLogo';
 import type { ThemeColors } from '@/shared/theme/colors';
+import { posthog } from '@/services/posthog';
 
 export function RootNavigator() {
   const { isReady } = useAuth();
   const { colors, isDark } = useTheme();
+  const routeNameRef = useRef<string | undefined>(undefined);
 
   const navTheme = useMemo(
     () => ({
@@ -24,7 +26,14 @@ export function RootNavigator() {
         border: colors.border,
       },
     }),
-    [isDark, colors.background, colors.primary, colors.surface, colors.textPrimary, colors.border],
+    [
+      isDark,
+      colors.background,
+      colors.primary,
+      colors.surface,
+      colors.textPrimary,
+      colors.border,
+    ],
   );
 
   if (!isReady) {
@@ -32,7 +41,27 @@ export function RootNavigator() {
   }
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer
+      theme={navTheme}
+      onReady={() => {
+        routeNameRef.current = undefined;
+      }}
+      onStateChange={(state) => {
+        if (!state) return;
+        const flatRoutes = state.routes;
+        const currentRoute = flatRoutes[state.index];
+        const currentRouteName = currentRoute?.name;
+        if (currentRouteName && currentRouteName !== routeNameRef.current) {
+          const hasClient = Boolean(posthog);
+          console.log(
+            `[PostHog] screen: "${currentRouteName}"` +
+              (hasClient ? ' → sent' : ' → skipped (no client)'),
+          );
+          posthog?.screen(currentRouteName);
+          routeNameRef.current = currentRouteName;
+        }
+      }}
+    >
       <AppNavigator />
     </NavigationContainer>
   );

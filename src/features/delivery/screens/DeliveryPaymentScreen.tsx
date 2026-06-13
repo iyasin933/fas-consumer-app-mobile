@@ -22,11 +22,15 @@ import {
   stringifyResponseData,
   summarizePaymentApiError,
 } from '@/features/delivery/api/deliveryPaymentApi';
+import { captureSafe } from '@/services/posthog';
 import { allocateDropyouLoad } from '@/features/delivery/api/dropyouAllocateLoadApi';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 import { useTheme } from '@/hooks/useTheme';
 import { env } from '@/shared/config/env';
-import { ROUTE_MARKER_COLORS, ROUTE_MARKER_SOFT_COLORS } from '@/shared/theme/routeMarkers';
+import {
+  ROUTE_MARKER_COLORS,
+  ROUTE_MARKER_SOFT_COLORS,
+} from '@/shared/theme/routeMarkers';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
@@ -38,7 +42,9 @@ const PAYMENT_CTA_MIN_HEIGHT = 56;
 const PAYMENT_SCROLL_FOOTER_GAP = spacing.lg;
 
 function formatGbpFromPence(pence: number): string {
-  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(pence / 100);
+  return new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP' }).format(
+    pence / 100,
+  );
 }
 
 function normalizePhoneForAllocation(phone?: string): string {
@@ -70,7 +76,10 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
   const amountLabel = useMemo(() => formatGbpFromPence(amountPence), [amountPence]);
   const footerBottomPadding = Math.max(insets.bottom, spacing.md);
   const scrollFooterInset =
-    PAYMENT_FOOTER_TOP_PADDING + PAYMENT_CTA_MIN_HEIGHT + footerBottomPadding + PAYMENT_SCROLL_FOOTER_GAP;
+    PAYMENT_FOOTER_TOP_PADDING +
+    PAYMENT_CTA_MIN_HEIGHT +
+    footerBottomPadding +
+    PAYMENT_SCROLL_FOOTER_GAP;
 
   const styles = useMemo(
     () =>
@@ -212,7 +221,10 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           shadowRadius: 12,
           elevation: 4,
         },
-        ctaPressed: { backgroundColor: colors.primaryPressed, transform: [{ scale: 0.99 }] },
+        ctaPressed: {
+          backgroundColor: colors.primaryPressed,
+          transform: [{ scale: 0.99 }],
+        },
         ctaDisabled: { opacity: 0.65 },
         ctaTxt: {
           color: colors.onPrimary,
@@ -227,16 +239,29 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
   const pay = useCallback(async () => {
     if (busy) return;
     if (!env.stripePublishableKey) {
-      Alert.alert('Stripe', 'Add EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY to your environment.');
+      Alert.alert(
+        'Stripe',
+        'Add EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY to your environment.',
+      );
       return;
     }
     setBusy(true);
+    captureSafe('payment_initiated', {
+      load_id: loadId ?? null,
+      booking_id: bookingId ?? null,
+      amount_pence: amountPence,
+      amount_gbp: amountPence / 100,
+      vehicle_name: vehicleName ?? null,
+      carrier_name: carrierName ?? null,
+    });
     try {
       if (__DEV__) {
         console.log('[DeliveryPayment] start pay', {
           amountPence,
           gbpFromPence: (amountPence / 100).toFixed(2),
-          createIntentAmountMode: env.paymentCreateIntentAmountInMajorUnits ? 'major (pounds)' : 'minor (pence)',
+          createIntentAmountMode: env.paymentCreateIntentAmountInMajorUnits
+            ? 'major (pounds)'
+            : 'minor (pence)',
           loadId,
           bookingId,
           quoteId,
@@ -338,6 +363,15 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
         return;
       }
 
+      captureSafe('payment_completed', {
+        load_id: loadId ?? null,
+        booking_id: bookingId ?? null,
+        amount_pence: amountPence,
+        amount_gbp: amountPence / 100,
+        vehicle_name: vehicleName ?? null,
+        carrier_name: carrierName ?? null,
+        quote_id: quoteId ?? null,
+      });
       setShowSuccessConfetti(true);
     } catch (e) {
       if (isAxiosError(e)) {
@@ -351,6 +385,13 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
       } else {
         console.warn('[DeliveryPayment]', e);
       }
+      captureSafe('payment_failed', {
+        load_id: loadId ?? null,
+        booking_id: bookingId ?? null,
+        amount_pence: amountPence,
+        vehicle_name: vehicleName ?? null,
+        error: summarizePaymentApiError(e),
+      });
       Alert.alert('Payment', summarizePaymentApiError(e));
     } finally {
       setBusy(false);
@@ -407,11 +448,17 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           />
         </View>
       ) : null}
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+      >
         <View>
           <Text style={styles.eyebrow}>Secure checkout</Text>
           <Text style={styles.title}>Booking summary</Text>
-          <Text style={styles.subtitle}>Review your delivery details before payment.</Text>
+          <Text style={styles.subtitle}>
+            Review your delivery details before payment.
+          </Text>
         </View>
 
         <View style={styles.summaryCard}>
@@ -431,8 +478,17 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           <View style={styles.divider} />
 
           <View style={styles.routeRow}>
-            <View style={[styles.routeIcon, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.pickup }]}>
-              <Ionicons name="location-sharp" size={18} color={ROUTE_MARKER_COLORS.pickup} />
+            <View
+              style={[
+                styles.routeIcon,
+                { backgroundColor: ROUTE_MARKER_SOFT_COLORS.pickup },
+              ]}
+            >
+              <Ionicons
+                name="location-sharp"
+                size={18}
+                color={ROUTE_MARKER_COLORS.pickup}
+              />
             </View>
             <View style={styles.routeCopy}>
               <Text style={styles.routeLabel}>Pickup</Text>
@@ -443,7 +499,12 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           </View>
 
           <View style={styles.routeRow}>
-            <View style={[styles.routeIcon, { backgroundColor: ROUTE_MARKER_SOFT_COLORS.dropoff }]}>
+            <View
+              style={[
+                styles.routeIcon,
+                { backgroundColor: ROUTE_MARKER_SOFT_COLORS.dropoff },
+              ]}
+            >
               <Ionicons name="flag" size={17} color={ROUTE_MARKER_COLORS.dropoff} />
             </View>
             <View style={styles.routeCopy}>
@@ -458,7 +519,11 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
 
       <View style={styles.footer}>
         <Pressable
-          style={({ pressed }) => [styles.cta, busy && styles.ctaDisabled, pressed && !busy && styles.ctaPressed]}
+          style={({ pressed }) => [
+            styles.cta,
+            busy && styles.ctaDisabled,
+            pressed && !busy && styles.ctaPressed,
+          ]}
           onPress={pay}
           disabled={busy}
         >

@@ -51,4 +51,8 @@ export const env = {
    * Set `EXPO_PUBLIC_SIMULATE_TRACKING=true` to move a local vehicle marker when the backend has no live location.
    */
   simulateTracking: process.env.EXPO_PUBLIC_SIMULATE_TRACKING === 'true',
+  posthogApiKey: (process.env.EXPO_PUBLIC_POSTHOG_API_KEY ?? '').trim(),
+  posthogHost: (
+    process.env.EXPO_PUBLIC_POSTHOG_HOST ?? 'https://us.i.posthog.com'
+  ).trim(),
 };

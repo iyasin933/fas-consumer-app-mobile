@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchLoadDetailsById } from '@/api/modules/dropyou.api';
 import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
+import { captureSafe } from '@/services/posthog';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useTheme } from '@/hooks/useTheme';
@@ -160,6 +161,12 @@ export function BookingsScreen() {
         Alert.alert('Booking details', 'This booking does not include a load id.');
         return;
       }
+      captureSafe('booking_viewed', {
+        load_id: loadId,
+        booking_id: trip.bookingId,
+        status: trip.statusLabel,
+        vehicle_name: trip.vehicleName,
+      });
 
       const hasCachedDetails = Boolean(detailsByLoadId[loadId]);
       if (loadingByLoadId[loadId]) {

@@ -4,6 +4,7 @@ import * as authApi from '@/api/modules/auth.api';
 import * as usersApi from '@/api/modules/users.api';
 import { queryClient } from '@/lib/queryClient';
 import * as tokenStorage from '@/services/tokenStorage';
+import { posthog } from '@/services/posthog';
 import { pickUserIdFromProfile, userIdFromJwt } from '@/utils/authIdentity';
 import { env } from '@/shared/config/env';
 import type {
@@ -81,6 +82,25 @@ async function mergeMeIntoStore(me: MeResponse) {
   }
 }
 
+function identifyFromProfile(me: MeResponse): void {
+  const profile = me as Record<string, unknown>;
+  const id = profile.id ?? profile.userId ?? profile.user_id;
+  if (!id) return;
+  const distinctId = String(id);
+  const email = typeof profile.email === 'string' ? profile.email : null;
+  const phone = typeof profile.phone === 'string' ? profile.phone : null;
+  const name =
+    typeof profile.firstName === 'string' && typeof profile.lastName === 'string'
+      ? `${profile.firstName} ${profile.lastName}`
+      : typeof profile.name === 'string'
+        ? profile.name
+        : null;
+  posthog?.identify(distinctId, {
+    $set: { email, name, phone },
+    $set_once: { first_seen_at: new Date().toISOString() },
+  });
+}
+
 export async function updateProfile(params: {
   userId: string | number;
   profile: authApi.UpdateProfileDto;
@@ -108,6 +128,8 @@ export async function hydrateAuthSession(): Promise<void> {
     try {
       await loadMeIntoStore();
       useAuthStore.getState().setSession({ session: 'authed', isReady: true });
+      const me = useAuthStore.getState().user ?? {};
+      identifyFromProfile(me);
     } catch {
       await tokenStorage.clearTokens();
       useAuthStore.getState().setSession({ session: 'guest', user: null, isReady: true });
@@ -127,6 +149,9 @@ export async function signInWithPassword(params: UserLoginDto): Promise<void> {
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
   useAuthStore.getState().setSession({ session: 'authed' });
+  const me = useAuthStore.getState().user ?? {};
+  identifyFromProfile(me);
+  posthog?.capture('user_signed_in', { method: 'password' });
   void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
   void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
   void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
@@ -162,6 +187,9 @@ export async function verifySignupEmailOtp(dto: VerifyEmailOtpDto): Promise<void
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
   useAuthStore.getState().setSession({ session: 'authed' });
+  const me = useAuthStore.getState().user ?? {};
+  identifyFromProfile(me);
+  posthog?.capture('user_signed_up', { method: 'email_phone' });
   void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
   void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
   void queryClient.invalidateQueries({ queryKey: ['auth', 'resolved-user-id'] });
@@ -213,6 +241,9 @@ export async function signInWithGoogleToken(
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
   useAuthStore.getState().setSession({ session: 'authed' });
+  const me = useAuthStore.getState().user ?? {};
+  identifyFromProfile(me);
+  posthog?.capture('user_signed_in', { method: 'google' });
   logGoogleAuth('session authed');
   void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
   void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
@@ -247,6 +278,9 @@ export async function signInWithAppleToken(
   await persistAfterAuth(accessToken, refreshToken);
   await loadMeIntoStore();
   useAuthStore.getState().setSession({ session: 'authed' });
+  const me = useAuthStore.getState().user ?? {};
+  identifyFromProfile(me);
+  posthog?.capture('user_signed_in', { method: 'apple' });
   logAppleAuth('session authed');
   void queryClient.invalidateQueries({ queryKey: queryKeys.dropyou.activeTrips });
   void queryClient.invalidateQueries({ queryKey: ['dropyou', 'user-bookings'] });
@@ -263,6 +297,8 @@ export async function signOut(): Promise<void> {
       // Unreachable server or stale session — still sign out locally.
     }
   }
+  posthog?.capture('user_signed_out');
+  posthog?.reset();
   await tokenStorage.clearTokens();
   useAuthStore.getState().clearSession();
   await queryClient.cancelQueries();

@@ -5,7 +5,14 @@ import type {
 } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
 import { Ionicons } from '@expo/vector-icons';
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import {
   Alert,
   FlatList,
@@ -39,12 +46,16 @@ import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context'
 
 import { acceptDropyouQuote } from '@/features/delivery/api/dropyouAcceptQuoteApi';
 import { cancelDropyouBooking } from '@/features/delivery/api/dropyouCancelBookingApi';
+import { captureSafe } from '@/services/posthog';
 import { DropyouQuoteCard } from '@/features/delivery/components/DropyouQuoteCard';
 import { summarizePaymentApiError } from '@/features/delivery/api/deliveryPaymentApi';
 import { useLoadQuotesSocket } from '@/features/delivery/providers/LoadQuotesSocketProvider';
 import type { LoadQuoteRow } from '@/features/delivery/socket/loadQuotesSocket.types';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
-import { useLoadQuotesForLoad, useLoadQuotesStore } from '@/features/delivery/store/loadQuotesStore';
+import {
+  useLoadQuotesForLoad,
+  useLoadQuotesStore,
+} from '@/features/delivery/store/loadQuotesStore';
 import {
   majorToPence,
   parseDropyouQuoteCardModel,
@@ -77,7 +88,7 @@ function createDriverOffsets(seedText: string) {
   const seed = seedText.split('').reduce((acc, char) => acc + char.charCodeAt(0), 37);
   return Array.from({ length: 6 }, (_, index) => {
     const angle = seededUnit(seed + index * 19) * Math.PI * 2;
-    const radius = 0.010 + seededUnit(seed + index * 31) * 0.021;
+    const radius = 0.01 + seededUnit(seed + index * 31) * 0.021;
     return {
       latitude: Math.sin(angle) * radius,
       longitude: Math.cos(angle) * radius * 1.15,
@@ -98,10 +109,21 @@ function formatReceivedAt(iso: string): string {
 function quoteSummaryLine(raw: unknown): string | null {
   if (raw == null || typeof raw !== 'object') return null;
   const top = raw as Record<string, unknown>;
-  const quote = top.quote && typeof top.quote === 'object' ? (top.quote as Record<string, unknown>) : null;
+  const quote =
+    top.quote && typeof top.quote === 'object'
+      ? (top.quote as Record<string, unknown>)
+      : null;
   const o = quote ?? top;
   const bits: string[] = [];
-  for (const key of ['price', 'amount', 'total', 'carrierName', 'carrier', 'name', 'driverName']) {
+  for (const key of [
+    'price',
+    'amount',
+    'total',
+    'carrierName',
+    'carrier',
+    'name',
+    'driverName',
+  ]) {
     const v = o[key];
     if (v != null && typeof v !== 'object') bits.push(String(v));
   }
@@ -113,9 +135,17 @@ function PickupPulseMarker() {
   const pulseB = useSharedValue(0);
 
   useEffect(() => {
-    pulseA.value = withRepeat(withTiming(1, { duration: 1900, easing: Easing.out(Easing.quad) }), -1, false);
+    pulseA.value = withRepeat(
+      withTiming(1, { duration: 1900, easing: Easing.out(Easing.quad) }),
+      -1,
+      false,
+    );
     const offset = setTimeout(() => {
-      pulseB.value = withRepeat(withTiming(1, { duration: 1900, easing: Easing.out(Easing.quad) }), -1, false);
+      pulseB.value = withRepeat(
+        withTiming(1, { duration: 1900, easing: Easing.out(Easing.quad) }),
+        -1,
+        false,
+      );
     }, 700);
     return () => clearTimeout(offset);
   }, [pulseA, pulseB]);
@@ -140,13 +170,7 @@ function PickupPulseMarker() {
   );
 }
 
-function DriverMarker({
-  index,
-  color,
-}: {
-  index: number;
-  color: string;
-}) {
+function DriverMarker({ index, color }: { index: number; color: string }) {
   const drift = useSharedValue(0);
 
   useEffect(() => {
@@ -162,17 +186,33 @@ function DriverMarker({
 
   const markerStyle = useAnimatedStyle(() => ({
     transform: [
-      { translateX: interpolate(drift.value, [0, 1], [index % 2 === 0 ? -2 : 2, index % 2 === 0 ? 3 : -3]) },
-      { translateY: interpolate(drift.value, [0, 1], [index % 3 === 0 ? 2 : -2, index % 3 === 0 ? -3 : 3]) },
+      {
+        translateX: interpolate(
+          drift.value,
+          [0, 1],
+          [index % 2 === 0 ? -2 : 2, index % 2 === 0 ? 3 : -3],
+        ),
+      },
+      {
+        translateY: interpolate(
+          drift.value,
+          [0, 1],
+          [index % 3 === 0 ? 2 : -2, index % 3 === 0 ? -3 : 3],
+        ),
+      },
       { scale: interpolate(drift.value, [0, 1], [0.98, 1.04]) },
     ],
   }));
 
   return (
-    <Animated.View style={[driverMarkerStyles.wrap, { backgroundColor: color }, markerStyle]}>
+    <Animated.View
+      style={[driverMarkerStyles.wrap, { backgroundColor: color }, markerStyle]}
+    >
       <Ionicons name="car-sport" size={15} color="#ffffff" />
       <View style={[driverMarkerStyles.shadow, { backgroundColor: color }]} />
-      <Text style={[driverMarkerStyles.dots, { color }]}>{index % 2 === 0 ? '••' : '•••'}</Text>
+      <Text style={[driverMarkerStyles.dots, { color }]}>
+        {index % 2 === 0 ? '••' : '•••'}
+      </Text>
     </Animated.View>
   );
 }
@@ -321,9 +361,10 @@ export function ChooseQuotesScreen({ route }: Props) {
   const drawerSidePadding = windowWidth < 380 ? spacing.md : spacing.lg;
   const sheetSnaps = useMemo(() => {
     const collapsed = Math.max(176, Math.min(212, windowHeight * 0.22));
-    const normal = sortedQuotes.length > 0
-      ? Math.max(330, Math.min(420, windowHeight * 0.44))
-      : Math.max(300, Math.min(350, windowHeight * 0.39));
+    const normal =
+      sortedQuotes.length > 0
+        ? Math.max(330, Math.min(420, windowHeight * 0.44))
+        : Math.max(300, Math.min(350, windowHeight * 0.39));
     const expanded = Math.max(normal + 100, windowHeight * 0.78);
     return { collapsed, normal, expanded };
   }, [sortedQuotes.length, windowHeight]);
@@ -347,7 +388,10 @@ export function ChooseQuotesScreen({ route }: Props) {
         })
         .onUpdate((event) => {
           const next = sheetDragStart.value - event.translationY;
-          sheetHeight.value = Math.max(sheetSnaps.collapsed, Math.min(sheetSnaps.expanded, next));
+          sheetHeight.value = Math.max(
+            sheetSnaps.collapsed,
+            Math.min(sheetSnaps.expanded, next),
+          );
         })
         .onEnd((event) => {
           const projected = sheetHeight.value - event.velocityY * 0.08;
@@ -366,31 +410,41 @@ export function ChooseQuotesScreen({ route }: Props) {
             easing: Easing.out(Easing.cubic),
           });
         }),
-    [sheetDragStart, sheetHeight, sheetSnaps.collapsed, sheetSnaps.expanded, sheetSnaps.normal],
+    [
+      sheetDragStart,
+      sheetHeight,
+      sheetSnaps.collapsed,
+      sheetSnaps.expanded,
+      sheetSnaps.normal,
+    ],
   );
 
   const onToggleDrawer = useCallback(() => {
     const midpoint = (sheetSnaps.collapsed + sheetSnaps.expanded) / 2;
-    const next = sheetHeight.value > midpoint ? sheetSnaps.collapsed : sheetSnaps.expanded;
+    const next =
+      sheetHeight.value > midpoint ? sheetSnaps.collapsed : sheetSnaps.expanded;
     sheetHeight.value = withTiming(next, {
       duration: 260,
       easing: Easing.out(Easing.cubic),
     });
   }, [sheetHeight, sheetSnaps.collapsed, sheetSnaps.expanded]);
 
-  const centerOnRoute = useCallback((animated = true) => {
-    if (mapFramePoints.length >= 2) {
-      mapRef.current?.fitToCoordinates(mapFramePoints, {
-        animated,
-        edgePadding: {
-          ...QUOTES_MAP_EDGE_PADDING,
-          bottom: Math.round(sheetSnaps.normal) + 88 + Math.max(insets.bottom, 0),
-        },
-      });
-      return;
-    }
-    mapRef.current?.animateToRegion(pickupRegion, animated ? 450 : 0);
-  }, [insets.bottom, mapFramePoints, pickupRegion, sheetSnaps.normal]);
+  const centerOnRoute = useCallback(
+    (animated = true) => {
+      if (mapFramePoints.length >= 2) {
+        mapRef.current?.fitToCoordinates(mapFramePoints, {
+          animated,
+          edgePadding: {
+            ...QUOTES_MAP_EDGE_PADDING,
+            bottom: Math.round(sheetSnaps.normal) + 88 + Math.max(insets.bottom, 0),
+          },
+        });
+        return;
+      }
+      mapRef.current?.animateToRegion(pickupRegion, animated ? 450 : 0);
+    },
+    [insets.bottom, mapFramePoints, pickupRegion, sheetSnaps.normal],
+  );
 
   useEffect(() => {
     const handle = setTimeout(() => {
@@ -422,9 +476,7 @@ export function ChooseQuotesScreen({ route }: Props) {
   }, [latestQuoteKey]);
 
   const progressFillStyle = useAnimatedStyle(() => ({
-    transform: [
-      { translateX: `${interpolate(progress.value, [0, 1], [-100, 170])}%` },
-    ],
+    transform: [{ translateX: `${interpolate(progress.value, [0, 1], [-100, 170])}%` }],
   }));
 
   const styles = useMemo(
@@ -598,7 +650,11 @@ export function ChooseQuotesScreen({ route }: Props) {
           borderColor: colors.border,
           gap: spacing.sm,
         },
-        cardTitle: { fontSize: typography.fontSize.md, fontWeight: '600', color: colors.textPrimary },
+        cardTitle: {
+          fontSize: typography.fontSize.md,
+          fontWeight: '600',
+          color: colors.textPrimary,
+        },
         cardLine: { fontSize: typography.fontSize.sm, color: colors.textSecondary },
         sourcePill: {
           alignSelf: 'flex-start',
@@ -631,6 +687,15 @@ export function ChooseQuotesScreen({ route }: Props) {
           });
         }
         await acceptDropyouQuote(model.bookingId, model.quoteId);
+        captureSafe('quote_accepted', {
+          load_id: model.loadId,
+          booking_id: model.bookingId,
+          quote_id: model.quoteId,
+          carrier_name: model.companyName,
+          vehicle_type: model.vehicleType || vehicleName,
+          price: model.price,
+          currency: model.currency,
+        });
         navigation.navigate('DeliveryPayment', {
           backTitle: 'Quotes',
           amountPence: majorToPence(model.price, model.currency),
@@ -672,6 +737,10 @@ export function ChooseQuotesScreen({ route }: Props) {
     setCancelling(true);
     try {
       await cancelDropyouBooking(loadId);
+      captureSafe('booking_cancelled', {
+        load_id: loadId,
+        quotes_received: sortedQuotes.length,
+      });
       unsubscribeFromLoad(loadId);
       useLoadQuotesStore.getState().reset();
       useDeliveryOrderDraftStore.getState().resetDraft();
@@ -682,7 +751,11 @@ export function ChooseQuotesScreen({ route }: Props) {
       });
     } catch (e) {
       if (isAxiosError(e)) {
-        console.warn('[ChooseQuotes] cancel booking failed', e.response?.status, e.response?.data);
+        console.warn(
+          '[ChooseQuotes] cancel booking failed',
+          e.response?.status,
+          e.response?.data,
+        );
       }
       Alert.alert('Cancel booking', summarizePaymentApiError(e));
     } finally {
@@ -708,22 +781,25 @@ export function ChooseQuotesScreen({ route }: Props) {
         const busy = acceptingKey === `${parsed.loadId}:${parsed.quoteId}`;
         return (
           <Animated.View layout={LinearTransition.springify()}>
-            <DropyouQuoteCard quote={parsed} onAccept={() => void onAcceptQuote(parsed)} busy={busy} />
+            <DropyouQuoteCard
+              quote={parsed}
+              onAccept={() => void onAcceptQuote(parsed)}
+              busy={busy}
+            />
           </Animated.View>
         );
       }
       const summary = quoteSummaryLine(item.raw);
       return (
-        <Animated.View
-          layout={LinearTransition.springify()}
-          style={styles.card}
-        >
+        <Animated.View layout={LinearTransition.springify()} style={styles.card}>
           <View style={styles.sourcePill}>
             <Text style={styles.sourceTxt}>{item.source}</Text>
           </View>
           <Text style={styles.cardTitle}>Quote {item.quoteId}</Text>
           {summary ? <Text style={styles.cardLine}>{summary}</Text> : null}
-          <Text style={styles.cardLine}>Received {formatReceivedAt(item.receivedAt)}</Text>
+          <Text style={styles.cardLine}>
+            Received {formatReceivedAt(item.receivedAt)}
+          </Text>
         </Animated.View>
       );
     },
@@ -754,7 +830,9 @@ export function ChooseQuotesScreen({ route }: Props) {
           loadingEnabled
           loadingBackgroundColor={colors.background}
           userInterfaceStyle={isDark ? 'dark' : 'light'}
-          customMapStyle={isDark && Platform.OS === 'android' ? DARK_MAP_STYLE : undefined}
+          customMapStyle={
+            isDark && Platform.OS === 'android' ? DARK_MAP_STYLE : undefined
+          }
         >
           {pickupCoords ? (
             <Marker coordinate={pickupCoords} anchor={{ x: 0.5, y: 0.5 }} zIndex={30}>
@@ -826,53 +904,81 @@ export function ChooseQuotesScreen({ route }: Props) {
             <Text style={styles.statusBody}>Offers appear automatically.</Text>
           ) : (
             <Text style={styles.statusBody}>
-              {sortedQuotes.length} quote{sortedQuotes.length === 1 ? '' : 's'} received for {vehicleName}.
+              {sortedQuotes.length} quote{sortedQuotes.length === 1 ? '' : 's'} received
+              for {vehicleName}.
             </Text>
           )}
           <Text style={styles.bookingMeta}>Booking ID: {loadId}</Text>
           {!isConnected ? (
             <Text style={styles.errorMessage}>
-              We’re having trouble connecting to live quotes. Please check your internet connection and try again.
+              We’re having trouble connecting to live quotes. Please check your internet
+              connection and try again.
             </Text>
           ) : null}
         </View>
-        <ScrollView contentContainerStyle={styles.drawerContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.drawerContent}
+          showsVerticalScrollIndicator={false}
+        >
           <View style={styles.locationsWrap}>
             <View style={styles.disabledInput}>
-              <Ionicons name="location-sharp" size={18} color={ROUTE_MARKER_COLORS.pickup} />
+              <Ionicons
+                name="location-sharp"
+                size={18}
+                color={ROUTE_MARKER_COLORS.pickup}
+              />
               <Text
-                style={[styles.disabledInputText, !pickup?.address && styles.disabledInputMuted]}
+                style={[
+                  styles.disabledInputText,
+                  !pickup?.address && styles.disabledInputMuted,
+                ]}
                 numberOfLines={1}
               >
                 {pickup?.address ?? 'Pickup location'}
               </Text>
-              <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
             </View>
             <View style={styles.disabledInput}>
               <Ionicons name="flag" size={17} color={ROUTE_MARKER_COLORS.dropoff} />
               <Text
-                style={[styles.disabledInputText, !dropoff?.address && styles.disabledInputMuted]}
+                style={[
+                  styles.disabledInputText,
+                  !dropoff?.address && styles.disabledInputMuted,
+                ]}
                 numberOfLines={1}
               >
                 {dropoff?.address ?? 'Dropoff location'}
               </Text>
-              <Ionicons name="lock-closed-outline" size={16} color={colors.textSecondary} />
+              <Ionicons
+                name="lock-closed-outline"
+                size={16}
+                color={colors.textSecondary}
+              />
             </View>
           </View>
         </ScrollView>
       </Animated.View>
 
       <View style={styles.stickyCancelFooter}>
-          <Pressable
-            style={({ pressed }) => [styles.cancelButton, pressed && styles.cancelButtonPressed]}
-            onPress={onCancelBooking}
-            disabled={cancelling}
-          >
-            {!cancelling ? (
-              <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
-            ) : null}
-            <Text style={styles.cancelText}>{cancelling ? 'Cancelling booking' : 'Cancel Booking'}</Text>
-          </Pressable>
+        <Pressable
+          style={({ pressed }) => [
+            styles.cancelButton,
+            pressed && styles.cancelButtonPressed,
+          ]}
+          onPress={onCancelBooking}
+          disabled={cancelling}
+        >
+          {!cancelling ? (
+            <Ionicons name="close-circle-outline" size={20} color={colors.danger} />
+          ) : null}
+          <Text style={styles.cancelText}>
+            {cancelling ? 'Cancelling booking' : 'Cancel Booking'}
+          </Text>
+        </Pressable>
       </View>
     </SafeAreaView>
   );
