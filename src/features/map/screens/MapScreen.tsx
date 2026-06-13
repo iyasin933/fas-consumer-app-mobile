@@ -11,6 +11,11 @@ import Animated, {
   withTiming,
 } from 'react-native-reanimated';
 
+import { isAxiosError } from 'axios';
+
+import { extractLoadIdFromRepostResponse, repostBooking, type RepostBookingBody } from '@/api/modules/dropyou.api';
+import { notifyLoadCreatedForQuotes } from '@/features/delivery/socket/loadQuotesSubscriptionBridge';
+import { summarizePaymentApiError } from '@/features/delivery/api/deliveryPaymentApi';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
 
 import { AddStopButton } from '@/features/map/components/AddStopButton';
@@ -145,22 +150,35 @@ export function MapScreen() {
     syncPickupScheduleToNow();
   }, [syncPickupScheduleToNow]);
 
-  // ── Apply nav params (initialDropoff + initialSnapIndex) once per mount ───
+  const resetForm = useDeliveryFormStore((s) => s.resetForm);
+
+  // ── Apply nav params (initialPickup/Dropoff + schedules) once per mount ───
   useEffect(() => {
-    const initialDropoff = route.params?.initialDropoff;
-    if (initialDropoff) {
+    const p = route.params;
+
+    if (p?.initialPickup) {
+      setPlace(PICKUP_ID, {
+        address: p.initialPickup.address,
+        lat: p.initialPickup.lat,
+        lng: p.initialPickup.lng,
+        placeId: p.initialPickup.placeId,
+      });
+    }
+
+    if (p?.initialDropoff) {
       setPlace(DROPOFF_ID, {
-        address: initialDropoff.address,
-        lat: initialDropoff.lat,
-        lng: initialDropoff.lng,
-        placeId: initialDropoff.placeId,
+        address: p.initialDropoff.address,
+        lat: p.initialDropoff.lat,
+        lng: p.initialDropoff.lng,
+        placeId: p.initialDropoff.placeId,
       });
       // Re-center the map on the selected dropoff.
       mapRef.current?.animateTo({
-        latitude: initialDropoff.lat,
-        longitude: initialDropoff.lng,
+        latitude: p.initialDropoff.lat,
+        longitude: p.initialDropoff.lng,
       });
     }
+
     // `route.params` identity already captures this dependency.
   }, [route.params, setPlace]);
 
@@ -442,9 +460,107 @@ export function MapScreen() {
       );
       return;
     }
+
+    // Validate pickup time is not in the past
+    const pickup = rows.find((r) => r.kind === 'pickup');
+    if (tab === 'scheduled' && pickup?.window?.fromISO && pickup?.dateISO) {
+      const pickupDateTime = mergeStopDateTime(pickup.dateISO, pickup.window.fromISO);
+      if (pickupDateTime.getTime() < Date.now() - 5 * 60 * 1000) {
+        Alert.alert(
+          'Pickup time is in the past',
+          'Please select a future pickup date and time before proceeding.',
+          [{ text: 'OK' }],
+        );
+        return;
+      }
+    }
+
     hydrateFromMapRows(rows, tab);
+
+    const repostId = route.params?.repositBookingId;
+    if (repostId) {
+      // Repost flow: call the API, then go to booking details
+      void (async () => {
+        try {
+          const pickup = rows.find((r) => r.kind === 'pickup');
+          const dropoff = rows.find((r) => r.kind === 'dropoff');
+
+          const repostBody: RepostBookingBody = {};
+
+          if (pickup?.place?.address) {
+            repostBody.pickUpAddress = {
+              location: { longitude: pickup.place.lng, latitude: pickup.place.lat },
+              address: pickup.place.address,
+            };
+          }
+          if (dropoff?.place?.address) {
+            repostBody.dropOffAddress = {
+              location: { longitude: dropoff.place.lng, latitude: dropoff.place.lat },
+              address: dropoff.place.address,
+            };
+          }
+
+          if (tab === 'scheduled') {
+            if (pickup?.dateISO) {
+              repostBody.pickUpDate = pickup.dateISO.slice(0, 10);
+            }
+            if (pickup?.window?.fromISO) {
+              try {
+                const d = new Date(pickup.window.fromISO);
+                repostBody.pickupTime = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+              } catch { /* ignore invalid time */ }
+            }
+            if (dropoff?.dateISO) {
+              repostBody.dropOffDate = dropoff.dateISO.slice(0, 10);
+            }
+            if (dropoff?.window?.fromISO) {
+              try {
+                const d = new Date(dropoff.window.fromISO);
+                repostBody.dropoffTime = `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
+              } catch { /* ignore invalid time */ }
+            }
+          }
+
+          const repostResponse = await repostBooking(repostId, repostBody);
+          const newLoadId = extractLoadIdFromRepostResponse(repostResponse);
+          if (newLoadId) notifyLoadCreatedForQuotes(newLoadId);
+          const vehicleName = pickup?.place && dropoff?.place ? `${pickup.place.address} → ${dropoff.place.address}` : 'Delivery';
+          Alert.alert(
+            'Booking Reposted',
+            'Your booking has been reposted successfully.',
+            [
+              {
+                text: 'OK',
+                onPress: () =>
+                  navigation.navigate('ChooseQuotes', {
+                    loadId: newLoadId ?? repostId,
+                    bookingId: repostId,
+                    amountPence: 0,
+                    vehicleName,
+                  }),
+              },
+            ],
+          );
+        } catch (err) {
+          if (isAxiosError(err)) {
+            console.warn('[MapScreen] === REPOST ERROR ===');
+            console.warn('[MapScreen] repostBookingId (UUID):', repostId);
+            console.warn('[MapScreen] request body:', err.config?.data ? JSON.parse(err.config.data as string) : '(no body)');
+            console.warn('[MapScreen] response status:', err.response?.status);
+            console.warn('[MapScreen] response data:', JSON.stringify(err.response?.data, null, 2));
+            console.warn('[MapScreen] request url:', err.config?.url);
+          }
+          Alert.alert(
+            'Repost failed',
+            summarizePaymentApiError(err) || 'Failed to repost booking. Please try again.',
+          );
+        }
+      })();
+      return;
+    }
+
     navigation.navigate('AddDeliveryContents');
-  }, [hydrateFromMapRows, navigation, rows, setToast, tab]);
+  }, [hydrateFromMapRows, navigation, rows, route.params?.repositBookingId, setToast, tab]);
 
   const handleSheetChange = useCallback((index: number) => {
     if (index === 0 || index === 1 || index === 2) setSheetIndex(index);

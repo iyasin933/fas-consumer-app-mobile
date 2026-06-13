@@ -216,10 +216,11 @@ export function KikiChatScreen() {
   // Fire pending guest message after login
   useEffect(() => {
     if (isAuthed && pendingGuestMessage) {
+      const messageToSend = pendingGuestMessage;
       setPendingGuestMessage(null);
       // Small delay so store updates settle before sending
       const timer = setTimeout(() => {
-        void handleSendMessage(pendingGuestMessage);
+        void handleSendMessage(messageToSend);
       }, 300);
       return () => clearTimeout(timer);
     }

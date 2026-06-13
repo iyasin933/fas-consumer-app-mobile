@@ -7,8 +7,8 @@ This workspace contains three applications:
 | Folder | App | Description |
 |---|---|---|
 | `fas-consumer-app-mobile/` | Mobile App (React Native / Expo) | Consumer-facing mobile application |
-| `dropyou-web-main 2/` | Web App (Next.js) | Consumer-facing web application |
-| `fas-server-main/` | Backend (NestJS) | Shared backend API server for both mobile and web apps |
+| `dropyou-web/` | Web App (Next.js) | Consumer-facing web application |
+| `fas-server/` | Backend (NestJS) | Shared backend API server for both mobile and web apps |
 
 Do **not** modify or delete folders outside of `fas-consumer-app-mobile/` unless explicitly instructed.
 

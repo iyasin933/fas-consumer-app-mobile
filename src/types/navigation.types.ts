@@ -37,6 +37,10 @@ export type MainTabParamList = {
     | {
         /** Pre-fill the Dropoff field from the Home search bar. */
         initialDropoff?: MapScreenPickedPlace;
+        /** Pre-fill the Pickup field (for repost flow). */
+        initialPickup?: MapScreenPickedPlace;
+        /** Booking ID to repost after Proceed (calls POST /dropyou/repost/:bookingId). */
+        repositBookingId?: string;
         /** Snap index (0=35%, 1=65%, 2=95%). Default 1 when arriving from Home. */
         initialSnapIndex?: 0 | 1 | 2;
       }

@@ -16,7 +16,7 @@ function toneForStatus(label: string): StatusTone {
   if (['accepted', 'assigned', 'completed', 'delivered', 'paid'].some((v) => normalized.includes(v))) {
     return 'success';
   }
-  if (['pending', 'waiting', 'processing', 'requested'].some((v) => normalized.includes(v))) {
+  if (['pending', 'waiting', 'processing', 'requested', 'expired'].some((v) => normalized.includes(v))) {
     return 'warning';
   }
   if (['cancelled', 'canceled', 'failed', 'rejected'].some((v) => normalized.includes(v))) {

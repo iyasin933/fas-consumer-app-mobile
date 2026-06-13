@@ -211,6 +211,78 @@ export async function fetchCurrentDropyouLocation(
   return res.data;
 }
 
+export interface RepostBookingBody {
+  pickUpDate?: string;
+  pickupTime?: string;
+  dropOffDate?: string;
+  dropoffTime?: string;
+  pickUpAddress?: {
+    location: { longitude: number; latitude: number };
+    address: string;
+  };
+  dropOffAddress?: {
+    location: { longitude: number; latitude: number };
+    address: string;
+  };
+}
+
+/** Repost an expired booking. POST /dropyou/repost/:bookingId */
+export async function repostBooking(
+  bookingId: string | number,
+  body?: RepostBookingBody,
+): Promise<unknown> {
+  const id = String(bookingId).trim();
+  if (!id) throw new Error('Missing booking id');
+  const payload = body ?? {};
+  if (__DEV__) {
+    console.log('[repostBooking] === REQUEST ===');
+    console.log('[repostBooking] method: POST');
+    console.log('[repostBooking] url:', `/dropyou/repost/${id}`);
+    console.log('[repostBooking] bookingId (UUID):', id);
+    console.log('[repostBooking] body:', JSON.stringify(payload, null, 2));
+  }
+  const res = await api.post<unknown>(`/dropyou/repost/${id}`, payload);
+  if (__DEV__) {
+    console.log('[repostBooking] === RESPONSE ===');
+    console.log('[repostBooking] status:', res.status);
+    console.log('[repostBooking] data:', JSON.stringify(res.data, null, 2));
+  }
+  return res.data;
+}
+
+/** Extract the new TEG load ID from a repost API success response. */
+export function extractLoadIdFromRepostResponse(data: unknown): string | null {
+  if (!data || typeof data !== 'object') return null;
+
+  const body = data as Record<string, unknown>;
+
+  // Response shapes:
+  //   NestJS interceptor wraps: { status, message, result: { tegLoadId } }
+  //   Docs shape:               { success, bookingId, tegLoadId }
+  //   Nested data:              { data: { tegLoadId } }
+  const result =
+    (body.result as Record<string, unknown> | undefined);
+
+  const candidates = [
+    result?.tegLoadId as string | number | undefined,
+    result?.loadId as string | number | undefined,
+    result?.id as string | number | undefined,
+    body.tegLoadId as string | number | undefined,
+    body.loadId as string | number | undefined,
+    body.id as string | number | undefined,
+    (body.data as Record<string, unknown> | undefined)?.tegLoadId,
+    (body.data as Record<string, unknown> | undefined)?.loadId,
+    (body.data as Record<string, unknown> | undefined)?.id,
+  ];
+
+  for (const id of candidates) {
+    if (typeof id === 'number' && Number.isFinite(id)) return String(id);
+    if (typeof id === 'string' && id.trim()) return id.trim();
+  }
+
+  return null;
+}
+
 /** Matches web app: `GET /dropyou/quote-by-load-id/:loadId`. */
 export async function fetchQuotesByLoadId(loadId: string | number): Promise<unknown[]> {
   const id = String(loadId).trim();

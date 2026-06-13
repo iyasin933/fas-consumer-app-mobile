@@ -149,6 +149,7 @@ function isCancelableStatus(status: string): boolean {
     'complete',
     'delivered',
     'failed',
+    'expired',
   ].includes(normalized);
 }
 
@@ -160,6 +161,9 @@ function trackingUnavailableReason(status: string): string | null {
   }
   if (normalized.includes('pending')) {
     return 'Your driver is not on the way yet. Live tracking will be available once the booking is confirmed and the driver starts moving.';
+  }
+  if (normalized.includes('expired')) {
+    return 'This booking has expired, so live tracking is no longer available.';
   }
   return null;
 }
@@ -715,13 +719,11 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
     );
   }
 
-  const status =
-    nonEmpty(route.params.statusLabel) ??
-    textAt(
-      details,
-      [['currentStatus'], ['status'], ['booking', 'status']],
-      'Status unavailable',
-    );
+  const status = textAt(
+    details,
+    [['currentStatus'], ['status'], ['booking', 'status']],
+    nonEmpty(route.params.statusLabel) ?? 'Status unavailable',
+  );
   const displayLoadId = textAt(details, [['loadId']], loadId);
   const pickup =
     nonEmpty(route.params.pickupAddress) ??
@@ -767,6 +769,8 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
     ['booking', 'quotesEnabled'],
   ]);
   const canCancel = isCancelableStatus(status);
+  const isExpired = status.trim().toLowerCase().includes('expired');
+  const canTrack = !trackingUnavailableReason(status);
 
   const openMaps = () => {
     const origin = pickupCoord
@@ -1031,20 +1035,48 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
             ) : null}
 
             <View style={styles.actionsRow}>
-              <Pressable
-                style={({ pressed }) => [
-                  styles.actionButton,
-                  styles.actionPrimary,
-                  pressed && styles.outlineButtonPressed,
-                ]}
-                onPress={openTracking}
-                accessibilityRole="button"
-              >
-                <Ionicons name="navigate" size={18} color={colors.primary} />
-                <Text style={styles.actionTextPrimary}>Track</Text>
-              </Pressable>
+              {canTrack ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.actionPrimary,
+                    pressed && styles.outlineButtonPressed,
+                  ]}
+                  onPress={openTracking}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="navigate" size={18} color={colors.primary} />
+                  <Text style={styles.actionTextPrimary}>Track</Text>
+                </Pressable>
+              ) : null}
 
-              {canCancel ? (
+              {isExpired ? (
+                <Pressable
+                  style={({ pressed }) => [
+                    styles.actionButton,
+                    styles.actionDanger,
+                    pressed && styles.outlineButtonPressed,
+                  ]}
+                  onPress={() => {
+                    navigation.navigate('MainTabs', {
+                      screen: 'Map',
+                      params: {
+                        initialPickup: pickupCoord
+                          ? { address: pickup, lat: pickupCoord.latitude, lng: pickupCoord.longitude }
+                          : undefined,
+                        initialDropoff: dropoffCoord
+                          ? { address: dropoff, lat: dropoffCoord.latitude, lng: dropoffCoord.longitude }
+                          : undefined,
+                        repositBookingId: acceptBookingId || route.params.bookingId || undefined,
+                      },
+                    });
+                  }}
+                  accessibilityRole="button"
+                >
+                  <Ionicons name="refresh-circle" size={18} color="#DC2626" />
+                  <Text style={styles.actionTextDanger}>Repost</Text>
+                </Pressable>
+              ) : canCancel ? (
                 <Pressable
                   style={({ pressed }) => [
                     styles.actionButton,

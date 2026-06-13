@@ -23,6 +23,12 @@ function createStyles(colors: ThemeColors) {
       minHeight: 276,
     },
     statusWrap: { alignSelf: 'flex-start', marginTop: spacing.xs },
+    statusRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      flexWrap: 'wrap',
+    },
     timeline: { flexDirection: 'row', gap: spacing.sm },
     colRouteArt: {
       width: 28,
@@ -70,9 +76,10 @@ export function ActiveTripCard({ trip, onPress, disabled }: Props) {
       accessibilityLabel={`Open booking ${trip.loadId || trip.id}`}
       footer={
         <>
-          <View style={styles.statusWrap}>
-            <StatusChip label={trip.statusLabel} />
-          </View>
+      <View style={styles.statusRow}>
+        <StatusChip label={trip.bookingId || trip.loadId || trip.id} tone="neutral" />
+        <StatusChip label={trip.statusLabel} />
+      </View>
           <View style={styles.timeline}>
             <View
               style={styles.colRouteArt}
