@@ -1,11 +1,12 @@
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -81,6 +82,53 @@ export function DatePickerModal({
 
   if (!visible) return null;
 
+  const { width: winWidth } = useWindowDimensions();
+  const narrow = winWidth < 380;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        overlayHost: {
+          ...StyleSheet.absoluteFillObject,
+          zIndex: 2147483000,
+          ...Platform.select({
+            android: { elevation: 64 },
+            default: {},
+          }),
+        },
+        ghRoot: { flex: 1 },
+        backdropFill: {
+          ...StyleSheet.absoluteFillObject,
+        },
+        sheetWrap: {
+          flex: 1,
+          width: '100%',
+          justifyContent: 'flex-end',
+        },
+        sheetInner: {
+          width: '100%',
+        },
+        sheet: {
+          borderTopLeftRadius: 16,
+          borderTopRightRadius: 16,
+          paddingBottom: 8,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: narrow ? 12 : 16,
+          paddingVertical: narrow ? 10 : 12,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
+        headerTitle: { fontSize: narrow ? 14 : 15, fontWeight: '700' },
+        headerSecondary: { fontSize: narrow ? 14 : 15 },
+        headerDone: { fontSize: narrow ? 14 : 15, fontWeight: '700' },
+        picker: { alignSelf: 'stretch' },
+      }),
+    [narrow],
+  );
+
   return (
     <View
       style={styles.overlayHost}
@@ -140,44 +188,3 @@ export function DatePickerModal({
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  /** Same stacking approach as PlacesAutocompleteModal — above bottom-sheet native layers. */
-  overlayHost: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2147483000,
-    ...Platform.select({
-      android: { elevation: 64 },
-      default: {},
-    }),
-  },
-  ghRoot: { flex: 1 },
-  backdropFill: {
-    ...StyleSheet.absoluteFillObject,
-  },
-  sheetWrap: {
-    flex: 1,
-    width: '100%',
-    justifyContent: 'flex-end',
-  },
-  sheetInner: {
-    width: '100%',
-  },
-  sheet: {
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    paddingBottom: 8,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  headerTitle: { fontSize: 15, fontWeight: '700' },
-  headerSecondary: { fontSize: 15 },
-  headerDone: { fontSize: 15, fontWeight: '700' },
-  picker: { alignSelf: 'stretch' },
-});

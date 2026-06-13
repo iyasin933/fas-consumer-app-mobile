@@ -1,6 +1,6 @@
 import BottomSheet, { BottomSheetScrollView } from '@gorhom/bottom-sheet';
 import { forwardRef, useCallback, useImperativeHandle, useMemo, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, View, useWindowDimensions } from 'react-native';
 
 import { DeliveryRowCard } from '@/features/map/components/DeliveryRowCard';
 import { DeliveryTabs } from '@/features/map/components/DeliveryTabs';
@@ -75,6 +75,8 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
     const setDateISO = useDeliveryFormStore((s) => s.setDateISO);
 
     const snapPoints = useMemo(() => ['35%', '65%', '95%'], []);
+    const { width } = useWindowDimensions();
+    const narrow = width < 380;
 
     const renderRow = useCallback(
       (item: DeliveryStop) => {
@@ -142,6 +144,47 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
       ],
     );
 
+    const styles = useMemo(
+      () =>
+        StyleSheet.create({
+          bg: {
+            borderTopLeftRadius: 24,
+            borderTopRightRadius: 24,
+          },
+          handle: {
+            width: 44,
+            height: 5,
+            borderRadius: 3,
+          },
+          sheetBody: {
+            flex: 1,
+          },
+          stickyHeader: {
+            flexShrink: 0,
+            paddingHorizontal: narrow ? 12 : 16,
+            paddingTop: 4,
+          },
+          divider: {
+            height: StyleSheet.hairlineWidth,
+            marginTop: 0,
+          },
+          cardScroll: {
+            flex: 1,
+            minHeight: 0,
+          },
+          cardScrollContent: {
+            flexGrow: 1,
+            paddingHorizontal: narrow ? 12 : 16,
+            paddingTop: narrow ? 10 : 12,
+          },
+          cardsColumn: {
+            gap: narrow ? 10 : 12,
+          },
+          cardWrap: {},
+        }),
+      [narrow],
+    );
+
     return (
       <BottomSheet
         ref={(r) => {
@@ -190,40 +233,3 @@ export const DeliveryBottomSheet = forwardRef<DeliveryBottomSheetHandle, Props>(
   },
 );
 
-const styles = StyleSheet.create({
-  bg: {
-    borderTopLeftRadius: 24,
-    borderTopRightRadius: 24,
-  },
-  handle: {
-    width: 44,
-    height: 5,
-    borderRadius: 3,
-  },
-  sheetBody: {
-    flex: 1,
-  },
-  stickyHeader: {
-    flexShrink: 0,
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
-  divider: {
-    height: StyleSheet.hairlineWidth,
-    marginTop: 0,
-  },
-  /** `minHeight: 0` lets the scroll region shrink inside the flex sheet body. */
-  cardScroll: {
-    flex: 1,
-    minHeight: 0,
-  },
-  cardScrollContent: {
-    flexGrow: 1,
-    paddingHorizontal: 16,
-    paddingTop: 12,
-  },
-  cardsColumn: {
-    gap: 12,
-  },
-  cardWrap: {},
-});

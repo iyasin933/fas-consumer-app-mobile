@@ -1,6 +1,6 @@
 import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Platform, StyleSheet, Text, View } from 'react-native';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Animated, {
   Easing,
@@ -74,15 +74,6 @@ function haversineKm(
   return 2 * R * Math.asin(Math.sqrt(x));
 }
 const AVG_URBAN_SPEED_KMH = 35;
-const ACTION_FOOTER_HORIZONTAL_PADDING = 16;
-const ACTION_FOOTER_TOP_PADDING = 10;
-const ACTION_FOOTER_MIN_BOTTOM_PADDING = 12;
-const ACTION_FOOTER_BUTTON_HEIGHT = 52;
-const ACTION_FOOTER_TOAST_GAP = 24;
-const ROUTE_FIT_TOP_PADDING = 118;
-const ROUTE_FIT_SIDE_PADDING = 56;
-const ROUTE_FIT_BOTTOM_PADDING = 420;
-
 type MapRoute = RouteProp<MainTabParamList, 'Map'>;
 
 function formatRouteDuration(totalSec: number): string {
@@ -128,6 +119,18 @@ export function MapScreen() {
   const setToast = useDeliveryFormStore((s) => s.setToast);
   const addStop = useDeliveryFormStore((s) => s.addStop);
 
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
+
+  const actionFooterHorizontalPadding = narrow ? 12 : 16;
+  const actionFooterTopPadding = narrow ? 8 : 10;
+  const actionFooterMinBottomPadding = narrow ? 10 : 12;
+  const actionFooterButtonHeight = narrow ? 44 : 52;
+  const actionFooterToastGap = narrow ? 16 : 24;
+  const routeFitTopPadding = narrow ? 100 : 118;
+  const routeFitSidePadding = narrow ? 40 : 56;
+  const routeFitBottomPadding = narrow ? 380 : 420;
+
   const { coords, refresh } = useCurrentLocation(true);
   const { reverse } = useReverseGeocode();
   const { fetchEta } = useDirectionsEta();
@@ -152,9 +155,17 @@ export function MapScreen() {
 
   const resetForm = useDeliveryFormStore((s) => s.resetForm);
 
-  // ── Apply nav params (initialPickup/Dropoff + schedules) once per mount ───
+  // ── Apply nav params (initialPickup/Dropoff + schedules) ──────────────
+  // When transitioning from a repost (repositBookingId present) to a normal
+  // flow (no repositBookingId), clear any stale places left over from the
+  // repost session so the form starts fresh.
   useEffect(() => {
     const p = route.params;
+
+    if (!p?.repositBookingId) {
+      if (!p?.initialPickup) setPlace(PICKUP_ID, null);
+      if (!p?.initialDropoff) setPlace(DROPOFF_ID, null);
+    }
 
     if (p?.initialPickup) {
       setPlace(PICKUP_ID, {
@@ -196,9 +207,9 @@ export function MapScreen() {
   const pickupRow = rows.find((r) => r.kind === 'pickup');
   const dropoffRow = rows.find((r) => r.kind === 'dropoff');
   const bottomNavInset = 0;
-  const actionFooterBottomPadding = Math.max(insets.bottom, ACTION_FOOTER_MIN_BOTTOM_PADDING);
+  const actionFooterBottomPadding = Math.max(insets.bottom, actionFooterMinBottomPadding);
   const actionFooterReservedHeight =
-    ACTION_FOOTER_TOP_PADDING + ACTION_FOOTER_BUTTON_HEIGHT + actionFooterBottomPadding;
+    actionFooterTopPadding + actionFooterButtonHeight + actionFooterBottomPadding;
   const proceedEnabled = canProceed(rows, tab);
   const routeSummaryLabel =
     pickupRow?.place && dropoffRow?.place && routeDurationSec != null && routeDistanceM != null
@@ -282,10 +293,10 @@ export function MapScreen() {
       setRouteMetrics(durationSec, distanceM);
       const routeFrame = eta?.routeCoords && eta.routeCoords.length >= 2 ? eta.routeCoords : [origin, ...waypoints, destination];
       mapRef.current?.fitRoute(routeFrame, {
-        top: ROUTE_FIT_TOP_PADDING,
-        right: ROUTE_FIT_SIDE_PADDING,
-        bottom: ROUTE_FIT_BOTTOM_PADDING + insets.bottom,
-        left: ROUTE_FIT_SIDE_PADDING,
+        top: routeFitTopPadding,
+        right: routeFitSidePadding,
+        bottom: routeFitBottomPadding + insets.bottom,
+        left: routeFitSidePadding,
       });
 
       if (dropoffScheduleUserEditedRef.current || tab !== 'scheduled') return;
@@ -326,10 +337,10 @@ export function MapScreen() {
   const recenterMap = useCallback(() => {
     if (routeCoords.length >= 2) {
       mapRef.current?.fitRoute(routeCoords, {
-        top: ROUTE_FIT_TOP_PADDING,
-        right: ROUTE_FIT_SIDE_PADDING,
-        bottom: ROUTE_FIT_BOTTOM_PADDING + insets.bottom,
-        left: ROUTE_FIT_SIDE_PADDING,
+        top: routeFitTopPadding,
+        right: routeFitSidePadding,
+        bottom: routeFitBottomPadding + insets.bottom,
+        left: routeFitSidePadding,
       });
       return;
     }
@@ -566,6 +577,63 @@ export function MapScreen() {
     if (index === 0 || index === 1 || index === 2) setSheetIndex(index);
   }, []);
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        root: { flex: 1 },
+        recenterButton: { zIndex: 22, elevation: 22 },
+        recenterDefault: { bottom: narrow ? '65%' : '67%' },
+        recenterCollapsed: { bottom: narrow ? '35%' : '37%' },
+        actionFooter: {
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          zIndex: 30,
+          elevation: 30,
+          paddingHorizontal: actionFooterHorizontalPadding,
+          paddingTop: actionFooterTopPadding,
+          paddingBottom: actionFooterMinBottomPadding,
+          borderTopWidth: StyleSheet.hairlineWidth,
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000000',
+              shadowOffset: { width: 0, height: -2 },
+              shadowOpacity: 0.06,
+              shadowRadius: 8,
+            },
+            default: {},
+          }),
+        },
+        footerActionsRow: {
+          flexDirection: 'row',
+          alignItems: 'stretch',
+          gap: narrow ? 8 : 10,
+        },
+        footerActionCellAdd: { flex: 4, minWidth: 0 },
+        footerActionCellProceed: { flex: 7, minWidth: 0 },
+        footerActionFill: { alignSelf: 'stretch', width: '100%' },
+        toast: {
+          position: 'absolute',
+          left: 20,
+          right: 20,
+          paddingVertical: 12,
+          paddingHorizontal: 16,
+          borderRadius: 10,
+        },
+        toastTxt: {
+          fontSize: narrow ? 12 : 13,
+          fontWeight: '600',
+          textAlign: 'center',
+        },
+      }),
+    [
+      narrow,
+      actionFooterHorizontalPadding,
+      actionFooterTopPadding,
+      actionFooterMinBottomPadding,
+    ],
+  );
+
   return (
     <View style={[styles.root, { backgroundColor: c.background }]}>
       <ScheduleDateTimePickerProvider>
@@ -599,7 +667,7 @@ export function MapScreen() {
         <DeliveryBottomSheet
           ref={sheetRef}
           initialSnapIndex={initialSnapIndex}
-          bottomContentInset={actionFooterReservedHeight + ACTION_FOOTER_TOAST_GAP}
+          bottomContentInset={actionFooterReservedHeight + actionFooterToastGap}
           onChange={handleSheetChange}
           onOpenPlaces={openPlaces}
           onClearPlace={handleClearPlace}
@@ -644,7 +712,7 @@ export function MapScreen() {
               styles.toast,
               {
                 backgroundColor: c.toastBg,
-                bottom: bottomNavInset + actionFooterReservedHeight + ACTION_FOOTER_TOAST_GAP,
+                bottom: bottomNavInset + actionFooterReservedHeight + actionFooterToastGap,
               },
             ]}
             pointerEvents="none"
@@ -675,62 +743,4 @@ function placesTargetTitle(t: PlacesTarget | null): string {
   return 'Search dropoff location';
 }
 
-const styles = StyleSheet.create({
-  root: { flex: 1 },
-  recenterButton: {
-    zIndex: 22,
-    elevation: 22,
-  },
-  recenterDefault: {
-    bottom: '67%',
-  },
-  recenterCollapsed: {
-    bottom: '37%',
-  },
-  actionFooter: {
-    position: 'absolute',
-    left: 0,
-    right: 0,
-    zIndex: 30,
-    elevation: 30,
-    paddingHorizontal: ACTION_FOOTER_HORIZONTAL_PADDING,
-    paddingTop: ACTION_FOOTER_TOP_PADDING,
-    paddingBottom: ACTION_FOOTER_MIN_BOTTOM_PADDING,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000000',
-        shadowOffset: { width: 0, height: -2 },
-        shadowOpacity: 0.06,
-        shadowRadius: 8,
-      },
-      default: {},
-    }),
-  },
-  footerActionsRow: {
-    flexDirection: 'row',
-    alignItems: 'stretch',
-    gap: 10,
-  },
-  footerActionCellAdd: {
-    flex: 4,
-    minWidth: 0,
-  },
-  footerActionCellProceed: {
-    flex: 7,
-    minWidth: 0,
-  },
-  footerActionFill: {
-    alignSelf: 'stretch',
-    width: '100%',
-  },
-  toast: {
-    position: 'absolute',
-    left: 20,
-    right: 20,
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    borderRadius: 10,
-  },
-  toastTxt: { fontSize: 13, fontWeight: '600', textAlign: 'center' },
-});
+

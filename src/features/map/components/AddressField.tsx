@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { useMemo } from 'react';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { PlaceValue } from '@/features/map/types';
@@ -39,10 +40,46 @@ export function AddressField({
   onClear,
 }: Props) {
   const c = useMapColors();
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
   const filled = !!value?.address;
   const filledIconName = markerKind === 'dropoff' ? 'flag' : 'location-sharp';
   const filledIconColor =
     markerKind === 'dropoff' ? c.dropoffRed : markerKind === 'stop' ? c.stopBrown : c.brandGreen;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: narrow ? 8 : 10,
+          minHeight: narrow ? 44 : 48,
+          borderWidth: 1,
+          borderRadius: 10,
+          paddingHorizontal: narrow ? 10 : 12,
+          paddingVertical: narrow ? 10 : 12,
+        },
+        pressed: { opacity: 0.7 },
+        txt: { flex: 1, fontSize: narrow ? 13 : 14 },
+        clearBtn: {
+          width: narrow ? 26 : 28,
+          height: narrow ? 26 : 28,
+          borderRadius: narrow ? 13 : 14,
+          borderWidth: StyleSheet.hairlineWidth,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        gpsBtn: {
+          width: narrow ? 28 : 32,
+          height: narrow ? 28 : 32,
+          borderRadius: narrow ? 14 : 16,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+      }),
+    [narrow],
+  );
 
   return (
     <Pressable
@@ -73,12 +110,9 @@ export function AddressField({
         {filled ? value!.address : placeholder}
       </Text>
       {filled && onClear && (
-        // Wrapped in a View so Pressable's hitSlop stays isolated from the
-        // outer Pressable's press area — tapping the × must NOT also open
-        // the modal.
         <View>
           <Pressable
-            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+            hitSlop={8}
             onPress={onClear}
             accessibilityLabel={`Clear ${placeholder}`}
             style={({ pressed }) => [
@@ -87,13 +121,13 @@ export function AddressField({
               pressed && { opacity: 0.7 },
             ]}
           >
-            <Ionicons name="close" size={14} color={c.textSecondary} />
+            <Ionicons name="close" size={16} color={c.textSecondary} />
           </Pressable>
         </View>
       )}
       {showGps && (
         <Pressable
-          hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+          hitSlop={6}
           onPress={onGpsPress}
           style={[styles.gpsBtn, { backgroundColor: c.brandGreenSoft }]}
           accessibilityLabel="Use current location"
@@ -105,32 +139,4 @@ export function AddressField({
   );
 }
 
-const styles = StyleSheet.create({
-  wrap: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    minHeight: 48,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingHorizontal: 12,
-    paddingVertical: 12,
-  },
-  pressed: { opacity: 0.7 },
-  txt: { flex: 1, fontSize: 14 },
-  clearBtn: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    borderWidth: StyleSheet.hairlineWidth,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  gpsBtn: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-});
+

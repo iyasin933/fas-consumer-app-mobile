@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { StyleSheet, View } from 'react-native';
 import Animated, {
   Easing,
@@ -50,6 +50,45 @@ export function PulsingDot() {
     transform: [{ scale: 0.6 + progressB.value * 2.2 }],
   }));
 
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        wrap: {
+          width: 64,
+          height: 64,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        ring: {
+          position: 'absolute',
+          width: 64,
+          height: 64,
+          borderRadius: 32,
+          backgroundColor: BRAND_GREEN,
+        },
+        dotOuter: {
+          width: 22,
+          height: 22,
+          borderRadius: 11,
+          backgroundColor: '#ffffff',
+          alignItems: 'center',
+          justifyContent: 'center',
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 1 },
+          shadowOpacity: 0.25,
+          shadowRadius: 2,
+          elevation: 3,
+        },
+        dotInner: {
+          width: 14,
+          height: 14,
+          borderRadius: 7,
+          backgroundColor: BRAND_GREEN,
+        },
+      }),
+    [],
+  );
+
   return (
     <View style={styles.wrap}>
       <Animated.View style={[styles.ring, ringB]} />
@@ -60,38 +99,3 @@ export function PulsingDot() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  wrap: {
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  ring: {
-    position: 'absolute',
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: BRAND_GREEN,
-  },
-  dotOuter: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.25,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  dotInner: {
-    width: 14,
-    height: 14,
-    borderRadius: 7,
-    backgroundColor: BRAND_GREEN,
-  },
-});

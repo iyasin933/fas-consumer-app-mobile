@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useCallback, useMemo } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { useScheduleDateTimePicker } from '@/features/map/components/ScheduleDateTimePickerProvider';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
@@ -201,6 +201,30 @@ export function ScheduledPills({
     if (disabledReason) setToast(disabledReason);
   }, [disabledReason, setToast]);
 
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        row: { flexDirection: 'row', gap: narrow ? 6 : 8, marginTop: narrow ? 10 : 12 },
+        pill: {
+          flex: 1,
+          minHeight: 44,
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: narrow ? 4 : 6,
+          borderWidth: 1,
+          borderRadius: 999,
+          paddingVertical: narrow ? 6 : 8,
+          paddingHorizontal: narrow ? 8 : 10,
+        },
+        pillTxt: { fontSize: narrow ? 11 : 12, fontWeight: '600', flexShrink: 1 },
+      }),
+    [narrow],
+  );
+
   return (
     <View style={styles.row}>
       <Pressable
@@ -276,19 +300,3 @@ export function ScheduledPills({
   );
 }
 
-const styles = StyleSheet.create({
-  row: { flexDirection: 'row', gap: 8, marginTop: 12 },
-  pill: {
-    flex: 1,
-    minHeight: 44,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderRadius: 999,
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-  },
-  pillTxt: { fontSize: 12, fontWeight: '600', flexShrink: 1 },
-});

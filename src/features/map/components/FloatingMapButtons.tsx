@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Platform, Pressable, StyleSheet, View } from 'react-native';
+import { Platform, Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { useMapColors } from '@/features/map/theme/useMapColors';
@@ -16,6 +17,46 @@ type Props = {
  */
 export function FloatingMapButtons({ onBack, onMenu }: Props) {
   const c = useMapColors();
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        safe: {
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+        },
+        row: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          paddingHorizontal: narrow ? 12 : 16,
+          paddingTop: narrow ? 6 : 8,
+        },
+        btn: {
+          width: narrow ? 40 : 44,
+          height: narrow ? 40 : 44,
+          borderRadius: narrow ? 20 : 22,
+          alignItems: 'center',
+          justifyContent: 'center',
+          ...Platform.select({
+            ios: {
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 3 },
+              shadowOpacity: 0.16,
+              shadowRadius: 6,
+            },
+            android: { elevation: 5 },
+          }),
+        },
+        btnPressed: { opacity: 0.7 },
+      }),
+    [narrow],
+  );
+
   const btnBg = { backgroundColor: c.surface };
   const iconColor = c.textPrimary;
   return (
@@ -27,7 +68,7 @@ export function FloatingMapButtons({ onBack, onMenu }: Props) {
           accessibilityLabel="Back"
           hitSlop={8}
         >
-          <Ionicons name="arrow-back" size={22} color={iconColor} />
+          <Ionicons name="arrow-back" size={narrow ? 20 : 22} color={iconColor} />
         </Pressable>
         <Pressable
           style={({ pressed }) => [styles.btn, btnBg, pressed && styles.btnPressed]}
@@ -35,42 +76,9 @@ export function FloatingMapButtons({ onBack, onMenu }: Props) {
           accessibilityLabel="More options"
           hitSlop={8}
         >
-          <Ionicons name="ellipsis-horizontal" size={22} color={iconColor} />
+          <Ionicons name="ellipsis-horizontal" size={narrow ? 20 : 22} color={iconColor} />
         </Pressable>
       </View>
     </SafeAreaView>
   );
 }
-
-const styles = StyleSheet.create({
-  safe: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 8,
-  },
-  btn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
-    ...Platform.select({
-      ios: {
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 3 },
-        shadowOpacity: 0.16,
-        shadowRadius: 6,
-      },
-      android: { elevation: 5 },
-    }),
-  },
-  btnPressed: { opacity: 0.7 },
-});

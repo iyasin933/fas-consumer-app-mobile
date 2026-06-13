@@ -9,6 +9,7 @@ import {
   Text,
   TextInput,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -113,6 +114,70 @@ export function PlacesAutocompleteModal({
 
   if (!visible) return null;
 
+  const { width: winWidth } = useWindowDimensions();
+  const narrow = winWidth < 380;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        overlayHost: {
+          ...StyleSheet.absoluteFillObject,
+          zIndex: 2147483000,
+          ...Platform.select({
+            android: { elevation: 64 },
+            default: {},
+          }),
+        },
+        safe: { flex: 1 },
+        headerRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: narrow ? 10 : 12,
+          paddingHorizontal: narrow ? 12 : 16,
+          paddingVertical: narrow ? 8 : 10,
+          borderBottomWidth: StyleSheet.hairlineWidth,
+        },
+        backBtn: {
+          padding: 4,
+          marginLeft: -4,
+        },
+        inputWrap: {
+          flex: 1,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          borderBottomWidth: 2,
+          paddingVertical: 8,
+        },
+        input: {
+          flex: 1,
+          fontSize: narrow ? 14 : 16,
+          paddingVertical: 0,
+        },
+        sep: { height: StyleSheet.hairlineWidth, marginLeft: narrow ? 52 : 60 },
+        row: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: narrow ? 12 : 14,
+          paddingHorizontal: narrow ? 12 : 16,
+          gap: narrow ? 10 : 14,
+        },
+        rowIcon: {
+          width: narrow ? 32 : 36,
+          height: narrow ? 32 : 36,
+          borderRadius: narrow ? 16 : 18,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        rowText: { flex: 1 },
+        rowPrimary: { fontSize: narrow ? 14 : 15, fontWeight: '700' },
+        rowSecondary: { fontSize: narrow ? 12 : 13, marginTop: 2 },
+        skeletonList: { paddingTop: 4 },
+        emptyText: { textAlign: 'center', paddingVertical: 24 },
+      }),
+    [narrow],
+  );
+
   return (
     <View
       style={styles.overlayHost}
@@ -170,13 +235,13 @@ export function PlacesAutocompleteModal({
           keyboardDismissMode="on-drag"
           data={suggestions}
           keyExtractor={(s) => s.placeId}
-          ListHeaderComponent={<CurrentLocationRow onPress={handlePickCurrent} colors={c} />}
+          ListHeaderComponent={<CurrentLocationRow onPress={handlePickCurrent} colors={c} styles={styles} />}
           ItemSeparatorComponent={() => (
             <View style={[styles.sep, { backgroundColor: c.hairline }]} />
           )}
           ListEmptyComponent={
             loading ? (
-              <PlacesSuggestionsSkeleton />
+              <PlacesSuggestionsSkeleton styles={styles} narrow={narrow} />
             ) : query.trim().length >= 2 ? (
               <Text style={[styles.emptyText, { color: c.textSecondary }]}>No results</Text>
             ) : null
@@ -211,12 +276,13 @@ export function PlacesAutocompleteModal({
   );
 }
 
-function PlacesSuggestionsSkeleton() {
+function PlacesSuggestionsSkeleton({ styles, narrow }: { styles: Record<string, any>; narrow: boolean }) {
+  const sz = narrow ? 32 : 36;
   return (
     <View style={styles.skeletonList}>
       {[0, 1, 2, 3].map((item) => (
         <View key={item} style={styles.row}>
-          <Skeleton width={36} height={36} radius={18} />
+          <Skeleton width={sz} height={sz} radius={sz / 2} />
           <View style={styles.rowText}>
             <Skeleton width="72%" height={16} />
             <Skeleton width="52%" height={14} />
@@ -230,9 +296,11 @@ function PlacesSuggestionsSkeleton() {
 function CurrentLocationRow({
   onPress,
   colors: c,
+  styles,
 }: {
   onPress: () => void;
   colors: ReturnType<typeof useMapColors>;
+  styles: Record<string, any>;
 }) {
   return (
     <TouchableOpacity
@@ -253,61 +321,3 @@ function CurrentLocationRow({
     </TouchableOpacity>
   );
 }
-
-const styles = StyleSheet.create({
-  /** Must beat map + @gorhom/bottom-sheet native stacking. */
-  overlayHost: {
-    ...StyleSheet.absoluteFillObject,
-    zIndex: 2147483000,
-    ...Platform.select({
-      android: { elevation: 64 },
-      default: {},
-    }),
-  },
-  safe: { flex: 1 },
-  headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderBottomWidth: StyleSheet.hairlineWidth,
-  },
-  backBtn: {
-    padding: 4,
-    marginLeft: -4,
-  },
-  inputWrap: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderBottomWidth: 2,
-    paddingVertical: 8,
-  },
-  input: {
-    flex: 1,
-    fontSize: 16,
-    paddingVertical: 0,
-  },
-  sep: { height: StyleSheet.hairlineWidth, marginLeft: 60 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    gap: 14,
-  },
-  rowIcon: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  rowText: { flex: 1 },
-  rowPrimary: { fontSize: 15, fontWeight: '700' },
-  rowSecondary: { fontSize: 13, marginTop: 2 },
-  skeletonList: { paddingTop: 4 },
-  emptyText: { textAlign: 'center', paddingVertical: 24 },
-});

@@ -1,5 +1,5 @@
 import { forwardRef, useImperativeHandle, useMemo, useRef } from 'react';
-import { Platform, StyleSheet, Text, View } from 'react-native';
+import { Platform, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, {
   Marker,
   PROVIDER_DEFAULT,
@@ -58,6 +58,8 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
 ) {
   const mapRef = useRef<MapView | null>(null);
   const c = useMapColors();
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
 
   useImperativeHandle(
     ref,
@@ -121,6 +123,32 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
     }
     return map;
   }, [rows]);
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        routeChip: {
+          minHeight: narrow ? 28 : 32,
+          maxWidth: narrow ? 160 : 180,
+          borderRadius: 16,
+          paddingHorizontal: narrow ? 10 : 12,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: StyleSheet.hairlineWidth,
+          shadowColor: '#000000',
+          shadowOffset: { width: 0, height: 4 },
+          shadowOpacity: 0.14,
+          shadowRadius: 10,
+          elevation: 5,
+        },
+        routeChipText: {
+          fontSize: narrow ? 12 : 13,
+          lineHeight: narrow ? 14 : 16,
+          fontWeight: '800',
+        },
+      }),
+    [narrow],
+  );
 
   return (
     <View style={StyleSheet.absoluteFill}>
@@ -208,24 +236,4 @@ export const MapLayer = forwardRef<MapLayerHandle, Props>(function MapLayer(
   );
 });
 
-const styles = StyleSheet.create({
-  routeChip: {
-    minHeight: 32,
-    maxWidth: 180,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.14,
-    shadowRadius: 10,
-    elevation: 5,
-  },
-  routeChipText: {
-    fontSize: 13,
-    lineHeight: 16,
-    fontWeight: '800',
-  },
-});
+

@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { memo, useEffect, useMemo } from 'react';
-import { Pressable, StyleSheet, Switch, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Switch, Text, useWindowDimensions, View } from 'react-native';
 import Animated, {
   Easing,
   FadeIn,
@@ -63,6 +63,8 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
   onDateChange,
 }: Props) {
   const c = useMapColors();
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
   const rows = useDeliveryFormStore((s) => s.rows);
   const routeDurationSec = useDeliveryFormStore((s) => s.routeDurationSec);
   const minDropoffAt = useMemo(
@@ -93,6 +95,54 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
     shadowOpacity: 0.08 + elevate.value * 0.15,
     shadowRadius: 6 + elevate.value * 10,
   }));
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        card: {
+          borderWidth: 1,
+          borderRadius: 12,
+          padding: narrow ? 12 : 16,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 2 },
+          shadowOpacity: 0.08,
+          shadowRadius: 6,
+          elevation: 2,
+        },
+        header: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          marginBottom: narrow ? 10 : 12,
+        },
+        headerText: {
+          fontSize: narrow ? 14 : 15,
+          fontWeight: '800',
+          letterSpacing: 0.15,
+        },
+        headerRight: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: narrow ? 6 : 8,
+        },
+        toggleGroup: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 4,
+        },
+        toggleLabel: { fontSize: narrow ? 11 : 12, fontWeight: '700' },
+        delBtn: {
+          width: narrow ? 26 : 28,
+          height: narrow ? 26 : 28,
+          borderRadius: narrow ? 13 : 14,
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        subField: { marginTop: 10, gap: 6 },
+        subLabel: { fontSize: narrow ? 11 : 12, fontWeight: '600' },
+      }),
+    [narrow],
+  );
 
   return (
     <Animated.View
@@ -134,11 +184,11 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
           {isStop && (
             <Pressable
               onPress={onRemove}
-              hitSlop={8}
+              hitSlop={6}
               accessibilityLabel={`Remove ${label}`}
               style={[styles.delBtn, { backgroundColor: c.dropoffRed }]}
             >
-              <Ionicons name="close" size={16} color="#ffffff" />
+              <Ionicons name="close" size={18} color="#ffffff" />
             </Pressable>
           )}
         </View>
@@ -191,46 +241,4 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
   );
 });
 
-const styles = StyleSheet.create({
-  card: {
-    borderWidth: 1,
-    borderRadius: 12,
-    padding: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 6,
-    elevation: 2,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  headerText: {
-    fontSize: 15,
-    fontWeight: '800',
-    letterSpacing: 0.15,
-  },
-  headerRight: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  toggleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  toggleLabel: { fontSize: 12, fontWeight: '700' },
-  delBtn: {
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  subField: { marginTop: 10, gap: 6 },
-  subLabel: { fontSize: 12, fontWeight: '600' },
-});
+

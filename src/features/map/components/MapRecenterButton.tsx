@@ -1,5 +1,6 @@
+import { useMemo } from 'react';
 import { Ionicons } from '@expo/vector-icons';
-import { Pressable, StyleSheet, type StyleProp, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, useWindowDimensions, type StyleProp, type ViewStyle } from 'react-native';
 
 import { useTheme } from '@/hooks/useTheme';
 import { spacing } from '@/shared/theme/spacing';
@@ -16,6 +17,35 @@ export function MapRecenterButton({
   style,
 }: Props) {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
+
+  const styles = useMemo(
+    () =>
+      StyleSheet.create({
+        button: {
+          position: 'absolute',
+          right: spacing.lg,
+          bottom: spacing.md,
+          width: narrow ? 44 : 48,
+          height: narrow ? 44 : 48,
+          borderRadius: narrow ? 22 : 24,
+          alignItems: 'center',
+          justifyContent: 'center',
+          borderWidth: StyleSheet.hairlineWidth,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: 3 },
+          shadowOpacity: 0.16,
+          shadowRadius: 8,
+          elevation: 5,
+          zIndex: 30,
+        },
+        pressed: {
+          transform: [{ scale: 0.96 }],
+        },
+      }),
+    [narrow],
+  );
 
   return (
     <Pressable
@@ -37,26 +67,3 @@ export function MapRecenterButton({
     </Pressable>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    position: 'absolute',
-    right: spacing.lg,
-    bottom: spacing.md,
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: StyleSheet.hairlineWidth,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.16,
-    shadowRadius: 8,
-    elevation: 5,
-    zIndex: 30,
-  },
-  pressed: {
-    transform: [{ scale: 0.96 }],
-  },
-});
