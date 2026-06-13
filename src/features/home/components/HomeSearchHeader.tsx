@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
 import { Image, Pressable, StyleSheet, Text, View } from 'react-native';
 
@@ -9,7 +10,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
-import type { MainTabParamList } from '@/types/navigation.types';
+import type { AppStackParamList, MainTabParamList } from '@/types/navigation.types';
 
 function createStyles(colors: ThemeColors) {
   return StyleSheet.create({
@@ -36,6 +37,11 @@ function createStyles(colors: ThemeColors) {
       flex: 1,
       fontSize: typography.fontSize.md,
       color: colors.muted,
+    },
+    kikiIcon: {
+      width: 20,
+      height: 20,
+      borderRadius: 4,
     },
     avatar: { marginLeft: 2 },
     avatarInner: {
@@ -71,27 +77,28 @@ type Props = {
 export function HomeSearchHeader({ onOpenWhereTo, resolving }: Props) {
   const { avatarUrl, initials, signOut } = useHomeProfile();
   const { colors } = useTheme();
-  const navigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const tabNavigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const styles = useMemo(() => createStyles(colors), [colors]);
 
   return (
     <View style={styles.row}>
       <Pressable
         style={styles.search}
-        onPress={onOpenWhereTo}
+        onPress={() => navigation.navigate('KikiChat')}
         accessibilityRole="button"
-        accessibilityLabel="Where to?"
+        accessibilityLabel="Ask Kiki"
         disabled={resolving}
       >
-        <Ionicons name={resolving ? 'navigate-circle-outline' : 'search'} size={20} color={colors.muted} />
+        <Ionicons name="chatbubble-ellipses" size={20} color={colors.primary} />
         <Text style={styles.searchText} numberOfLines={1}>
-          {resolving ? 'Pinning address…' : 'Where to?'}
+          Ask Kiki...
         </Text>
       </Pressable>
       <Pressable
         accessibilityLabel="Open profile"
         accessibilityRole="button"
-        onPress={() => navigation.navigate('Settings')}
+        onPress={() => tabNavigation.navigate('Settings')}
         onLongPress={() => void signOut()}
         style={styles.avatar}
         hitSlop={8}

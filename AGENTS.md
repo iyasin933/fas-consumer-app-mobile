@@ -1,5 +1,17 @@
 # Agent Instructions
 
+## Project Overview
+
+This workspace contains three applications:
+
+| Folder | App | Description |
+|---|---|---|
+| `fas-consumer-app-mobile/` | Mobile App (React Native / Expo) | Consumer-facing mobile application |
+| `dropyou-web-main 2/` | Web App (Next.js) | Consumer-facing web application |
+| `fas-server-main/` | Backend (NestJS) | Shared backend API server for both mobile and web apps |
+
+Do **not** modify or delete folders outside of `fas-consumer-app-mobile/` unless explicitly instructed.
+
 ## Mobile Empty States
 
 - Any empty, zero-result, blocked, or recoverable error state in the app must use an interactive empty-state treatment, not a lone text message.
@@ -8,6 +20,15 @@
 - Do not add extra secondary buttons such as Refresh/Check Again when the screen already supports pull-to-refresh or automatic reload. Prefer one clear primary action.
 - Keep empty states adaptive: centered in available space, safe around the bottom tab bar, readable on small iPhones, and free of text overlap.
 - Do not add decorative blobs/orbs for empty states; use product-relevant route, vehicle, map, booking, or notification visuals.
+
+## Adaptive Layout & Apple Design
+
+- Every UI component **must** use adaptive layout via `useWindowDimensions()`. Never hardcode sizes that break on small iPhones (SE, Mini) or large iPads.
+- Use the `narrow = width < 380` pattern consistently — all styles and measurements should branch on `narrow`, using smaller fonts (`typography.fontSize.xs`/`sm`), tighter spacing (`spacing.xs`/`sm`), smaller touch targets (≥36pt on narrow, ≥40pt default), and compact padding.
+- Follow Apple's Human Interface Guidelines: minimum 44×44pt touch targets for primary actions, adequate padding around scrollable content to avoid the home indicator and bottom tab bar, readable font sizes (never below 11pt), and visual hierarchy with Dynamic Type‑aware spacing.
+- Prefer `react-native-safe-area-context` over manual insets. Always wrap screen roots in `SafeAreaView edges={['top','bottom']}`.
+- Keep layout safe from the bottom tab bar: add bottom padding ≥ `insets.bottom + spacing.xl` in scroll content.
+- Do not use `useWindowDimensions` in `createStyles` at the module top level. Create styles inside the component via `useMemo` so `narrow`, `colors`, and `width` are captured at render time.
 
 ## Guest Booking Flow
 

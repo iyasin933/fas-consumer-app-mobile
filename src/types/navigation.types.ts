@@ -47,6 +47,8 @@ export type MainTabParamList = {
 
 export type AppStackParamList = {
   MainTabs: NavigatorScreenParams<MainTabParamList> | undefined;
+  /** Kiki AI assistant chat screen. */
+  KikiChat: undefined;
   Users: undefined;
   BookingDetails: {
     backTitle?: string;

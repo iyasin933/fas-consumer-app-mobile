@@ -3,6 +3,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { Pressable, StyleSheet, Text } from 'react-native';
 
 import { BookingDetailsScreen } from '@/features/bookings/screens/BookingDetailsScreen';
+import { KikiChatScreen } from '@/features/kiki/screens/KikiChatScreen';
 import { ForgotPasswordScreen } from '@/features/auth/screens/ForgotPasswordScreen';
 import { ResetPasswordScreen } from '@/features/auth/screens/ResetPasswordScreen';
 import { SignInScreen } from '@/features/auth/screens/SignInScreen';
@@ -29,6 +30,11 @@ export function AppNavigator() {
       screenOptions={createDefaultStackHeaderOptions(colors)}
     >
       <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false, title: 'Home' }} />
+      <Stack.Screen
+        name="KikiChat"
+        component={KikiChatScreen}
+        options={{ headerShown: false }}
+      />
       <Stack.Screen
         name="SignIn"
         component={SignInScreen}
