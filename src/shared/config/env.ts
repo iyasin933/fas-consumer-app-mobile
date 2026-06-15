@@ -12,6 +12,14 @@ function trimTrailingSlashes(s: string): string {
 
 export const env = {
   apiUrl: process.env.EXPO_PUBLIC_API_URL ?? 'https://api.dropyou.co.uk/api/v1',
+  /**
+   * Kiki is served by the consumer Next.js app, not the REST API server.
+   * Keep this as the full route so it cannot accidentally inherit `/api/v1`.
+   */
+  kikiChatUrl: trimTrailingSlashes(
+    process.env.EXPO_PUBLIC_KIKI_CHAT_URL ??
+      'https://m.dropyou.co.uk/api/chat',
+  ),
   /** Numeric id for the CONSUMER role — required for signup (ask backend / DB). */
   consumerRoleId: process.env.EXPO_PUBLIC_CONSUMER_ROLE_ID
     ? Number(process.env.EXPO_PUBLIC_CONSUMER_ROLE_ID)

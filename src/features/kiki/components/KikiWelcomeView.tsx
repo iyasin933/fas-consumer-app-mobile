@@ -82,7 +82,7 @@ export function KikiWelcomeView({ onStartChat }: Props) {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.greeting}>Hey there! I'm Kiki 👋</Text>
+      <Text style={styles.greeting}>Hey there! I&apos;m Kiki 👋</Text>
       <Text style={styles.subtitle}>
         Your personal DropYou assistant — track parcels, book deliveries, or
         get instant support.

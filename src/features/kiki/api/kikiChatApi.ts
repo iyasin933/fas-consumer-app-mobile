@@ -1,3 +1,5 @@
+import { fetch as expoFetch } from 'expo/fetch';
+
 import { env } from '@/shared/config/env';
 import { getAccessToken, getRefreshToken } from '@/services/tokenStorage';
 import { useAuthStore } from '@/store/authStore';
@@ -5,7 +7,14 @@ import { useAuthStore } from '@/store/authStore';
 /** Server‑Sent Event chunk yielded by the streaming reader. */
 export type ChatStreamChunk =
   | { type: 'text-delta'; textDelta: string }
-  | { type: 'tool-call'; toolName: string; input: unknown; output?: unknown }
+  | {
+      type: 'tool-call';
+      phase: 'input' | 'output';
+      toolCallId?: string;
+      toolName: string;
+      input?: unknown;
+      output?: unknown;
+    }
   | { type: 'error'; message: string }
   | { type: 'done' };
 
@@ -18,12 +27,9 @@ export type ChatStreamChunk =
  * Returns an async generator that yields `ChatStreamChunk` objects.
  */
 export async function* streamKikiChat(
-  messages: Array<{ role: string; parts: Array<{ type: string; text: string }> }>,
+  messages: { role: string; parts: { type: string; text: string }[] }[],
   abortSignal?: AbortSignal,
 ): AsyncGenerator<ChatStreamChunk> {
-  const baseUrl = env.apiUrl.replace(/\/api\/v\d+\/?$/i, '');
-  const url = `${baseUrl}/api/chat`;
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'text/event-stream',
@@ -46,7 +52,7 @@ export async function* streamKikiChat(
 
   let response: Response;
   try {
-    response = await fetch(url, {
+    response = await expoFetch(env.kikiChatUrl, {
       method: 'POST',
       headers,
       body: JSON.stringify({ messages }),
@@ -82,6 +88,7 @@ export async function* streamKikiChat(
   const reader = response.body.getReader();
   const decoder = new TextDecoder();
   let buffer = '';
+  const toolNames = new Map<string, string>();
 
   try {
     while (true) {
@@ -108,7 +115,12 @@ export async function* streamKikiChat(
           }
           try {
             const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-            yield* parseSSEChunk(parsed);
+            const eventType =
+              typeof parsed.type === 'string' ? parsed.type : 'unknown';
+            if (__DEV__ && eventType.startsWith('tool-')) {
+              console.warn('[KikiChatApi] stream event', eventType, parsed);
+            }
+            yield* parseSSEChunk(parsed, toolNames);
           } catch {
             // Skip malformed JSON
             if (__DEV__) {
@@ -128,7 +140,7 @@ export async function* streamKikiChat(
     if (jsonStr !== '[DONE]') {
       try {
         const parsed = JSON.parse(jsonStr) as Record<string, unknown>;
-        yield* parseSSEChunk(parsed);
+        yield* parseSSEChunk(parsed, toolNames);
       } catch {
         // skip
       }
@@ -144,6 +156,7 @@ export async function* streamKikiChat(
  */
 async function* parseSSEChunk(
   parsed: Record<string, unknown>,
+  toolNames: Map<string, string>,
 ): AsyncGenerator<ChatStreamChunk> {
   // Direct text-delta
   if (typeof parsed.textDelta === 'string') {
@@ -157,18 +170,64 @@ async function* parseSSEChunk(
   switch (type) {
     case 'text-delta': {
       const textDelta =
-        typeof parsed.textDelta === 'string' ? parsed.textDelta : '';
+        typeof parsed.delta === 'string'
+          ? parsed.delta
+          : typeof parsed.textDelta === 'string'
+            ? parsed.textDelta
+            : '';
       yield { type: 'text-delta', textDelta };
       break;
     }
-    case 'tool-call':
-    case 'tool-result': {
+    case 'tool-input-start':
+    case 'tool-input-available':
+    case 'tool-call': {
+      const toolCallId =
+        typeof parsed.toolCallId === 'string' ? parsed.toolCallId : undefined;
+      const toolName =
+        typeof parsed.toolName === 'string'
+          ? parsed.toolName
+          : toolCallId
+            ? toolNames.get(toolCallId) ?? ''
+            : '';
+      if (toolCallId && toolName) toolNames.set(toolCallId, toolName);
       yield {
         type: 'tool-call',
-        toolName:
-          typeof parsed.toolName === 'string' ? parsed.toolName : '',
+        phase: 'input',
+        toolCallId,
+        toolName,
         input: parsed.input,
+      };
+      break;
+    }
+    case 'tool-output-available':
+    case 'tool-result': {
+      const toolCallId =
+        typeof parsed.toolCallId === 'string' ? parsed.toolCallId : undefined;
+      const toolName =
+        typeof parsed.toolName === 'string'
+          ? parsed.toolName
+          : toolCallId
+            ? toolNames.get(toolCallId) ?? ''
+            : '';
+      yield {
+        type: 'tool-call',
+        phase: 'output',
+        toolCallId,
+        toolName,
         output: parsed.output ?? parsed.result,
+      };
+      break;
+    }
+    case 'tool-output-error':
+    case 'tool-error': {
+      yield {
+        type: 'error',
+        message:
+          typeof parsed.errorText === 'string'
+            ? parsed.errorText
+            : typeof parsed.error === 'string'
+              ? parsed.error
+              : 'Kiki tool execution failed',
       };
       break;
     }
@@ -205,11 +264,8 @@ async function* parseSSEChunk(
  * response in one JSON payload. Used when streaming is unavailable or errors.
  */
 export async function sendKikiMessageSync(
-  messages: Array<{ role: string; parts: Array<{ type: string; text: string }> }>,
+  messages: { role: string; parts: { type: string; text: string }[] }[],
 ): Promise<{ content: string }> {
-  const baseUrl = env.apiUrl.replace(/\/api\/v\d+\/?$/i, '');
-  const url = `${baseUrl}/api/chat`;
-
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
     Accept: 'application/json',
@@ -231,7 +287,7 @@ export async function sendKikiMessageSync(
   }
 
   // Request non-streaming by omitting Accept: text/event-stream
-  const response = await fetch(url, {
+  const response = await expoFetch(env.kikiChatUrl, {
     method: 'POST',
     headers,
     body: JSON.stringify({ messages }),

@@ -133,9 +133,11 @@ export async function createSession(
 /** GET /ai-chat/sessions/:id (includes messages) */
 export async function fetchSession(
   id: string,
+  signal?: AbortSignal,
 ): Promise<ApiResponse<KikiSession & { messages?: KikiMessage[] }>> {
   const res = await api.get<BackendApiResponse<KikiSession & { messages?: KikiMessage[] }>>(
     `${AI_CHAT_BASE}/sessions/${id}`,
+    { signal },
   );
   return { data: unwrapResult(res.data), message: '' };
 }
@@ -174,10 +176,11 @@ export async function createMessage(
 export async function fetchMessages(
   sessionId: string,
   params?: MessagesQueryParams,
+  signal?: AbortSignal,
 ): Promise<PaginatedResponse<KikiMessage>> {
   const res = await api.get<unknown>(
     `${AI_CHAT_BASE}/messages/session/${sessionId}`,
-    { params },
+    { params, signal },
   );
   const { items, meta } = unwrapPaginatedResult<KikiMessage>(res.data, {
     page: params?.page,

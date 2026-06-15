@@ -10,20 +10,23 @@ import {
 } from '@/features/kiki/api/kikiSessionsApi';
 import type {
   CreateSessionPayload,
-  KikiSession,
   UpdateSessionPayload,
 } from '@/features/kiki/types';
 import { useAuthStore } from '@/store/authStore';
 
-const SESSIONS_KEY = ['kiki', 'sessions'] as const;
-const sessionKey = (id: string) => [...SESSIONS_KEY, id] as const;
-const messagesKey = (sessionId: string) =>
-  [...SESSIONS_KEY, 'messages', sessionId] as const;
+export const KIKI_SESSIONS_KEY = ['kiki', 'sessions'] as const;
+export const kikiSessionKey = (id: string) =>
+  ['kiki', 'session', id] as const;
+export const kikiMessagesKey = (
+  sessionId: string,
+  page = 1,
+  limit = 50,
+) => ['kiki', 'conversation', sessionId, 'messages', { page, limit }] as const;
 
 /** List all non‑archived chat sessions. */
 export function useKikiSessions(page = 1, limit = 50) {
   return useQuery({
-    queryKey: [...SESSIONS_KEY, { page, limit }],
+    queryKey: [...KIKI_SESSIONS_KEY, { page, limit }],
     queryFn: () => fetchSessions({ page, limit, isArchived: false }),
     retry: 2,
   });
@@ -32,8 +35,8 @@ export function useKikiSessions(page = 1, limit = 50) {
 /** Fetch a single session by id. */
 export function useKikiSession(id: string | null) {
   return useQuery({
-    queryKey: sessionKey(id!),
-    queryFn: () => fetchSession(id!),
+    queryKey: kikiSessionKey(id!),
+    queryFn: ({ signal }) => fetchSession(id!, signal),
     enabled: !!id,
     retry: 2,
   });
@@ -46,10 +49,12 @@ export function useKikiMessages(
   limit = 50,
 ) {
   return useQuery({
-    queryKey: [...messagesKey(sessionId!), { page, limit }],
-    queryFn: () => fetchMessages(sessionId!, { page, limit }),
+    queryKey: kikiMessagesKey(sessionId!, page, limit),
+    queryFn: ({ signal }) =>
+      fetchMessages(sessionId!, { page, limit }, signal),
     enabled: !!sessionId,
     retry: 2,
+    placeholderData: undefined,
   });
 }
 
@@ -65,7 +70,7 @@ export function useCreateKikiSession() {
         userId: user?.id ? Number(user.id) : undefined,
       }),
     onSuccess: () => {
-      void queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+      void queryClient.invalidateQueries({ queryKey: KIKI_SESSIONS_KEY });
     },
   });
 }
@@ -83,8 +88,8 @@ export function useUpdateKikiSession() {
       payload: UpdateSessionPayload;
     }) => updateSession(id, payload),
     onSuccess: (_data, { id }) => {
-      void queryClient.invalidateQueries({ queryKey: sessionKey(id) });
-      void queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+      void queryClient.invalidateQueries({ queryKey: kikiSessionKey(id) });
+      void queryClient.invalidateQueries({ queryKey: KIKI_SESSIONS_KEY });
     },
   });
 }
@@ -96,8 +101,11 @@ export function useDeleteKikiSession() {
   return useMutation({
     mutationFn: (id: string) => deleteSessionApi(id),
     onSuccess: (_data, id) => {
-      queryClient.removeQueries({ queryKey: sessionKey(id) });
-      void queryClient.invalidateQueries({ queryKey: SESSIONS_KEY });
+      queryClient.removeQueries({ queryKey: kikiSessionKey(id) });
+      queryClient.removeQueries({
+        queryKey: ['kiki', 'conversation', id],
+      });
+      void queryClient.invalidateQueries({ queryKey: KIKI_SESSIONS_KEY });
     },
   });
 }

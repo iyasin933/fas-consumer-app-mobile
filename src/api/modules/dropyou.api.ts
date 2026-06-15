@@ -64,10 +64,14 @@ function quoteRowsFromResponse(data: unknown): unknown[] {
     const resultRecord = result as Record<string, unknown>;
     if (Array.isArray(resultRecord.quotes)) return resultRecord.quotes;
     if (Array.isArray(resultRecord.bids)) return resultRecord.bids;
+    // quote-by-load-id returns { result: { data: [...] } }
+    if (Array.isArray(resultRecord.data)) return resultRecord.data;
   }
 
   if (Array.isArray(body.quotes)) return body.quotes;
   if (Array.isArray(body.bids)) return body.bids;
+  // Top-level data array (rare but handle it)
+  if (Array.isArray(body.data)) return body.data;
 
   return [];
 }
@@ -194,10 +198,13 @@ export async function fetchUserBookings(userId: number): Promise<ActiveTripRaw[]
 }
 
 /** Matches web app: `GET /dropyou/load-by-id/:loadId`. */
-export async function fetchLoadDetailsById(loadId: string | number): Promise<unknown> {
+export async function fetchLoadDetailsById(
+  loadId: string | number,
+  signal?: AbortSignal,
+): Promise<unknown> {
   const id = String(loadId).trim();
   if (!id) throw new Error('Missing load id');
-  const res = await api.get<unknown>(`/dropyou/load-by-id/${id}`);
+  const res = await api.get<unknown>(`/dropyou/load-by-id/${id}`, { signal });
   return res.data;
 }
 
@@ -284,10 +291,15 @@ export function extractLoadIdFromRepostResponse(data: unknown): string | null {
 }
 
 /** Matches web app: `GET /dropyou/quote-by-load-id/:loadId`. */
-export async function fetchQuotesByLoadId(loadId: string | number): Promise<unknown[]> {
+export async function fetchQuotesByLoadId(
+  loadId: string | number,
+  signal?: AbortSignal,
+): Promise<unknown[]> {
   const id = String(loadId).trim();
   if (!id) throw new Error('Missing load id');
-  const res = await api.get<unknown>(`/dropyou/quote-by-load-id/${id}`);
+  const res = await api.get<unknown>(`/dropyou/quote-by-load-id/${id}`, {
+    signal,
+  });
   return quoteRowsFromResponse(res.data);
 }
 

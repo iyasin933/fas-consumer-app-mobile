@@ -11,8 +11,8 @@ export interface KikiMessage {
 export interface KikiSession {
   id: string;
   title: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | number;
+  updatedAt: string | number;
   isArchived?: boolean;
   messageCount?: number;
 }

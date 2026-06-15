@@ -1,5 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useQueryClient } from '@tanstack/react-query';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useMemo } from 'react';
 import {
@@ -19,6 +20,7 @@ import Animated, {
 import {
   useKikiSessions,
   useDeleteKikiSession,
+  kikiMessagesKey,
 } from '@/features/kiki/hooks/useKikiSessions';
 import { useKikiChatStore } from '@/features/kiki/store/kikiChatStore';
 import { useAuthStore } from '@/store/authStore';
@@ -173,24 +175,51 @@ function coerceStr(value: unknown, fallback = ''): string {
   return typeof value === 'string' ? value : fallback;
 }
 
-/** Lightweight relative-time formatter. */
-function relativeTime(dateString: string): string {
-  try {
-    const now = Date.now();
-    const then = new Date(dateString).getTime();
-    if (Number.isNaN(then)) return '';
-    const diffSec = Math.floor((now - then) / 1000);
-    if (diffSec < 60) return 'just now';
-    const diffMin = Math.floor(diffSec / 60);
-    if (diffMin < 60) return `${diffMin}m ago`;
-    const diffHr = Math.floor(diffMin / 60);
-    if (diffHr < 24) return `${diffHr}h ago`;
-    const diffDay = Math.floor(diffHr / 24);
-    if (diffDay < 30) return `${diffDay}d ago`;
-    return then.toLocaleString();
-  } catch {
-    return '';
-  }
+function parseDate(value: unknown): Date | null {
+  if (typeof value !== 'string' && typeof value !== 'number') return null;
+
+  const numericValue =
+    typeof value === 'number'
+      ? value
+      : value.trim() && Number.isFinite(Number(value))
+        ? Number(value)
+        : null;
+  const timestamp =
+    numericValue == null
+      ? new Date(value).getTime()
+      : numericValue < 1_000_000_000_000
+        ? numericValue * 1000
+        : numericValue;
+
+  if (!Number.isFinite(timestamp)) return null;
+  const date = new Date(timestamp);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
+/** Relative time for recent sessions, calendar date and time for older ones. */
+function formatSessionDate(value: unknown): string {
+  const date = parseDate(value);
+  if (!date) return '';
+
+  const diffSec = Math.floor((Date.now() - date.getTime()) / 1000);
+  if (diffSec >= 0 && diffSec < 60) return 'just now';
+
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin >= 0 && diffMin < 60) return `${diffMin}m ago`;
+
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr >= 0 && diffHr < 24) return `${diffHr}h ago`;
+
+  const diffDay = Math.floor(diffHr / 24);
+  if (diffDay >= 0 && diffDay < 7) return `${diffDay}d ago`;
+
+  return date.toLocaleString(undefined, {
+    day: 'numeric',
+    month: 'short',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+  });
 }
 
 export function KikiSidebar({ visible, onClose, onNewChat }: Props) {
@@ -199,10 +228,12 @@ export function KikiSidebar({ visible, onClose, onNewChat }: Props) {
   const narrow = width < 380;
   const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const queryClient = useQueryClient();
   const user = useAuthStore((s) => s.user);
   const session = useAuthStore((s) => s.session);
   const currentSessionId = useKikiChatStore((s) => s.currentSessionId);
   const setSession = useKikiChatStore((s) => s.setSession);
+  const removeConversation = useKikiChatStore((s) => s.removeConversation);
 
   const isAuthed = session === 'authed';
 
@@ -220,6 +251,12 @@ export function KikiSidebar({ visible, onClose, onNewChat }: Props) {
     firstName || lastName ? `${firstName} ${lastName}`.trim() : 'User';
 
   const handleSessionSelect = (sessionId: string) => {
+    if (currentSessionId && currentSessionId !== sessionId) {
+      void queryClient.cancelQueries({
+        queryKey: kikiMessagesKey(currentSessionId),
+        exact: true,
+      });
+    }
     setSession(sessionId);
     onClose();
   };
@@ -231,7 +268,9 @@ export function KikiSidebar({ visible, onClose, onNewChat }: Props) {
         text: 'Delete',
         style: 'destructive',
         onPress: () => {
-          deleteMutation.mutate(sessionId);
+          deleteMutation.mutate(sessionId, {
+            onSuccess: () => removeConversation(sessionId),
+          });
           if (currentSessionId === sessionId) {
             onNewChat();
           }
@@ -355,7 +394,7 @@ export function KikiSidebar({ visible, onClose, onNewChat }: Props) {
                         isActive && styles.sessionDateActive,
                       ]}
                     >
-                      {relativeTime(item.createdAt)}
+                      {formatSessionDate(item.createdAt)}
                     </Text>
                   </View>
                   <Pressable

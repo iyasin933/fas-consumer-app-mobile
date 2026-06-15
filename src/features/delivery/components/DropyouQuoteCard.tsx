@@ -16,11 +16,19 @@ type Props = {
   quote: DropyouQuoteCardModel;
   onAccept: () => void;
   busy: boolean;
+  acceptDisabled?: boolean;
+  acceptLabel?: string;
 };
 
-export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
+export function DropyouQuoteCard({ quote, onAccept, busy, acceptDisabled, acceptLabel }: Props) {
   const { colors, isDark } = useTheme();
   const initials = useMemo(() => companyInitials(quote.companyName), [quote.companyName]);
+  const maskedCompanyName = useMemo(() => {
+    const name = quote.companyName.trim();
+    if (name.length <= 4) return name;
+    const visible = name.slice(0, Math.min(4, name.length));
+    return `${visible}${'*'.repeat(Math.max(0, name.length - visible.length))}`;
+  }, [quote.companyName]);
   const relative = useMemo(
     () => formatQuoteRelativeTime(quote.createdOn),
     [quote.createdOn],
@@ -237,6 +245,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
     [colors, dealColor],
   );
   const isCancelled = quote.status.toUpperCase() === 'CANCELLED';
+  const isDisabled = isCancelled || Boolean(acceptDisabled);
 
   return (
     <View style={styles.card}>
@@ -256,7 +265,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
           </View>
           <View style={{ flex: 1, minWidth: 0 }}>
             <Text style={styles.name} numberOfLines={2}>
-              {quote.companyName}
+              {maskedCompanyName}
             </Text>
             {relative ? <Text style={styles.time}>{relative}</Text> : null}
           </View>
@@ -327,21 +336,21 @@ export function DropyouQuoteCard({ quote, onAccept, busy }: Props) {
         <Pressable
           style={({ pressed }) => [
             styles.acceptBtn,
-            isCancelled && styles.disabledBtn,
-            pressed && !isCancelled && styles.acceptBtnPressed,
+            isDisabled && styles.disabledBtn,
+            pressed && !isDisabled && styles.acceptBtnPressed,
           ]}
           onPress={onAccept}
-          disabled={busy || isCancelled}
+          disabled={busy || isDisabled}
         >
           {busy ? (
             <Text style={styles.acceptTxt}>Accepting</Text>
           ) : (
             <>
-              {!isCancelled ? (
+              {!isDisabled ? (
                 <Ionicons name="checkmark" size={17} color={colors.onPrimary} />
               ) : null}
-              <Text style={[styles.acceptTxt, isCancelled && styles.disabledTxt]}>
-                {isCancelled ? 'Cancelled' : 'Accept'}
+              <Text style={[styles.acceptTxt, isDisabled && styles.disabledTxt]}>
+                {isCancelled ? 'Cancelled' : acceptLabel ?? 'Accept'}
               </Text>
             </>
           )}

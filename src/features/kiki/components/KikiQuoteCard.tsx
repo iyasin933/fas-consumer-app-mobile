@@ -1,228 +1,245 @@
-import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { isAxiosError } from 'axios';
-import { useMemo, useState } from 'react';
-import { Alert, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import { useCallback, useState } from 'react';
+import { Alert } from 'react-native';
 
-import { api } from '@/api/client';
+import { acceptDropyouQuote } from '@/features/delivery/api/dropyouAcceptQuoteApi';
+import { DropyouQuoteCard } from '@/features/delivery/components/DropyouQuoteCard';
+import type { DropyouQuoteCardModel } from '@/features/delivery/utils/dropyouQuoteCardData';
 import { useKikiChatStore } from '@/features/kiki/store/kikiChatStore';
 import type { KikiQuote } from '@/features/kiki/types';
-import { useTheme } from '@/hooks/useTheme';
-import type { ThemeColors } from '@/shared/theme/colors';
-import { spacing } from '@/shared/theme/spacing';
-import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
 
 type Props = {
+  conversationKey: string;
   quote: KikiQuote;
   onAccept?: () => void;
+  fallbackBookingId?: string | null;
+  fallbackLoadId?: string | number | null;
 };
 
-function createStyles(colors: ThemeColors, narrow: boolean) {
-  return StyleSheet.create({
-    card: {
-      backgroundColor: colors.surface,
-      borderRadius: narrow ? 12 : 16,
-      borderWidth: 1,
-      borderColor: colors.border,
-      padding: narrow ? spacing.sm : spacing.md,
-      marginBottom: narrow ? spacing.xs : spacing.sm,
-    },
-    row: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      justifyContent: 'space-between',
-    },
-    left: {
-      flexDirection: 'row',
-      alignItems: 'center',
-      gap: narrow ? spacing.xs : spacing.sm,
-      flex: 1,
-    },
-    avatar: {
-      width: narrow ? 36 : 44,
-      height: narrow ? 36 : 44,
-      borderRadius: narrow ? 18 : 22,
-      backgroundColor: '#D4F3E1',
-      alignItems: 'center',
-      justifyContent: 'center',
-    },
-    avatarText: {
-      fontSize: narrow ? 12 : 14,
-      fontWeight: '700',
-      color: colors.primary,
-    },
-    info: {
-      flex: 1,
-    },
-    name: {
-      fontSize: narrow ? typography.fontSize.xs : typography.fontSize.sm,
-      fontWeight: '600',
-      color: colors.textPrimary,
-    },
-    meta: {
-      fontSize: narrow ? typography.fontSize.xs : typography.fontSize.sm,
-      color: colors.textSecondary,
-      marginTop: 2,
-    },
-    price: {
-      fontSize: narrow ? typography.fontSize.md : typography.fontSize.lg,
-      fontWeight: '700',
-      color: colors.primary,
-    },
-    vatLabel: {
-      fontSize: narrow ? typography.fontSize.xs : typography.fontSize.sm,
-      color: colors.primary,
-    },
-    acceptBtn: {
-      marginTop: narrow ? spacing.xs : spacing.sm,
-      minHeight: narrow ? 44 : 48,
-      borderRadius: 999,
-      backgroundColor: colors.primary,
-      alignItems: 'center',
-      justifyContent: 'center',
-      flexDirection: 'row',
-      gap: spacing.xs,
-      paddingHorizontal: narrow ? spacing.sm : spacing.md,
-    },
-    acceptDisabled: {
-      opacity: 0.5,
-    },
-    acceptText: {
-      color: colors.onPrimary,
-      fontSize: narrow ? typography.fontSize.xs : typography.fontSize.sm,
-      fontWeight: '600',
-    },
-    acceptedBadge: {
-      alignSelf: 'flex-start',
-      paddingHorizontal: narrow ? spacing.xs : spacing.sm,
-      paddingVertical: narrow ? 2 : 4,
-      borderRadius: 999,
-      backgroundColor: '#D4F3E1',
-      marginTop: narrow ? spacing.xs : spacing.sm,
-    },
-    acceptedText: {
-      fontSize: narrow ? typography.fontSize.xs : typography.fontSize.sm,
-      fontWeight: '600',
-      color: colors.primary,
-    },
-  });
+function str(v: unknown): string {
+  if (typeof v === 'string' && v.trim()) return v.trim();
+  if (typeof v === 'number' && Number.isFinite(v)) return String(v);
+  return '';
+}
+function num(v: unknown): number {
+  if (typeof v === 'number' && Number.isFinite(v)) return v;
+  const n = Number(v);
+  return Number.isFinite(n) ? n : 0;
 }
 
-function companyInitials(name: string): string {
-  return name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2);
-}
+/**
+ * Map a KikiQuote into the DropyouQuoteCardModel that the main quotes
+ * screen uses. We mirror the same extraction logic from
+ * parseDropyouQuoteCardModel but without the strict null-on-missing
+ * checks — socket quotes in Kiki may arrive before bookingId is populated.
+ */
+function kikiQuoteToCardModel(quote: KikiQuote): DropyouQuoteCardModel {
+  const q = (quote.quote ?? quote) as Record<string, unknown>;
+  const top = quote as Record<string, unknown>;
+  const quoteOwner =
+    q.quoteOwner && typeof q.quoteOwner === 'object'
+      ? (q.quoteOwner as Record<string, unknown>)
+      : undefined;
 
-export function KikiQuoteCard({ quote, onAccept }: Props) {
-  const { colors } = useTheme();
-  const { width } = useWindowDimensions();
-  const narrow = width < 380;
-  const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const [loading, setLoading] = useState(false);
-  const acceptedQuoteId = useKikiChatStore((s) => s.acceptedQuoteId);
-
-  const q = quote.quote ?? quote;
-  const quoteId = q.quoteId ?? quote.quoteId;
-  const bookingId = typeof q.bookingId === 'string' ? q.bookingId : undefined;
-  const status = (typeof q.status === 'string' ? q.status : '').toUpperCase();
-  const isAccepted =
-    status === 'ACCEPTED' ||
-    (acceptedQuoteId != null &&
-      quoteId != null &&
-      String(acceptedQuoteId) === String(quoteId));
+  const quoteId = str(q.quoteId ?? top.quoteId) || `anon-${Date.now()}`;
+  const loadId = str(q.loadId ?? top.loadId) || '';
+  const bookingId = str(q.bookingId ?? top.bookingId) || '';
 
   const companyName =
-    typeof q.quoteOwnerCompanyName === 'string'
-      ? q.quoteOwnerCompanyName
-      : 'Driver';
-  const vehicleType = typeof q.vehicleType === 'string' ? q.vehicleType : '';
-  const price = typeof q.price === 'number' ? q.price : Number(q.price ?? 0);
-  const initials = companyInitials(companyName);
+    str(q.quoteOwnerCompanyName) ||
+    str(q.quote_owner_company_name) ||
+    str(quoteOwner?.companyName) ||
+    str(q.companyName) ||
+    str(q.carrierName) ||
+    'Driver';
 
-  const handleAccept = async () => {
+  const createdOn =
+    str(q.createdOn) || str(q.created_on) || str(q.eventTime) || new Date().toISOString();
+
+  const status = (str(q.status) || 'POSTED').toUpperCase();
+  const vehicleType = str(q.vehicleType) || str(q.vehicle_type) || '—';
+  const currency = str(q.currency) || 'GBP';
+
+  const totalPrice = num(q.totalPrice) || num(q.total_price) || num(q.total);
+  const rawPrice = num(q.price);
+  const priceMajor = totalPrice > 0 ? totalPrice : rawPrice > 0 ? rawPrice : 0;
+
+  const savingsPct = num(q.savingsPercentage) || num(q.savings_percentage) || null;
+  const isCheaper = Boolean(q.isCheaper) || Boolean(q.is_cheaper);
+  const isExpensive = Boolean(q.isExpensive) || Boolean(q.is_expensive);
+  const showDeal = isCheaper || isExpensive;
+
+  return {
+    quoteId,
+    loadId,
+    bookingId,
+    companyName,
+    createdOn,
+    status,
+    price: priceMajor,
+    currency,
+    vehicleType,
+    savingsPercentage: savingsPct,
+    isCheaper,
+    isExpensive,
+    showDeal,
+    originalPrice: null,
+    savingsAmountMajor: null,
+    dealScore: null,
+    dealLabel: null,
+    dealColor: null,
+    dealDeltaAmountMajor: null,
+    dealDeltaDirection: null,
+    quoteOwnerId:
+      str(q.quoteOwnerId) ||
+      str(q.quote_owner_id) ||
+      str(quoteOwner?.id) ||
+      null,
+    quoteOwnerPhone:
+      str(q.quoteOwnerPhone) ||
+      str(q.quote_owner_phone) ||
+      str(quoteOwner?.phone) ||
+      null,
+    agreedRate: priceMajor,
+  };
+}
+
+export function KikiQuoteCard({
+  conversationKey,
+  quote,
+  onAccept,
+  fallbackBookingId,
+  fallbackLoadId,
+}: Props) {
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const [loading, setLoading] = useState(false);
+  const acceptedQuoteId = useKikiChatStore(
+    (s) => s.conversations[conversationKey]?.acceptedQuoteId ?? null,
+  );
+
+  const q = (quote.quote ?? quote) as Record<string, unknown>;
+  const top = quote as Record<string, unknown>;
+  const quoteOwner =
+    q.quoteOwner && typeof q.quoteOwner === 'object'
+      ? (q.quoteOwner as Record<string, unknown>)
+      : undefined;
+  const quoteId = str(q.quoteId ?? top.quoteId) || '';
+  const bookingId = str(q.bookingId ?? top.bookingId) || str(fallbackBookingId) || '';
+  const status = (str(q.status) || 'POSTED').toUpperCase();
+  const vehicleType = str(q.vehicleType) || 'Car';
+  const companyName =
+    str(q.quoteOwnerCompanyName) ||
+    str(q.quote_owner_company_name) ||
+    str(quoteOwner?.companyName) ||
+    'Driver';
+  const price =
+    num(q.price) || num(q.totalPrice) || num(top.price) || num(top.totalPrice) || 0;
+  const model = kikiQuoteToCardModel(quote);
+  const paymentLoadId = model.loadId || str(fallbackLoadId);
+  const sourceQuoteId = q.quoteId ?? top.quoteId;
+  const sourceBookingId = q.bookingId ?? top.bookingId;
+  const sourceLoadId = q.loadId ?? top.loadId;
+  const canAccept = Boolean(bookingId && quoteId);
+
+  const isAccepted =
+    status === 'ACCEPTED' ||
+    (acceptedQuoteId != null && quoteId && String(acceptedQuoteId) === quoteId);
+
+  const handleAccept = useCallback(async () => {
     if (!bookingId || !quoteId) {
+      if (__DEV__) {
+        console.log('[KikiQuoteCard] accept blocked: missing ids', {
+          bookingId,
+          quoteId,
+          quote: {
+            quoteId: sourceQuoteId,
+            bookingId: sourceBookingId,
+            loadId: sourceLoadId,
+          },
+        });
+      }
       Alert.alert('Error', 'Missing booking or quote information.');
       return;
     }
 
     setLoading(true);
     try {
-      const url = `/dropyou/accept-quote/${bookingId}`;
-      const response = await api.post(url, { quoteId: String(quoteId) });
-
-      if (response.status === 200) {
-        useKikiChatStore.getState().setAcceptedQuoteId(quoteId);
-        if (onAccept) onAccept();
-        navigation.navigate('DeliveryPayment', {
-          backTitle: 'Kiki',
-          amountPence: Math.round(price * 100),
-          vehicleName: vehicleType || 'Car',
+      if (__DEV__) {
+        console.log('[KikiQuoteCard] accepting quote', {
           bookingId,
-          quoteId: String(quoteId),
-          carrierName: companyName,
+          quoteId,
+          price,
+          vehicleType,
+          companyName,
         });
       }
+      await acceptDropyouQuote(bookingId, quoteId);
+      useKikiChatStore
+        .getState()
+        .setAcceptedQuoteId(conversationKey, quoteId);
+      if (onAccept) onAccept();
+      navigation.navigate('DeliveryPayment', {
+        backTitle: 'Kiki',
+        amountPence: Math.round(price * 100),
+        vehicleName: vehicleType || 'Car',
+        loadId: paymentLoadId,
+        bookingId,
+        quoteId: String(quoteId),
+        carrierName: companyName,
+        quoteOwnerId: model.quoteOwnerId ?? undefined,
+        quoteOwnerPhone: model.quoteOwnerPhone ?? undefined,
+        agreedRate: model.agreedRate ?? undefined,
+      });
     } catch (err: unknown) {
       const message = isAxiosError(err)
-        ? (err.response?.data as Record<string, unknown>)?.message ?? 'Failed to accept quote'
+        ? ((err.response?.data as Record<string, unknown>)?.message ??
+          'Failed to accept quote')
         : 'Failed to accept quote';
-      Alert.alert('Quote', typeof message === 'string' ? message : 'Failed to accept quote');
+      Alert.alert(
+        'Quote',
+        typeof message === 'string' ? message : 'Failed to accept quote',
+      );
     } finally {
       setLoading(false);
     }
-  };
+  }, [
+    bookingId,
+    companyName,
+    conversationKey,
+    model,
+    navigation,
+    onAccept,
+    price,
+    quoteId,
+    sourceBookingId,
+    sourceLoadId,
+    sourceQuoteId,
+    vehicleType,
+    paymentLoadId,
+  ]);
+
+  if (isAccepted) {
+    return (
+      <DropyouQuoteCard
+        quote={{ ...model, status: 'ACCEPTED' }}
+        onAccept={handleAccept}
+        busy={false}
+        acceptDisabled={!canAccept}
+        acceptLabel={!canAccept ? 'Unavailable' : undefined}
+      />
+    );
+  }
 
   return (
-    <View style={styles.card}>
-      <View style={styles.row}>
-        <View style={styles.left}>
-          <View style={styles.avatar}>
-            <Text style={styles.avatarText}>{initials}</Text>
-          </View>
-          <View style={styles.info}>
-            <Text style={styles.name} numberOfLines={1}>
-              {companyName}
-            </Text>
-            {vehicleType ? (
-              <Text style={styles.meta}>{vehicleType}</Text>
-            ) : null}
-          </View>
-        </View>
-        <View style={{ alignItems: 'flex-end' }}>
-          <Text style={styles.price}>£{price.toFixed(2)}</Text>
-          <Text style={styles.vatLabel}>Inc. VAT</Text>
-        </View>
-      </View>
-
-      {isAccepted ? (
-        <View style={styles.acceptedBadge}>
-          <Text style={styles.acceptedText}>Accepted</Text>
-        </View>
-      ) : status !== 'CANCELLED' ? (
-        <Pressable
-          style={[styles.acceptBtn, loading && styles.acceptDisabled]}
-          onPress={() => void handleAccept()}
-          disabled={loading}
-          accessibilityRole="button"
-          accessibilityLabel="Accept quote"
-        >
-          {loading ? (
-            <Ionicons name="hourglass-outline" size={narrow ? 14 : 16} color={colors.onPrimary} />
-          ) : (
-            <Ionicons name="checkmark" size={narrow ? 14 : 16} color={colors.onPrimary} />
-          )}
-          <Text style={styles.acceptText}>
-            {loading ? 'Accepting...' : 'Accept'}
-          </Text>
-        </Pressable>
-      ) : null}
-    </View>
+    <DropyouQuoteCard
+      quote={model}
+      onAccept={handleAccept}
+      busy={loading}
+      acceptDisabled={!canAccept}
+      acceptLabel={!canAccept ? 'Unavailable' : undefined}
+    />
   );
 }

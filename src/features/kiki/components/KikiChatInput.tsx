@@ -13,6 +13,8 @@ type Props = {
   /** Static placeholder — when provided, the typewriter animation is disabled. */
   placeholder?: string;
   disabled?: boolean;
+  value?: string;
+  onChangeText?: (text: string) => void;
 };
 
 function createStyles(colors: ThemeColors, narrow: boolean) {
@@ -93,19 +95,22 @@ export function KikiChatInput({
   onSend,
   placeholder: staticPlaceholder,
   disabled,
+  value,
+  onChangeText,
 }: Props) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
   const narrow = width < 380;
   const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
-  const [text, setText] = useState('');
+  const [internalText, setInternalText] = useState('');
+  const text = value ?? internalText;
+  const setText = onChangeText ?? setInternalText;
   const inputRef = useRef<TextInput>(null);
 
   const [placeholderIndex, setPlaceholderIndex] = useState(0);
   const [displayedText, setDisplayedText] = useState('');
   const phaseRef = useRef<TypePhase>('typing');
   const charIndexRef = useRef(0);
-  const pauseTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const advance = useCallback(() => {
     const fullText = PLACEHOLDERS[placeholderIndex] ?? '';
@@ -167,9 +172,7 @@ export function KikiChatInput({
     return () => {
       clearTimeout(startDelay);
       clearTimeout(timeoutId!);
-      if (pauseTimerRef.current) clearTimeout(pauseTimerRef.current);
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [placeholderIndex, staticPlaceholder, advance]);
 
   const handleSend = () => {
