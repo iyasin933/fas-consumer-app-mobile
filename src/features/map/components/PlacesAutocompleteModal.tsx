@@ -112,8 +112,6 @@ export function PlacesAutocompleteModal({
     onPickCurrentLocation();
   }, [onClose, onPickCurrentLocation]);
 
-  if (!visible) return null;
-
   const { width: winWidth } = useWindowDimensions();
   const narrow = winWidth < 380;
 
@@ -177,6 +175,8 @@ export function PlacesAutocompleteModal({
       }),
     [narrow],
   );
+
+  if (!visible) return null;
 
   return (
     <View

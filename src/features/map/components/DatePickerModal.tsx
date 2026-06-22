@@ -61,27 +61,6 @@ export function DatePickerModal({
     onConfirm(new Date(tempValue.getTime()));
   };
 
-  if (Platform.OS === 'android') {
-    if (!visible) return null;
-    return (
-      <DateTimePicker
-        mode={mode}
-        value={value}
-        minimumDate={minimumDate}
-        is24Hour={mode === 'time'}
-        onChange={(e: DateTimePickerEvent, picked?: Date) => {
-          if (e.type === 'dismissed' || !picked) {
-            onCancel();
-            return;
-          }
-          onConfirm(picked);
-        }}
-      />
-    );
-  }
-
-  if (!visible) return null;
-
   const { width: winWidth } = useWindowDimensions();
   const narrow = winWidth < 380;
 
@@ -128,6 +107,27 @@ export function DatePickerModal({
       }),
     [narrow],
   );
+
+  if (Platform.OS === 'android') {
+    if (!visible) return null;
+    return (
+      <DateTimePicker
+        mode={mode}
+        value={value}
+        minimumDate={minimumDate}
+        is24Hour={mode === 'time'}
+        onChange={(e: DateTimePickerEvent, picked?: Date) => {
+          if (e.type === 'dismissed' || !picked) {
+            onCancel();
+            return;
+          }
+          onConfirm(picked);
+        }}
+      />
+    );
+  }
+
+  if (!visible) return null;
 
   return (
     <View
