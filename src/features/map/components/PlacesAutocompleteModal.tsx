@@ -46,6 +46,9 @@ export function PlacesAutocompleteModal({
   bias,
 }: Props) {
   const c = useMapColors();
+  const { width: winWidth } = useWindowDimensions();
+  const narrow = winWidth < 380;
+
   const [query, setQuery] = useState('');
   const [focused, setFocused] = useState(false);
   const inputRef = useRef<TextInput | null>(null);
@@ -62,60 +65,6 @@ export function PlacesAutocompleteModal({
   const { suggestions, loading } = usePlacesAutocomplete(query, stableBias);
 
   const pickedRef = useRef(false);
-
-  useEffect(() => {
-    if (visible) {
-      pickedRef.current = false;
-      setQuery('');
-      setFocused(false);
-      debugLog('PlacesAutocomplete', 'overlay mounted');
-      const t = setTimeout(() => inputRef.current?.focus(), 250);
-      return () => clearTimeout(t);
-    }
-    pickedRef.current = false;
-  }, [visible]);
-
-  useEffect(() => {
-    if (!visible) return;
-    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
-      Keyboard.dismiss();
-      onClose();
-      return true;
-    });
-    return () => sub.remove();
-  }, [visible, onClose]);
-
-  const handleBackPress = useCallback(() => {
-    debugLog('PlacesAutocomplete', 'back pressed');
-    Keyboard.dismiss();
-    onClose();
-  }, [onClose]);
-
-  const handlePickSuggestion = useCallback(
-    (s: PlaceSuggestion) => {
-      if (pickedRef.current) return;
-      pickedRef.current = true;
-      debugLog('PlacesAutocomplete', 'suggestion pressed', s.primaryText);
-      Keyboard.dismiss();
-      onClose();
-      onPickSuggestion(s);
-    },
-    [onClose, onPickSuggestion],
-  );
-
-  const handlePickCurrent = useCallback(() => {
-    if (pickedRef.current) return;
-    pickedRef.current = true;
-    debugLog('PlacesAutocomplete', 'use current location');
-    Keyboard.dismiss();
-    onClose();
-    onPickCurrentLocation();
-  }, [onClose, onPickCurrentLocation]);
-
-  if (!visible) return null;
-
-  const { width: winWidth } = useWindowDimensions();
-  const narrow = winWidth < 380;
 
   const styles = useMemo(
     () =>
@@ -177,6 +126,57 @@ export function PlacesAutocompleteModal({
       }),
     [narrow],
   );
+
+  useEffect(() => {
+    if (visible) {
+      pickedRef.current = false;
+      setQuery('');
+      setFocused(false);
+      debugLog('PlacesAutocomplete', 'overlay mounted');
+      const t = setTimeout(() => inputRef.current?.focus(), 250);
+      return () => clearTimeout(t);
+    }
+    pickedRef.current = false;
+  }, [visible]);
+
+  useEffect(() => {
+    if (!visible) return;
+    const sub = BackHandler.addEventListener('hardwareBackPress', () => {
+      Keyboard.dismiss();
+      onClose();
+      return true;
+    });
+    return () => sub.remove();
+  }, [visible, onClose]);
+
+  const handleBackPress = useCallback(() => {
+    debugLog('PlacesAutocomplete', 'back pressed');
+    Keyboard.dismiss();
+    onClose();
+  }, [onClose]);
+
+  const handlePickSuggestion = useCallback(
+    (s: PlaceSuggestion) => {
+      if (pickedRef.current) return;
+      pickedRef.current = true;
+      debugLog('PlacesAutocomplete', 'suggestion pressed', s.primaryText);
+      Keyboard.dismiss();
+      onClose();
+      onPickSuggestion(s);
+    },
+    [onClose, onPickSuggestion],
+  );
+
+  const handlePickCurrent = useCallback(() => {
+    if (pickedRef.current) return;
+    pickedRef.current = true;
+    debugLog('PlacesAutocomplete', 'use current location');
+    Keyboard.dismiss();
+    onClose();
+    onPickCurrentLocation();
+  }, [onClose, onPickCurrentLocation]);
+
+  if (!visible) return null;
 
   return (
     <View

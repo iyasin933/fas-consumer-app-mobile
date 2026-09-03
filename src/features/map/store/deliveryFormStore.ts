@@ -86,15 +86,16 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
 
   setTab: (tab) => {
     // Switching tabs resets "form fields" but keeps any already-filled addresses
-    // (per spec). We clear scheduling info and the stop toggle since they do not
-    // apply to the other tab.
+    // (per spec). Pickup always gets a fresh now/today schedule (both tabs show
+    // date & time pickers); stop/dropoff schedules are cleared and re-derived
+    // from route ETA or the user's picks.
     set((s) => ({
       tab,
       routeDurationSec: null,
       routeDistanceM: null,
       rows: s.rows.map((r) => ({
         ...r,
-        ...(tab === 'scheduled' && r.kind === 'pickup'
+        ...(r.kind === 'pickup'
           ? currentPickupSchedule()
           : { window: undefined, dateISO: undefined }),
         isAlsoDropoff: false,
@@ -157,6 +158,8 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
     const dropoffIdx = rows.findIndex((r) => r.kind === 'dropoff');
     const next = [...rows];
     const insertAt = dropoffIdx >= 0 ? dropoffIdx : rows.length;
+    // Stops get a schedule only on the scheduled tab; same-day stop pills are
+    // optional and start empty (date defaults to today via the pill).
     next.splice(insertAt, 0, makeRow('stop', get().tab === 'scheduled'));
     set({ rows: next });
     return { ok: true };
@@ -212,7 +215,7 @@ export function getStopLabel(rows: DeliveryStop[], row: DeliveryStop): string {
   return `Stop ${idx + 1}`;
 }
 
-/** Pickup/dropoff have a scheduled date and time window (scheduled tab only). */
+/** Pickup/dropoff have a selected date and time window (both tabs show pills). */
 export function scheduledPickupDropoffComplete(rows: DeliveryStop[]): boolean {
   const pickup = rows.find((r) => r.kind === 'pickup');
   const dropoff = rows.find((r) => r.kind === 'dropoff');
@@ -221,15 +224,15 @@ export function scheduledPickupDropoffComplete(rows: DeliveryStop[]): boolean {
 }
 
 /**
- * True when the user may proceed: pickup + dropoff addresses always required.
- * On **scheduled** delivery, pickup and dropoff must each have **date** and **time** (four picks total).
+ * True when the user may proceed: pickup + dropoff addresses always required,
+ * plus pickup and dropoff must each have **date** and **time** (four picks total)
+ * on both scheduled and same-day delivery.
  */
 export function canProceed(rows: DeliveryStop[], tab: DeliveryTab): boolean {
   const pickup = rows.find((r) => r.kind === 'pickup');
   const dropoff = rows.find((r) => r.kind === 'dropoff');
   const addressesOk = Boolean(pickup?.place?.address) && Boolean(dropoff?.place?.address);
   if (!addressesOk) return false;
-  if (tab !== 'scheduled') return true;
   if (!scheduledPickupDropoffComplete(rows)) return false;
   return isScheduledPickupBeforeDropoffEnd(rows, tab);
 }

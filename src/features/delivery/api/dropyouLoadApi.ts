@@ -1,7 +1,7 @@
 import { api } from '@/api/client';
 
 import type { DropyouLoadPayload } from '@/features/delivery/api/buildDropyouLoadPayload';
-import { summarizePaymentApiError } from '@/features/delivery/api/deliveryPaymentApi';
+import { summarizePaymentApiError } from '@/features/delivery/api/summarizeApiError';
 import { notifyLoadCreatedForQuotes } from '@/features/delivery/socket/loadQuotesSubscriptionBridge';
 
 const DROPYOU_LOAD_PATH = '/dropyou/load';

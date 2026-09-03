@@ -261,20 +261,25 @@ export function parseDropyouQuoteCardModel(
   };
 }
 
-/** e.g. "5 Mins Ago" — uses `createdOn` from the quote when present. */
+/**
+ * Matches dropyou-web `getRelativeTime` exactly:
+ * "Just now", "5 min ago", "3 hr ago", "2 days ago". Uses `createdOn` from the
+ * quote when present.
+ */
 export function formatQuoteRelativeTime(iso: string): string {
+  if (!iso) return 'N/A';
   const t = new Date(iso).getTime();
-  if (Number.isNaN(t)) return '';
+  if (Number.isNaN(t)) return 'N/A';
+
   const diffMs = Date.now() - t;
-  const past = diffMs >= 0;
-  const absMin = Math.floor(Math.abs(diffMs) / 60_000);
-  if (!past) return 'Just now';
-  if (absMin < 1) return 'Just now';
-  if (absMin < 60) return `${absMin} Min${absMin === 1 ? '' : 's'} Ago`;
-  const absH = Math.floor(absMin / 60);
-  if (absH < 24) return `${absH} Hour${absH === 1 ? '' : 's'} Ago`;
-  const absD = Math.floor(absH / 24);
-  return `${absD} Day${absD === 1 ? '' : 's'} Ago`;
+  const diffMinutes = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMs / 3600000);
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffMinutes < 1) return 'Just now';
+  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffHours < 24) return `${diffHours} hr ago`;
+  return `${diffDays} day${diffDays > 1 ? 's' : ''} ago`;
 }
 
 export function formatMajorCurrency(amount: number, currency: string): string {

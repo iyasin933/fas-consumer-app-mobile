@@ -21,6 +21,7 @@ type Props = {
   mode: Mode;
   value: Date;
   minimumDate?: Date;
+  maximumDate?: Date;
   onCancel: () => void;
   onConfirm: (d: Date) => void;
   title?: string;
@@ -41,49 +42,17 @@ export function DatePickerModal({
   mode,
   value,
   minimumDate,
+  maximumDate,
   onCancel,
   onConfirm,
   title,
 }: Props) {
   const c = useMapColors();
-  const [tempValue, setTempValue] = useState<Date>(() => value);
-  const wasVisible = useRef(false);
-
-  useEffect(() => {
-    const opened = visible && !wasVisible.current;
-    wasVisible.current = visible;
-    if (opened) {
-      setTempValue(new Date(value.getTime()));
-    }
-  }, [visible, value]);
-
-  const handleDone = () => {
-    onConfirm(new Date(tempValue.getTime()));
-  };
-
-  if (Platform.OS === 'android') {
-    if (!visible) return null;
-    return (
-      <DateTimePicker
-        mode={mode}
-        value={value}
-        minimumDate={minimumDate}
-        is24Hour={mode === 'time'}
-        onChange={(e: DateTimePickerEvent, picked?: Date) => {
-          if (e.type === 'dismissed' || !picked) {
-            onCancel();
-            return;
-          }
-          onConfirm(picked);
-        }}
-      />
-    );
-  }
-
-  if (!visible) return null;
-
   const { width: winWidth } = useWindowDimensions();
   const narrow = winWidth < 380;
+
+  const [tempValue, setTempValue] = useState<Date>(() => value);
+  const wasVisible = useRef(false);
 
   const styles = useMemo(
     () =>
@@ -129,6 +98,40 @@ export function DatePickerModal({
     [narrow],
   );
 
+  useEffect(() => {
+    const opened = visible && !wasVisible.current;
+    wasVisible.current = visible;
+    if (opened) {
+      setTempValue(new Date(value.getTime()));
+    }
+  }, [visible, value]);
+
+  const handleDone = () => {
+    onConfirm(new Date(tempValue.getTime()));
+  };
+
+  if (Platform.OS === 'android') {
+    if (!visible) return null;
+    return (
+      <DateTimePicker
+        mode={mode}
+        value={value}
+        minimumDate={minimumDate}
+        maximumDate={maximumDate}
+        is24Hour={mode === 'time'}
+        onChange={(e: DateTimePickerEvent, picked?: Date) => {
+          if (e.type === 'dismissed' || !picked) {
+            onCancel();
+            return;
+          }
+          onConfirm(picked);
+        }}
+      />
+    );
+  }
+
+  if (!visible) return null;
+
   return (
     <View
       style={styles.overlayHost}
@@ -173,6 +176,7 @@ export function DatePickerModal({
                   mode={mode}
                   value={tempValue}
                   minimumDate={mode === 'date' ? minimumDate : undefined}
+                  maximumDate={mode === 'date' ? maximumDate : undefined}
                   display="spinner"
                   themeVariant={c.isDark ? 'dark' : 'light'}
                   onChange={(_: DateTimePickerEvent, picked?: Date) => {

@@ -14,7 +14,10 @@ import { AddressField } from '@/features/map/components/AddressField';
 import { ScheduledPills } from '@/features/map/components/ScheduledPills';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { useMapColors } from '@/features/map/theme/useMapColors';
-import { computeMinDropoffAt } from '@/features/map/utils/deliverySchedule';
+import {
+  computeMinDropoffAt,
+  endOfDay,
+} from '@/features/map/utils/deliverySchedule';
 import type { DeliveryStop, DeliveryTab, TimeWindow } from '@/features/map/types';
 
 type Props = {
@@ -67,15 +70,21 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
   const narrow = width < 380;
   const rows = useDeliveryFormStore((s) => s.rows);
   const routeDurationSec = useDeliveryFormStore((s) => s.routeDurationSec);
-  const minDropoffAt = useMemo(
-    () =>
-      row.kind === 'dropoff' ? computeMinDropoffAt(rows, routeDurationSec) : undefined,
-    [row.kind, rows, routeDurationSec],
-  );
+  const sameDay = tab === 'sameDay';
+  const minDropoffAt = useMemo(() => {
+    if (row.kind !== 'dropoff') return undefined;
+    const raw = computeMinDropoffAt(rows, routeDurationSec, sameDay ? 0 : undefined);
+    if (!raw) return undefined;
+    if (sameDay) {
+      const eot = endOfDay(new Date());
+      return raw.getTime() > eot.getTime() ? eot : raw;
+    }
+    return raw;
+  }, [row.kind, rows, routeDurationSec, sameDay]);
   const isStop = row.kind === 'stop';
   const isPickup = row.kind === 'pickup';
   const dropoffScheduleNeedsRoute =
-    tab === 'scheduled' && row.kind === 'dropoff' && !minDropoffAt;
+    row.kind === 'dropoff' && !minDropoffAt;
 
   const color = useMemo(() => {
     if (row.kind === 'pickup') return c.brandGreen;
@@ -225,12 +234,13 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
         </Animated.View>
       )}
 
-      {tab === 'scheduled' && (
+      {(tab === 'scheduled' || tab === 'sameDay') && (
         <ScheduledPills
           scheduleRole={row.kind}
           window={row.window}
           dateISO={row.dateISO}
           minDropoffAt={minDropoffAt}
+          sameDay={sameDay}
           disabled={dropoffScheduleNeedsRoute}
           disabledReason="Select pickup and dropoff first — we calculate dropoff time from route ETA."
           onWindowChange={onWindowChange}

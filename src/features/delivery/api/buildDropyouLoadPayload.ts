@@ -203,25 +203,36 @@ function buildRecipientNotes(input: {
 }
 
 /**
- * Same-day tab clears schedule pills on the map; match the web app contract by
- * sending today's UK date with an ASAP drop-off.
+ * Same-day schedule now mirrors the map pills: pickup/dropoff date & time are
+ * user-selected (or ETA-derived) and sent as real HH:mm values, matching the
+ * dropyou-web same-day contract. Falls back to now + ASAP when pills are empty.
  */
-function buildSameDaySchedule(routeDurationSec: number | null): {
+function buildSameDaySchedule(
+  rows: DeliveryStop[],
+  routeDurationSec: number | null,
+): {
   pickUpDate: string;
   pickupTime: string;
   dropOffDate: string;
   dropoffTime: string;
 } {
-  const pickupAt = minPickupAt();
-  const driveSec = Math.max(60, routeDurationSec ?? 90 * 60);
-  const dropoffAt = new Date(pickupAt.getTime() + driveSec * 1000);
+  const pickupRow = rows.find((r) => r.kind === 'pickup');
+  const dropoffRow = rows.find((r) => r.kind === 'dropoff');
+  const pickupAt = ensureFuturePickup(
+    mergeStopDateTime(pickupRow?.dateISO, pickupRow?.window?.fromISO),
+  );
+  const dropoffAt = ensureDropoffAfterPickup(
+    mergeStopDateTime(dropoffRow?.dateISO, dropoffRow?.window?.fromISO),
+    pickupAt,
+    routeDurationSec,
+    false,
+  );
   devLogSchedule('same_day', pickupAt, dropoffAt);
-  const pickUpDate = fmtYyyyMmDdUk(pickupAt);
   return {
-    pickUpDate,
+    pickUpDate: fmtYyyyMmDdUk(pickupAt),
     pickupTime: fmtTimeGb(pickupAt),
-    dropOffDate: pickUpDate,
-    dropoffTime: 'ASAP',
+    dropOffDate: fmtYyyyMmDdUk(dropoffAt),
+    dropoffTime: fmtTimeGb(dropoffAt),
   };
 }
 
@@ -271,7 +282,7 @@ export function buildDropyouLoadPayload(input: BuildDropyouLoadPayloadInput): Dr
           dropoffTime: fmtTimeGb(dropoffAt),
         };
       })()
-    : buildSameDaySchedule(input.routeDurationSec);
+    : buildSameDaySchedule(input.rows, input.routeDurationSec);
 
   const primary = input.pallets[0] ?? {
     id: '',

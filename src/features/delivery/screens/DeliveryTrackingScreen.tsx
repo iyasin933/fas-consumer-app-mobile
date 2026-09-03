@@ -31,6 +31,10 @@ import {
 } from '@/api/modules/dropyou.api';
 import { useLoadQuotesSocket } from '@/features/delivery/providers/LoadQuotesSocketProvider';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
+import {
+  friendlyStatusLabel,
+  statusDescription,
+} from '@/features/delivery/utils/deliveryStatus';
 import { useTheme } from '@/hooks/useTheme';
 import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
 import { Skeleton } from '@/shared/components/Skeleton';
@@ -305,7 +309,7 @@ function timelineEntriesFromDetails(details: unknown): TimelineEntry[] {
 }
 
 function statusLabelText(status: string): string {
-  return status.replace(/_/g, ' ').trim() || 'Update';
+  return friendlyStatusLabel(status);
 }
 
 function formatGbpFromPence(pence?: number): string | null {
@@ -356,10 +360,9 @@ function TrackingMarker({
 
 export function DeliveryTrackingScreen({ route }: Props) {
   const { colors, isDark } = useTheme();
-  const { width: windowWidth, height: windowHeight } = useWindowDimensions();
+  const { width: windowWidth } = useWindowDimensions();
   const {
     loadId,
-    bookingId,
     vehicleName: routeVehicleName,
     amountPence,
     carrierName,
@@ -458,12 +461,22 @@ export function DeliveryTrackingScreen({ route }: Props) {
   }, [displayedVehicle]);
 
   const statusLabel =
+    friendlyStatusLabel(
+      stringAt(details, [
+        ['currentStatus'],
+        ['status'],
+        ['loadStatus'],
+        ['booking', 'status'],
+      ]),
+    ) ?? 'Driver assigned';
+  const statusLine = statusDescription(
     stringAt(details, [
       ['currentStatus'],
       ['status'],
       ['loadStatus'],
       ['booking', 'status'],
-    ]) ?? 'Driver assigned';
+    ]),
+  );
   const vehicleName =
     routeVehicleName ??
     stringAt(details, [
@@ -923,7 +936,8 @@ export function DeliveryTrackingScreen({ route }: Props) {
             <View style={{ flex: 1 }}>
               <Text style={styles.title}>Tracking your delivery</Text>
               <Text style={styles.muted}>
-                Vehicle movement updates automatically when the driver is online.
+                {statusLine ??
+                  'Vehicle movement updates automatically when the driver is online.'}
               </Text>
             </View>
             <StatusChip label={statusLabel} />

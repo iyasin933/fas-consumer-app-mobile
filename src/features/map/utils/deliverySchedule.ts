@@ -20,12 +20,12 @@ export function mergeStopDateTime(dateISO: string | undefined, fromISO: string |
 /**
  * Scheduled pickup instant must be **before** the end of the drop-off window.
  * Same calendar day with evening pickup + morning drop-off fails this check.
+ * Applies to both tabs — same-day bookings also need a chronological order.
  */
 export function getScheduledPickupDropoffOrderError(
-  tab: DeliveryTab,
+  _tab: DeliveryTab,
   rows: DeliveryStop[],
 ): string | null {
-  if (tab !== 'scheduled') return null;
   const pickup = rows.find((r) => r.kind === 'pickup');
   const drop = rows.find((r) => r.kind === 'dropoff');
   if (!pickup?.dateISO || !pickup.window?.fromISO || !drop?.dateISO || !drop.window?.fromISO) {
@@ -49,19 +49,26 @@ export function startOfDay(d: Date): Date {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate());
 }
 
+export function endOfDay(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), 23, 59, 59, 999);
+}
+
 /**
  * Earliest allowed dropoff instant: pickup datetime + drive duration + buffer.
  * Dropoff scheduling is route-aware, so it is unavailable until pickup,
  * dropoff, and route duration are all known.
+ * Same-day bookings pass a zero buffer (pure drive ETA) and clamp to end of
+ * today at the call site so "same day" is always preserved.
  */
 export function computeMinDropoffAt(
   rows: DeliveryStop[],
   routeDurationSec: number | null,
+  bufferMs: number = DROPOFF_BUFFER_MS,
 ): Date | undefined {
   const pickup = rows.find((r) => r.kind === 'pickup');
   const dropoff = rows.find((r) => r.kind === 'dropoff');
   if (!pickup?.place || !dropoff?.place || routeDurationSec == null) return undefined;
   const pickupAt = mergeStopDateTime(pickup.dateISO, pickup.window?.fromISO);
   const driveMs = Math.max(0, routeDurationSec * 1000);
-  return new Date(pickupAt.getTime() + driveMs + DROPOFF_BUFFER_MS);
+  return new Date(pickupAt.getTime() + driveMs + bufferMs);
 }

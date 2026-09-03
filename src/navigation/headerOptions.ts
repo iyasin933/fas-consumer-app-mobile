@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import type { NativeStackNavigationOptions } from '@react-navigation/native-stack';
 
@@ -12,6 +13,7 @@ function commonHeaderOptions(colors: ThemeColors) {
     headerShadowVisible: true,
     headerStyle: { backgroundColor: colors.surface },
     headerTitleStyle: { ...HEADER_TITLE_STYLE, color: colors.textPrimary },
+    headerTitleAlign: (Platform.OS === 'android' ? 'left' : 'center') as 'left' | 'center',
     headerTintColor: colors.textPrimary,
     contentStyle: { backgroundColor: colors.background },
     sceneStyle: { backgroundColor: colors.background },

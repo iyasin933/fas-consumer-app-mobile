@@ -62,7 +62,7 @@ module.exports = () => {
         ...(iosConfig ? { config: iosConfig } : {}),
       },
       android: {
-        package: 'co.uk.dropyou.app',
+        package: 'com.dropyou.app',
         adaptiveIcon: {
           foregroundImage: './assets/images/D-app-logo.png',
           backgroundColor: '#ffffff',

@@ -14,8 +14,9 @@ function fmtDate(iso: string): string {
  * Short label for the delivery header card (pickup timing / same-day).
  */
 export function buildDeliveryScheduleSummary(tab: DeliveryTab, rows: DeliveryStop[]): string {
-  if (tab === 'sameDay') return 'ASAP';
   const pickup = rows.find((r) => r.kind === 'pickup');
-  if (!pickup?.window?.fromISO || !pickup.dateISO) return 'Scheduled';
+  if (!pickup?.window?.fromISO || !pickup.dateISO) {
+    return tab === 'sameDay' ? 'ASAP' : 'Scheduled';
+  }
   return `${fmtDate(pickup.dateISO)} · ${fmtTime(pickup.window.fromISO)}`;
 }

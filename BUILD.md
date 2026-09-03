@@ -27,6 +27,34 @@ Then press:
 
 Use this when native packages changed, or when you need a real development client.
 
+### Android dev client APK
+
+Use this when you want to run the app on a physical Android device with Metro
+attached for live JS and TypeScript changes:
+
+```bash
+npx eas-cli@latest build -p android --profile development-device --clear-cache
+npx expo start --dev-client -c
+```
+
+Install the generated APK on your device, then open it and connect it to the
+local Metro bundler.
+
+This build is for development only. It is not the best choice for sharing with
+testers because it still expects Metro to be running.
+
+### Android standalone APK for team testing
+
+Use this when you want to share a working APK with your team that launches on
+its own, without Metro:
+
+```bash
+npx eas-cli@latest build -p android --profile preview
+```
+
+This is the correct APK for internal testing and direct installation on team
+devices.
+
 ## Production 
 npx eas-cli@latest login
 npx eas-cli@latest build -p ios --profile production

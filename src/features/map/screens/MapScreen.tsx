@@ -153,8 +153,6 @@ export function MapScreen() {
     syncPickupScheduleToNow();
   }, [syncPickupScheduleToNow]);
 
-  const resetForm = useDeliveryFormStore((s) => s.resetForm);
-
   // ── Apply nav params (initialPickup/Dropoff + schedules) ──────────────
   // When transitioning from a repost (repositBookingId present) to a normal
   // flow (no repositBookingId), clear any stale places left over from the
@@ -246,10 +244,8 @@ export function MapScreen() {
     if (!pickupRow?.place || !dropoffRow?.place) {
       setRouteMetrics(null, null);
       setRouteCoords([]);
-      if (tab === 'scheduled') {
-        setWindow(DROPOFF_ID, undefined);
-        setDateISO(DROPOFF_ID, undefined);
-      }
+      setWindow(DROPOFF_ID, undefined);
+      setDateISO(DROPOFF_ID, undefined);
       return;
     }
 
@@ -299,12 +295,23 @@ export function MapScreen() {
         left: routeFitSidePadding,
       });
 
-      if (dropoffScheduleUserEditedRef.current || tab !== 'scheduled') return;
+      if (dropoffScheduleUserEditedRef.current) return;
+
+      // Scheduled: ETA auto-fills the dropoff date/time until the user edits it.
+      // Same-day: same auto-fill, but clamped to end of today so "same day" is
+      // always preserved even when drive ETA crosses midnight.
+      if (tab !== 'scheduled' && tab !== 'sameDay') return;
 
       const arriveMs = departureMs + durationSec * 1000;
       const arrive = new Date(arriveMs);
-      const fromISO = arrive.toISOString();
-      const toISO = new Date(arriveMs + 30 * 60 * 1000).toISOString();
+      let dropAt = arrive;
+      if (tab === 'sameDay') {
+        const t = new Date();
+        const eot = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59, 999);
+        if (arrive.getTime() > eot.getTime()) dropAt = eot;
+      }
+      const fromISO = dropAt.toISOString();
+      const toISO = new Date(dropAt.getTime() + 30 * 60 * 1000).toISOString();
       setWindow(DROPOFF_ID, { fromISO, toISO });
       // Calendar day for dropoff must follow **arrival**, not pickup's date — otherwise
       // `mergeStopDateTime(dropoff.dateISO, dropoff.window)` overwrites the ETA day and
@@ -312,9 +319,9 @@ export function MapScreen() {
       setDateISO(
         DROPOFF_ID,
         new Date(
-          arrive.getFullYear(),
-          arrive.getMonth(),
-          arrive.getDate(),
+          dropAt.getFullYear(),
+          dropAt.getMonth(),
+          dropAt.getDate(),
           12,
           0,
           0,
@@ -352,7 +359,16 @@ export function MapScreen() {
     }
 
     if (coords) mapRef.current?.animateTo(coords);
-  }, [coords, dropoffRow?.place, insets.bottom, pickupRow?.place, routeCoords]);
+  }, [
+    coords,
+    dropoffRow?.place,
+    insets.bottom,
+    pickupRow?.place,
+    routeCoords,
+    routeFitTopPadding,
+    routeFitSidePadding,
+    routeFitBottomPadding,
+  ]);
 
   // ── Places modal plumbing ───────────────────────────────────────────────
   const openPlaces = useCallback((target: PlacesTarget) => {
@@ -459,13 +475,12 @@ export function MapScreen() {
       const pickup = rows.find((r) => r.kind === 'pickup');
       const dropoff = rows.find((r) => r.kind === 'dropoff');
       const addressesOk = Boolean(pickup?.place?.address && dropoff?.place?.address);
-      const orderErr =
-        tab === 'scheduled' && addressesOk && scheduledPickupDropoffComplete(rows)
-          ? getScheduledPickupDropoffOrderError(tab, rows)
-          : null;
+      const orderErr = addressesOk && scheduledPickupDropoffComplete(rows)
+        ? getScheduledPickupDropoffOrderError(tab, rows)
+        : null;
       setToast(
         orderErr ??
-          (tab === 'scheduled' && addressesOk
+          (addressesOk
             ? 'Set pickup date & time and dropoff date & time to continue.'
             : 'Please fill in both pickup and dropoff.'),
       );

@@ -14,6 +14,7 @@ export type SchedulePickerConfig = {
   mode: 'date' | 'time';
   value: Date;
   minimumDate?: Date;
+  maximumDate?: Date;
   title?: string;
   onConfirm: (d: Date) => void;
   onCancel: () => void;
@@ -53,6 +54,7 @@ export function ScheduleDateTimePickerProvider({ children }: { children: ReactNo
             mode={cfg.mode}
             value={cfg.value}
             minimumDate={cfg.minimumDate}
+            maximumDate={cfg.maximumDate}
             title={cfg.title}
             onCancel={() => {
               if (__DEV__) console.log('[Map schedule] picker cancel', { mode: cfg.mode });

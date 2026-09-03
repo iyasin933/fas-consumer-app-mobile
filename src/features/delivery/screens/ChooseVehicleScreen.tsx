@@ -31,6 +31,7 @@ import {
 import { VehicleOptionCard } from '@/features/delivery/components/VehicleOptionCard';
 import { useConsumerBookingPriceVehicles } from '@/features/delivery/hooks/useConsumerBookingPriceVehicles';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
+import { isValidRecipientPhone } from '@/features/delivery/utils/recipientPhone';
 import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { getScheduledPickupDropoffOrderError } from '@/features/map/utils/deliverySchedule';
 import { useTheme } from '@/hooks/useTheme';
@@ -318,6 +319,17 @@ export function ChooseVehicleScreen() {
     const phoneLocal = draft.recipientPhoneLocal.replace(/\s/g, '');
     if (!draft.recipientName.trim() || phoneLocal.length < 6) {
       Alert.alert('Recipient required', 'Go back and add recipient name and phone.');
+      return;
+    }
+    if (!isValidRecipientPhone(draft.recipientDialCode, phoneLocal)) {
+      Alert.alert(
+        'Invalid phone number',
+        'Enter a valid phone number for the selected country. The driver needs it to reach the recipient.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Review Phone', onPress: () => navigation.navigate('RecipientDetails') },
+        ],
+      );
       return;
     }
 

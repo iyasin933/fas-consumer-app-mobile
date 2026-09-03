@@ -244,8 +244,18 @@ export function DropyouQuoteCard({ quote, onAccept, busy, acceptDisabled, accept
       }),
     [colors, dealColor],
   );
-  const isCancelled = quote.status.toUpperCase() === 'CANCELLED';
-  const isDisabled = isCancelled || Boolean(acceptDisabled);
+  const rawStatus = (quote.status ?? '').trim().toUpperCase();
+  const isCancelled = rawStatus.includes('CANCEL');
+  const isRejected = rawStatus.includes('REJECT');
+  const isExpired = rawStatus.includes('EXPIRED');
+  const isDisabled = isCancelled || isRejected || isExpired || Boolean(acceptDisabled);
+  const disabledLabel = isCancelled
+    ? 'Cancelled'
+    : isRejected
+      ? 'Rejected'
+      : isExpired
+        ? 'Expired'
+        : acceptLabel;
 
   return (
     <View style={styles.card}>
@@ -350,7 +360,7 @@ export function DropyouQuoteCard({ quote, onAccept, busy, acceptDisabled, accept
                 <Ionicons name="checkmark" size={17} color={colors.onPrimary} />
               ) : null}
               <Text style={[styles.acceptTxt, isDisabled && styles.disabledTxt]}>
-                {isCancelled ? 'Cancelled' : acceptLabel ?? 'Accept'}
+                {disabledLabel ?? 'Accept'}
               </Text>
             </>
           )}

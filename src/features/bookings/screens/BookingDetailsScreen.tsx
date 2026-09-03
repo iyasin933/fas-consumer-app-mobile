@@ -28,7 +28,9 @@ import Animated, {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchLoadDetailsById, fetchQuotesByLoadId } from '@/api/modules/dropyou.api';
+import { ProofOfDeliverySection } from '@/features/bookings/components/ProofOfDeliverySection';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
+import { friendlyStatusLabel, quoteAcceptBlockReason } from '@/features/delivery/utils/deliveryStatus';
 import { acceptDropyouQuote } from '@/features/delivery/api/dropyouAcceptQuoteApi';
 import { cancelDropyouBooking } from '@/features/delivery/api/dropyouCancelBookingApi';
 import { summarizePaymentApiError } from '@/features/delivery/api/deliveryPaymentApi';
@@ -771,6 +773,8 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
   const canCancel = isCancelableStatus(status);
   const isExpired = status.trim().toLowerCase().includes('expired');
   const canTrack = !trackingUnavailableReason(status);
+  const acceptBlock = quoteAcceptBlockReason(status);
+  const canAcceptQuotes = acceptBlock === null;
 
   const openMaps = () => {
     const origin = pickupCoord
@@ -870,6 +874,10 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
   const acceptQuote = async (
     model: NonNullable<ReturnType<typeof parseDropyouQuoteCardModel>>,
   ) => {
+    if (acceptBlock) {
+      Alert.alert(acceptBlock.reason, acceptBlock.notice);
+      return;
+    }
     const key = `${model.loadId}:${model.quoteId}`;
     const bookingIdForAccept = nonEmpty(model.bookingId) ?? acceptBookingId;
     if (!bookingIdForAccept) {
@@ -948,7 +956,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
             hideArtArrow
             onPress={() => void refresh()}
             accessibilityLabel="Refresh booking details"
-            footer={<StatusChip label={status} />}
+            footer={<StatusChip label={friendlyStatusLabel(status)} />}
           />
 
           <View style={styles.tabsWrap}>
@@ -1168,6 +1176,8 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                 </View>
               }
             />
+
+            <ProofOfDeliverySection loadId={loadId} />
           </View>
         ) : (
           <View style={styles.tabPanel}>
@@ -1194,6 +1204,26 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
               <QuotesSkeleton />
             ) : quoteModels.length > 0 ? (
               <View style={styles.quoteList}>
+                {acceptBlock ? (
+                  <View style={styles.section}>
+                    <View
+                      style={{
+                        flexDirection: 'row',
+                        alignItems: 'center',
+                        gap: spacing.sm,
+                      }}
+                    >
+                      <Ionicons
+                        name="lock-closed"
+                        size={18}
+                        color={colors.textSecondary}
+                      />
+                      <Text style={[styles.muted, { textAlign: 'left', flex: 1 }]}>
+                        {acceptBlock.notice}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
                 {quoteModels.map((quote) => {
                   const busy = acceptingKey === `${quote.loadId}:${quote.quoteId}`;
                   return (
@@ -1201,6 +1231,8 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                       key={`${quote.loadId}:${quote.quoteId}`}
                       quote={quote}
                       busy={busy}
+                      acceptDisabled={!canAcceptQuotes}
+                      acceptLabel={acceptBlock?.reason ?? undefined}
                       onAccept={() => void acceptQuote(quote)}
                     />
                   );

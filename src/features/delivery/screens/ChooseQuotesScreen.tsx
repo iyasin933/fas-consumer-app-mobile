@@ -761,7 +761,7 @@ export function ChooseQuotesScreen({ route }: Props) {
     } finally {
       setCancelling(false);
     }
-  }, [loadId, navigation, unsubscribeFromLoad]);
+  }, [loadId, navigation, sortedQuotes.length, unsubscribeFromLoad]);
 
   const onCancelBooking = useCallback(() => {
     Alert.alert('Cancel booking', 'Are you sure you want to cancel this booking?', [

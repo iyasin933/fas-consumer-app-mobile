@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 import {
   Alert,
   FlatList,
@@ -16,10 +16,14 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchLoadDetailsById, type DropyouQuote } from '@/api/modules/dropyou.api';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
-import { formatMajorCurrency } from '@/features/delivery/utils/dropyouQuoteCardData';
+import {
+  formatMajorCurrency,
+  formatQuoteRelativeTime,
+} from '@/features/delivery/utils/dropyouQuoteCardData';
 import { vehicleIconSource } from '@/features/home/utils/vehicleIconFromManifest';
 import { useDropyouQuotes } from '@/features/notifications/hooks/useDropyouQuotes';
 import { useMarkNotificationsSeenOnFocus } from '@/features/notifications/hooks/useNotificationUnreadDot';
+import { extractQuotePostcodes } from '@/features/notifications/utils/extractQuotePostcodes';
 import { useTheme } from '@/hooks/useTheme';
 import { AccountRequiredEmptyState } from '@/shared/components/AccountRequiredEmptyState';
 import { IllustratedActionCard } from '@/shared/components/IllustratedActionCard';
@@ -81,35 +85,6 @@ function quoteReceivedAt(q: DropyouQuote): string {
     asString(q.recordCreatedAt ?? q.record_created_at) ??
     ''
   );
-}
-
-function formatUkQuoteTimestamp(iso: string): string {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return '';
-
-  try {
-    const dateLabel = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London',
-      day: '2-digit',
-      month: 'short',
-    }).format(date);
-    const timeLabel = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London',
-      hour: '2-digit',
-      minute: '2-digit',
-      hourCycle: 'h23',
-    }).format(date);
-    const zoneLabel = new Intl.DateTimeFormat('en-GB', {
-      timeZone: 'Europe/London',
-      timeZoneName: 'short',
-    })
-      .formatToParts(date)
-      .find((part) => part.type === 'timeZoneName')?.value;
-
-    return `${dateLabel}, ${timeLabel}${zoneLabel ? ` ${zoneLabel}` : ''}`;
-  } catch {
-    return '';
-  }
 }
 
 function asRecord(value: unknown): Record<string, unknown> | null {
@@ -182,7 +157,7 @@ function mapQuoteToNotification(quote: DropyouQuote, index: number): QuoteNotifi
     currency: quoteCurrency(quote),
     status: quoteStatus(quote),
     vehicle: quoteVehicle(quote),
-    receivedAtLabel: formatUkQuoteTimestamp(quoteReceivedAt(quote)),
+    receivedAtLabel: formatQuoteRelativeTime(quoteReceivedAt(quote)),
   };
 }
 
@@ -278,6 +253,27 @@ function createStyles(colors: ThemeColors) {
       lineHeight: 20,
       fontWeight: typography.fontWeight.medium,
       flex: 1,
+    },
+    postcodeRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+    },
+    postcodeItem: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: 4,
+      flexShrink: 1,
+      minWidth: 0,
+    },
+    postcodeArrow: {
+      marginHorizontal: 2,
+    },
+    postcodeText: {
+      color: colors.textPrimary,
+      fontSize: typography.fontSize.sm,
+      fontWeight: typography.fontWeight.bold,
+      flexShrink: 1,
     },
     emptyCard: {
       marginHorizontal: spacing.md,
@@ -395,6 +391,33 @@ export function NotificationsScreen() {
     [quotes],
   );
 
+  const ensureDetails = useCallback(
+    (bookingId: string) => {
+      const id = bookingId.trim();
+      if (!id || detailsByBookingId[id] || loadingByBookingId[id]) return;
+
+      setDetailsLoading(id, true);
+      clearDetailsError(id);
+      void (async () => {
+        try {
+          const response = await fetchLoadDetailsById(id);
+          setDetails(id, response);
+        } catch (err) {
+          const message =
+            err instanceof Error ? err.message : 'Failed to load booking details.';
+          console.warn(
+            `[Notifications] GET /dropyou/load-by-id/${id} failed`,
+            err,
+          );
+          setDetailsError(id, message);
+        } finally {
+          setDetailsLoading(id, false);
+        }
+      })();
+    },
+    [clearDetailsError, detailsByBookingId, loadingByBookingId, setDetails, setDetailsError, setDetailsLoading],
+  );
+
   const handleBookingPress = useCallback(
     (quote: QuoteNotificationVm) => {
       const bookingId = quote.bookingId.trim();
@@ -403,63 +426,28 @@ export function NotificationsScreen() {
         return;
       }
 
-      const hasCachedDetails = Boolean(detailsByBookingId[bookingId]);
-      const routeParams = {
+      ensureDetails(bookingId);
+      setSelectedBookingId(bookingId);
+      navigation.navigate('BookingDetails', {
         backTitle: 'Notifications',
         loadId: bookingId,
         passengerLabel: quote.company,
         statusLabel: quote.status,
         vehicleName: quote.vehicle,
-      };
-
-      if (loadingByBookingId[bookingId]) {
-        navigation.navigate('BookingDetails', routeParams);
-        return;
-      }
-
-      setSelectedBookingId(bookingId);
-      clearDetailsError(bookingId);
-      if (!hasCachedDetails) {
-        setDetailsLoading(bookingId, true);
-      }
-      navigation.navigate('BookingDetails', routeParams);
-
-      void (async () => {
-        try {
-          const response = await fetchLoadDetailsById(bookingId);
-          setDetails(bookingId, response);
-        } catch (err) {
-          const message =
-            err instanceof Error ? err.message : 'Failed to load booking details.';
-          console.warn(
-            `[Notifications] GET /dropyou/load-by-id/${bookingId} failed`,
-            err,
-          );
-          setDetailsError(bookingId, message);
-        } finally {
-          if (!hasCachedDetails) {
-            setDetailsLoading(bookingId, false);
-          }
-        }
-      })();
+      });
     },
-    [
-      clearDetailsError,
-      detailsByBookingId,
-      loadingByBookingId,
-      navigation,
-      setDetails,
-      setDetailsError,
-      setDetailsLoading,
-      setSelectedBookingId,
-    ],
+    [ensureDetails, navigation, setSelectedBookingId],
   );
 
   const renderItem = useCallback(
     ({ item }: { item: QuoteNotificationVm }) => (
-      <QuoteNotificationCard quote={item} onPress={() => handleBookingPress(item)} />
+      <QuoteNotificationCard
+        quote={item}
+        onPress={() => handleBookingPress(item)}
+        ensureDetails={ensureDetails}
+      />
     ),
-    [handleBookingPress],
+    [ensureDetails, handleBookingPress],
   );
 
   const keyExtractor = useCallback((item: QuoteNotificationVm) => item.id, []);
@@ -601,18 +589,31 @@ function QuoteListHeader() {
 function QuoteNotificationCard({
   quote,
   onPress,
+  ensureDetails,
 }: {
   quote: QuoteNotificationVm;
   onPress: () => void;
+  ensureDetails: (bookingId: string) => void;
 }) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
   const accent = bookingAccent(colors, quote.status);
   const price = formatMajorCurrency(quote.price, quote.currency);
+  const details = useBookingDetailsStore((s) =>
+    quote.bookingId ? s.detailsByLoadId[quote.bookingId] : undefined,
+  );
+  const postcodes = useMemo(() => extractQuotePostcodes(details), [details]);
+
+  useEffect(() => {
+    if (quote.bookingId) ensureDetails(quote.bookingId);
+  }, [ensureDetails, quote.bookingId]);
+
+  const hasRoute =
+    Boolean(postcodes.pickup) || Boolean(postcodes.dropoff);
 
   return (
     <IllustratedActionCard
-      eyebrow={quote.bookingId ? `Booking #${quote.bookingId}` : 'Booking quote'}
+      eyebrow="Carrier quote"
       title={quote.company}
       body={undefined}
       accent={accent}
@@ -623,7 +624,7 @@ function QuoteNotificationCard({
       hideArtArrow
       onPress={onPress}
       containerStyle={styles.notificationCard}
-      accessibilityLabel={`Open booking ${quote.bookingId}`}
+      accessibilityLabel="Open booking quote"
       footer={
         <View style={styles.cardFooter}>
           <View style={styles.cardMetaRow}>
@@ -636,6 +637,28 @@ function QuoteNotificationCard({
                 <Ionicons name="time-outline" size={16} color={colors.textSecondary} />
                 <Text style={styles.receivedText} numberOfLines={2}>
                   {quote.receivedAtLabel}
+                </Text>
+              </View>
+            </View>
+          ) : null}
+          {hasRoute ? (
+            <View style={styles.postcodeRow}>
+              <View style={styles.postcodeItem}>
+                <Ionicons name="location" size={15} color={colors.primary} />
+                <Text style={styles.postcodeText} numberOfLines={1}>
+                  {postcodes.pickup || '—'}
+                </Text>
+              </View>
+              <Ionicons
+                name="arrow-forward"
+                size={14}
+                color={colors.textSecondary}
+                style={styles.postcodeArrow}
+              />
+              <View style={styles.postcodeItem}>
+                <Ionicons name="location" size={15} color={colors.danger} />
+                <Text style={styles.postcodeText} numberOfLines={1}>
+                  {postcodes.dropoff || '—'}
                 </Text>
               </View>
             </View>
@@ -686,6 +709,17 @@ function QuoteSkeletonList({ bottomPadding }: { bottomPadding: number }) {
             <Skeleton width="38%" height={16} />
             <Skeleton width="28%" height={16} />
           </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}
+          >
+            <Skeleton width="26%" height={16} />
+            <Skeleton width={12} height={12} radius={6} />
+            <Skeleton width="26%" height={16} />
+          </View>
         </SkeletonCard>
       ))}
     </View>
@@ -724,6 +758,17 @@ function QuoteSkeletonCards() {
           >
             <Skeleton width="38%" height={16} />
             <Skeleton width="28%" height={16} />
+          </View>
+          <View
+            style={{
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: spacing.sm,
+            }}
+          >
+            <Skeleton width="26%" height={16} />
+            <Skeleton width={12} height={12} radius={6} />
+            <Skeleton width="26%" height={16} />
           </View>
         </SkeletonCard>
       ))}

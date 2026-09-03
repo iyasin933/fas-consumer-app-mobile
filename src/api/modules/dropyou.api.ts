@@ -290,6 +290,187 @@ export function extractLoadIdFromRepostResponse(data: unknown): string | null {
   return null;
 }
 
+export type PodDocumentInfo = {
+  id: number | string;
+  name?: string;
+  documentType?: string;
+  fileNameExtension?: string;
+  size?: number;
+  attachmentType?: string;
+  [key: string]: unknown;
+};
+
+export type PodDownload = {
+  bytes: Uint8Array;
+  contentType: string;
+  fileName: string | null;
+};
+
+/** Matches web app: `GET /dropyou/load/:loadId/pod`. */
+export async function fetchPod(loadId: string | number): Promise<unknown> {
+  const id = String(loadId).trim();
+  if (!id) throw new Error('Missing load id');
+  const res = await api.get<unknown>(`/dropyou/load/${id}/pod`);
+  const body = res.data as Record<string, unknown> | undefined;
+  return body?.result ?? null;
+}
+
+function podDocumentsFromResult(result: unknown): PodDocumentInfo[] {
+  if (Array.isArray(result)) return result as PodDocumentInfo[];
+  if (result && typeof result === 'object') {
+    const record = result as Record<string, unknown>;
+    if (Array.isArray(record.data)) return record.data as PodDocumentInfo[];
+    if (Array.isArray(record.documents)) return record.documents as PodDocumentInfo[];
+  }
+  return [];
+}
+
+/** Matches web app: `GET /dropyou/load/:loadId/pod/documents`. */
+export async function fetchPodDocuments(
+  loadId: string | number,
+): Promise<PodDocumentInfo[]> {
+  const id = String(loadId).trim();
+  if (!id) throw new Error('Missing load id');
+  const res = await api.get<unknown>(`/dropyou/load/${id}/pod/documents`);
+  const body = res.data as Record<string, unknown> | undefined;
+  return podDocumentsFromResult(body?.result);
+}
+
+function looksLikeHex(value: string): boolean {
+  const trimmed = value.trim();
+  if (trimmed.length < 8 || trimmed.length % 2 !== 0) return false;
+  return /^[0-9a-fA-F]+$/.test(trimmed);
+}
+
+function hexToUint8Array(hex: string): Uint8Array {
+  const trimmed = hex.trim();
+  const bytes = new Uint8Array(trimmed.length / 2);
+  for (let index = 0; index < trimmed.length; index += 2) {
+    bytes[index / 2] = parseInt(trimmed.slice(index, index + 2), 16);
+  }
+  return bytes;
+}
+
+function base64ToUint8Array(base64: string): Uint8Array {
+  const trimmed = base64.trim();
+  if (typeof globalThis.atob === 'function') {
+    const binary = globalThis.atob(trimmed);
+    const bytes = new Uint8Array(binary.length);
+    for (let index = 0; index < binary.length; index++) {
+      bytes[index] = binary.charCodeAt(index);
+    }
+    return bytes;
+  }
+  const binary = decodeURIComponent(escape(trimmed));
+  const bytes = new Uint8Array(binary.length);
+  for (let index = 0; index < binary.length; index++) {
+    bytes[index] = binary.charCodeAt(index);
+  }
+  return bytes;
+}
+
+function mimeFromBytes(bytes: Uint8Array): string {
+  if (bytes.length >= 4) {
+    if (bytes[0] === 0x25 && bytes[1] === 0x50 && bytes[2] === 0x44 && bytes[3] === 0x46) {
+      return 'application/pdf';
+    }
+    if (bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47) {
+      return 'image/png';
+    }
+    if (bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+      return 'image/jpeg';
+    }
+    if (bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46) {
+      return 'image/gif';
+    }
+  }
+  return 'application/octet-stream';
+}
+
+function bytesFromResponse(
+  data: unknown,
+  contentType: string,
+): { bytes: Uint8Array; contentType: string } {
+  if (data instanceof ArrayBuffer) {
+    return { bytes: new Uint8Array(data), contentType };
+  }
+  if (ArrayBuffer.isView(data)) {
+    return {
+      bytes: new Uint8Array(data.buffer, data.byteOffset, data.byteLength),
+      contentType,
+    };
+  }
+
+  if (typeof data === 'string') {
+    let payload = data.trim();
+
+    if (payload.startsWith('{') && payload.endsWith('}')) {
+      try {
+        const parsed = JSON.parse(payload) as Record<string, unknown>;
+        const nested =
+          (typeof parsed.result === 'string' && parsed.result) ||
+          (typeof parsed.data === 'string' && parsed.data) ||
+          (typeof parsed.file === 'string' && parsed.file) ||
+          null;
+        if (nested) payload = nested.trim();
+      } catch {
+        // ignore
+      }
+    }
+
+    if (looksLikeHex(payload)) {
+      const bytes = hexToUint8Array(payload);
+      return { bytes, contentType: mimeFromBytes(bytes) };
+    }
+
+    const compact = payload.replace(/\s+/g, '');
+    if (
+      compact.startsWith('JVBERi0x') ||
+      compact.startsWith('/9j/') ||
+      compact.startsWith('iVBOR')
+    ) {
+      const bytes = base64ToUint8Array(compact);
+      return { bytes, contentType: mimeFromBytes(bytes) };
+    }
+  }
+
+  throw new Error('Unsupported POD document payload.');
+}
+
+/** Matches web app: `GET /dropyou/load/:loadId/pod/document/:documentId`. */
+export async function downloadPodDocument(
+  loadId: string | number,
+  documentId: string | number,
+): Promise<PodDownload> {
+  const id = String(loadId).trim();
+  const docId = String(documentId).trim();
+  if (!id || !docId) throw new Error('Missing load or document id');
+
+  const res = await api.get<unknown>(
+    `/dropyou/load/${id}/pod/document/${docId}`,
+    { responseType: 'arraybuffer' },
+  );
+  const contentType = String(res.headers?.['content-type'] ?? '').split(';')[0].trim();
+  const { bytes, contentType: finalContentType } = bytesFromResponse(
+    res.data,
+    contentType,
+  );
+
+  const disposition = String(res.headers?.['content-disposition'] ?? '');
+  const utf8Match = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
+  const simpleMatch = disposition.match(/filename\s*=\s*("?)([^";]+)\1/i);
+  let fileName = null;
+  try {
+    fileName = utf8Match?.[1]
+      ? decodeURIComponent(utf8Match[1].trim())
+      : (simpleMatch?.[2]?.trim() ?? null);
+  } catch {
+    fileName = simpleMatch?.[2]?.trim() ?? null;
+  }
+
+  return { bytes, contentType: finalContentType, fileName };
+}
+
 /** Matches web app: `GET /dropyou/quote-by-load-id/:loadId`. */
 export async function fetchQuotesByLoadId(
   loadId: string | number,

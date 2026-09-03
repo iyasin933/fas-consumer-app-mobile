@@ -22,10 +22,15 @@ type Props = {
   disabled?: boolean;
   disabledReason?: string;
   /**
-   * For dropoff: earliest instant allowed (pickup + route ETA + 1h buffer).
+   * For dropoff: earliest instant allowed (pickup + route ETA + buffer).
    * Drives date minimum and post-pick validation.
    */
   minDropoffAt?: Date;
+  /**
+   * Same-day mode: the date pill is locked to today (only today selectable)
+   * and the label shows "Today" once set.
+   */
+  sameDay?: boolean;
 };
 
 function fmtTime(iso: string): string {
@@ -62,6 +67,7 @@ export function ScheduledPills({
   disabled,
   disabledReason,
   minDropoffAt,
+  sameDay = false,
 }: Props) {
   const c = useMapColors();
   const setToast = useDeliveryFormStore((s) => s.setToast);
@@ -80,6 +86,12 @@ export function ScheduledPills({
     }
     return today;
   }, [isDropoff, minDropoffAt]);
+
+  const datePickerMax = useMemo(() => {
+    if (!sameDay) return undefined;
+    const t = new Date();
+    return new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59, 999);
+  }, [sameDay]);
 
   const timePickerValue = useMemo(() => {
     if (!window) return new Date();
@@ -180,7 +192,11 @@ export function ScheduledPills({
     [isDropoff, isPickup, isStop, minDropoffAt, window?.fromISO, noPast, onDateChange, onWindowChange, setToast],
   );
 
-  const dateLabel = dateISO ? fmtDate(dateISO) : 'Select Date';
+  const dateLabel = useMemo(() => {
+    if (!dateISO) return 'Select Date';
+    if (sameDay) return 'Today';
+    return fmtDate(dateISO);
+  }, [dateISO, sameDay]);
   const effectiveDateLabel = disabled && isDropoff ? 'After route' : dateLabel;
 
   const pillBase = {
@@ -238,7 +254,7 @@ export function ScheduledPills({
           openPicker({
             mode: 'time',
             value: timePickerValue,
-            title: 'Pick a time',
+            title: sameDay ? 'Pick a time (today)' : 'Pick a time',
             onCancel: () => {},
             onConfirm: handleTimeConfirm,
           });
@@ -273,7 +289,8 @@ export function ScheduledPills({
             mode: 'date',
             value: dateISO ? new Date(dateISO) : datePickerMin,
             minimumDate: datePickerMin,
-            title: 'Pick a date',
+            maximumDate: datePickerMax,
+            title: sameDay ? 'Pick a date (same day)' : 'Pick a date',
             onCancel: () => {},
             onConfirm: handleDateConfirm,
           });

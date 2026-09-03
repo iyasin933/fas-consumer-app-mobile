@@ -19,6 +19,7 @@ import { DialCodePickerModal } from '@/features/delivery/components/DialCodePick
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
+import { isValidRecipientPhone } from '@/features/delivery/utils/recipientPhone';
 import { useTheme } from '@/hooks/useTheme';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
@@ -87,8 +88,12 @@ export function RecipientDetailsScreen() {
       Alert.alert('Phone required', 'Enter a valid phone number (including area code after the country).');
       return;
     }
+    if (!isValidRecipientPhone(recipientDialCode, local)) {
+      Alert.alert('Phone required', 'Enter a valid phone number for the selected country.');
+      return;
+    }
     navigation.navigate('ChooseVehicle');
-  }, [navigation, recipientName, recipientPhoneLocal]);
+  }, [navigation, recipientName, recipientPhoneLocal, recipientDialCode]);
 
   const styles = useMemo(
     () =>
