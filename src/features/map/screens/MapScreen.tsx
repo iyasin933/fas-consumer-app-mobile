@@ -298,20 +298,24 @@ export function MapScreen() {
       if (dropoffScheduleUserEditedRef.current) return;
 
       // Scheduled: ETA auto-fills the dropoff date/time until the user edits it.
-      // Same-day: same auto-fill, but clamped to end of today so "same day" is
-      // always preserved even when drive ETA crosses midnight.
+      // Same-day: same auto-fill, but the whole window is clamped inside today
+      // so "same day" is always preserved (midnight spill used to make the
+      // merged drop-off end land on the morning of the same day, breaking the
+      // pickup-before-dropoff validation and leaving Proceed disabled).
       if (tab !== 'scheduled' && tab !== 'sameDay') return;
 
       const arriveMs = departureMs + durationSec * 1000;
       const arrive = new Date(arriveMs);
       let dropAt = arrive;
+      let dropEndMs = arrive.getTime() + 30 * 60 * 1000;
       if (tab === 'sameDay') {
         const t = new Date();
         const eot = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59, 999);
         if (arrive.getTime() > eot.getTime()) dropAt = eot;
+        dropEndMs = Math.min(dropAt.getTime() + 30 * 60 * 1000, eot.getTime());
       }
       const fromISO = dropAt.toISOString();
-      const toISO = new Date(dropAt.getTime() + 30 * 60 * 1000).toISOString();
+      const toISO = new Date(dropEndMs).toISOString();
       setWindow(DROPOFF_ID, { fromISO, toISO });
       // Calendar day for dropoff must follow **arrival**, not pickup's date — otherwise
       // `mergeStopDateTime(dropoff.dateISO, dropoff.window)` overwrites the ETA day and
@@ -478,9 +482,13 @@ export function MapScreen() {
       const orderErr = addressesOk && scheduledPickupDropoffComplete(rows)
         ? getScheduledPickupDropoffOrderError(tab, rows)
         : null;
+      const scheduleMissing =
+        addressesOk &&
+        tab === 'scheduled' &&
+        !scheduledPickupDropoffComplete(rows);
       setToast(
         orderErr ??
-          (addressesOk
+          (scheduleMissing
             ? 'Set pickup date & time and dropoff date & time to continue.'
             : 'Please fill in both pickup and dropoff.'),
       );

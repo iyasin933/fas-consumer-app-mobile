@@ -30,7 +30,7 @@ import { typography } from '@/shared/theme/typography';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
 import type { AppStackParamList } from '@/types/navigation.types';
 
-type LoadStatusTab = 'all' | 'pending' | 'failed';
+type LoadStatusTab = 'all' | 'pending' | 'completed' | 'failed';
 
 const FAILED_STATUS_TERMS = [
   'failed',
@@ -52,6 +52,12 @@ const PENDING_STATUS_TERMS = [
   'open',
   'quote',
   'unassigned',
+];
+const COMPLETED_STATUS_TERMS = [
+  'completed',
+  'complete',
+  'delivered',
+  'delivery_completed',
 ];
 
 function logJson(label: string, value: unknown): void {
@@ -109,6 +115,11 @@ function isPendingLoad(trip: ActiveTripCardVm): boolean {
   return PENDING_STATUS_TERMS.some((term) => status.includes(term));
 }
 
+function isCompletedLoad(trip: ActiveTripCardVm): boolean {
+  const status = normalizedStatus(trip);
+  return COMPLETED_STATUS_TERMS.some((term) => status.includes(term));
+}
+
 export function BookingsScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
@@ -138,9 +149,11 @@ export function BookingsScreen() {
   }, [refetch]);
 
   const pendingCount = useMemo(() => bookings.filter(isPendingLoad).length, [bookings]);
+  const completedCount = useMemo(() => bookings.filter(isCompletedLoad).length, [bookings]);
   const failedCount = useMemo(() => bookings.filter(isFailedLoad).length, [bookings]);
   const filteredBookings = useMemo(() => {
     if (activeStatusTab === 'pending') return bookings.filter(isPendingLoad);
+    if (activeStatusTab === 'completed') return bookings.filter(isCompletedLoad);
     if (activeStatusTab === 'failed') return bookings.filter(isFailedLoad);
     return bookings;
   }, [activeStatusTab, bookings]);
@@ -149,9 +162,10 @@ export function BookingsScreen() {
     () => [
       { value: 'all' as const, label: 'All', badge: bookings.length },
       { value: 'pending' as const, label: 'Pending', badge: pendingCount },
+      { value: 'completed' as const, label: 'Completed', badge: completedCount },
       { value: 'failed' as const, label: 'Failed', badge: failedCount },
     ],
-    [bookings.length, failedCount, pendingCount],
+    [bookings.length, completedCount, failedCount, pendingCount],
   );
 
   const handleBookingPress = useCallback(
@@ -259,6 +273,15 @@ export function BookingsScreen() {
         title: 'No pending bookings',
         body: 'New delivery requests and open quotes will appear here as soon as you create them.',
         icon: 'time-outline' as const,
+        meta: undefined,
+      };
+    }
+    if (activeStatusTab === 'completed') {
+      return {
+        eyebrow: 'Nothing delivered yet',
+        title: 'No completed bookings',
+        body: 'Deliveries your driver has finished will be kept here, with proof of delivery when available.',
+        icon: 'checkmark-done-outline' as const,
         meta: undefined,
       };
     }

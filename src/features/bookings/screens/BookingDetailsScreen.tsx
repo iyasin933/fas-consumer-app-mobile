@@ -1185,6 +1185,7 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
               <Text style={styles.sectionTitle}>
                 {quoteModels.length} quote{quoteModels.length === 1 ? '' : 's'}
               </Text>
+              <StatusChip label={`Booking: ${friendlyStatusLabel(status)}`} />
               <Pressable
                 style={({ pressed }) => [
                   styles.outlineButton,

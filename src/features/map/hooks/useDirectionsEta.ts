@@ -104,7 +104,16 @@ export function useDirectionsEta() {
 
     try {
       const url = `https://maps.googleapis.com/maps/api/directions/json?${params.toString()}`;
-      const res = await fetch(url);
+      // Bound the request so a stalled network can never leave the route/ETA
+      // flow hanging (callers fall back to a haversine estimate on null).
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 12_000);
+      let res: Response;
+      try {
+        res = await fetch(url, { signal: controller.signal });
+      } finally {
+        clearTimeout(timer);
+      }
       const json = (await res.json()) as {
         status: string;
         error_message?: string;

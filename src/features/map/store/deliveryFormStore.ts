@@ -78,7 +78,7 @@ type Actions = {
 const initialRows = (): DeliveryStop[] => [makeRow('pickup'), makeRow('dropoff')];
 
 export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
-  tab: 'scheduled',
+  tab: 'sameDay',
   rows: initialRows(),
   toast: null,
   routeDurationSec: null,
@@ -106,7 +106,7 @@ export const useDeliveryFormStore = create<State & Actions>((set, get) => ({
 
   resetForm: () =>
     set({
-      tab: 'scheduled',
+      tab: 'sameDay',
       rows: initialRows(),
       toast: null,
       routeDurationSec: null,
@@ -224,15 +224,24 @@ export function scheduledPickupDropoffComplete(rows: DeliveryStop[]): boolean {
 }
 
 /**
- * True when the user may proceed: pickup + dropoff addresses always required,
- * plus pickup and dropoff must each have **date** and **time** (four picks total)
- * on both scheduled and same-day delivery.
+ * True when the user may proceed: pickup + dropoff addresses always required.
+ *
+ * Scheduled delivery needs **date** and **time** for both pickup and dropoff
+ * (four picks total). Same-day only needs the pickup schedule (auto-set to
+ * now/today) — the dropoff time is auto-derived from route ETA, and the
+ * payload builder falls back to pickup + ETA when the dropoff is unset, so a
+ * missing/slow ETA must never block same-day bookings.
  */
 export function canProceed(rows: DeliveryStop[], tab: DeliveryTab): boolean {
   const pickup = rows.find((r) => r.kind === 'pickup');
   const dropoff = rows.find((r) => r.kind === 'dropoff');
   const addressesOk = Boolean(pickup?.place?.address) && Boolean(dropoff?.place?.address);
   if (!addressesOk) return false;
+  if (tab === 'sameDay') {
+    const pickupOk = Boolean(pickup?.window?.fromISO && pickup?.dateISO);
+    if (!pickupOk) return false;
+    return isScheduledPickupBeforeDropoffEnd(rows, tab);
+  }
   if (!scheduledPickupDropoffComplete(rows)) return false;
   return isScheduledPickupBeforeDropoffEnd(rows, tab);
 }

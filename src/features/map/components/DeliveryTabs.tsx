@@ -42,8 +42,8 @@ export function DeliveryTabs({ value, onChange }: Props) {
 
   return (
     <View style={styles.row}>
-      <Tab label="Scheduled Delivery" active={value === 'scheduled'} onPress={() => onChange('scheduled')} styles={styles} />
       <Tab label="Same Day Delivery" active={value === 'sameDay'} onPress={() => onChange('sameDay')} styles={styles} />
+      <Tab label="Scheduled Delivery" active={value === 'scheduled'} onPress={() => onChange('scheduled')} styles={styles} />
     </View>
   );
 }

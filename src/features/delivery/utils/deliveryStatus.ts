@@ -1,6 +1,7 @@
 const STATUS_LABELS: Record<string, string> = {
   BOOKED: 'Booked',
   PENDING: 'Pending',
+  POSTED: 'Posted',
   CONFIRMED: 'Driver confirmed',
   ACCEPTED: 'Driver assigned',
   ON_WAY_TO_PICK_UP: 'On the way to pick up',
@@ -58,6 +59,21 @@ export function statusDescription(
   const raw = status?.trim();
   if (!raw) return null;
   return STATUS_DESCRIPTIONS[raw.toUpperCase()] ?? null;
+}
+
+/** Quote (bid) states — separate from booking/load states. */
+const QUOTE_STATUS_LABELS: Record<string, string> = {
+  POSTED: 'Open bid',
+  ACCEPTED: 'Accepted',
+  REJECTED: 'Rejected',
+  CANCELLED: 'Cancelled',
+  CANCELED: 'Cancelled',
+  EXPIRED: 'Expired',
+};
+
+export function quoteStatusLabel(status: string | null | undefined): string {
+  const raw = (status ?? '').trim().toUpperCase();
+  return QUOTE_STATUS_LABELS[raw] ?? (raw || 'Posted');
 }
 
 export type QuoteAcceptBlock = {

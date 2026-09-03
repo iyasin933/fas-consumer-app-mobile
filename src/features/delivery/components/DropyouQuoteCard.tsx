@@ -8,7 +8,9 @@ import {
   formatMajorCurrency,
   formatQuoteRelativeTime,
 } from '@/features/delivery/utils/dropyouQuoteCardData';
+import { quoteStatusLabel } from '@/features/delivery/utils/deliveryStatus';
 import { useTheme } from '@/hooks/useTheme';
+import { StatusChip } from '@/shared/components/StatusChip';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 
@@ -160,6 +162,13 @@ export function DropyouQuoteCard({ quote, onAccept, busy, acceptDisabled, accept
           color: colors.textSecondary,
           marginTop: 2,
         },
+        metaRow: {
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 8,
+          marginTop: 4,
+          flexWrap: 'wrap',
+        },
         priceBlock: { alignItems: 'flex-end', flexShrink: 0, minWidth: 92 },
         price: {
           fontSize: 24,
@@ -248,14 +257,19 @@ export function DropyouQuoteCard({ quote, onAccept, busy, acceptDisabled, accept
   const isCancelled = rawStatus.includes('CANCEL');
   const isRejected = rawStatus.includes('REJECT');
   const isExpired = rawStatus.includes('EXPIRED');
-  const isDisabled = isCancelled || isRejected || isExpired || Boolean(acceptDisabled);
+  const isAccepted = rawStatus.includes('ACCEPT');
+  const isOpenBid = rawStatus === '' || rawStatus === 'POSTED';
+  const isDisabled =
+    isCancelled || isRejected || isExpired || isAccepted || Boolean(acceptDisabled);
   const disabledLabel = isCancelled
     ? 'Cancelled'
     : isRejected
       ? 'Rejected'
       : isExpired
         ? 'Expired'
-        : acceptLabel;
+        : isAccepted
+          ? 'Accepted'
+          : acceptLabel;
 
   return (
     <View style={styles.card}>
@@ -277,7 +291,10 @@ export function DropyouQuoteCard({ quote, onAccept, busy, acceptDisabled, accept
             <Text style={styles.name} numberOfLines={2}>
               {maskedCompanyName}
             </Text>
-            {relative ? <Text style={styles.time}>{relative}</Text> : null}
+            <View style={styles.metaRow}>
+              {!isOpenBid ? <StatusChip label={quoteStatusLabel(quote.status)} /> : null}
+              {relative ? <Text style={styles.time}>{relative}</Text> : null}
+            </View>
           </View>
         </View>
         <View style={styles.priceBlock}>
