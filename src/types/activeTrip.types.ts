@@ -26,4 +26,5 @@ export type ActiveTripCardVm = {
   destAddress: string;
   originTimeLabel: string;
   destTimeLabel: string;
+  sortTimestamp: number;
 };

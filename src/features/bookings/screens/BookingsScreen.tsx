@@ -120,6 +120,14 @@ function isCompletedLoad(trip: ActiveTripCardVm): boolean {
   return COMPLETED_STATUS_TERMS.some((term) => status.includes(term));
 }
 
+function latestFirst(a: ActiveTripCardVm, b: ActiveTripCardVm): number {
+  return b.sortTimestamp - a.sortTimestamp;
+}
+
+function newestFirst(items: ActiveTripCardVm[]): ActiveTripCardVm[] {
+  return [...items].sort(latestFirst);
+}
+
 export function BookingsScreen() {
   const { colors } = useTheme();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
@@ -152,10 +160,10 @@ export function BookingsScreen() {
   const completedCount = useMemo(() => bookings.filter(isCompletedLoad).length, [bookings]);
   const failedCount = useMemo(() => bookings.filter(isFailedLoad).length, [bookings]);
   const filteredBookings = useMemo(() => {
-    if (activeStatusTab === 'pending') return bookings.filter(isPendingLoad);
-    if (activeStatusTab === 'completed') return bookings.filter(isCompletedLoad);
-    if (activeStatusTab === 'failed') return bookings.filter(isFailedLoad);
-    return bookings;
+    if (activeStatusTab === 'pending') return newestFirst(bookings.filter(isPendingLoad));
+    if (activeStatusTab === 'completed') return newestFirst(bookings.filter(isCompletedLoad));
+    if (activeStatusTab === 'failed') return newestFirst(bookings.filter(isFailedLoad));
+    return newestFirst(bookings);
   }, [activeStatusTab, bookings]);
 
   const statusTabs = useMemo(

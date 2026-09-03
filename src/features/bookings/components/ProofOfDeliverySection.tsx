@@ -6,6 +6,7 @@ import {
   ActivityIndicator,
   Alert,
   Pressable,
+  Share,
   StyleSheet,
   Text,
   useWindowDimensions,
@@ -294,13 +295,10 @@ export function ProofOfDeliverySection({ loadId }: Props) {
         file.create();
         file.write(bytes);
 
-        const Sharing = await import('expo-sharing');
-        if (!(await Sharing.isAvailableAsync())) {
-          throw new Error('File sharing is not available on this device.');
-        }
-        await Sharing.shareAsync(file.uri, {
-          mimeType: contentType || undefined,
-          dialogTitle: name,
+        await Share.share({
+          title: name,
+          url: file.uri,
+          message: file.uri,
         });
       } catch (err) {
         Alert.alert(

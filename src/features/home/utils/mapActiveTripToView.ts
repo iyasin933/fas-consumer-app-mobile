@@ -16,6 +16,18 @@ function pickScalarStr(v: unknown): string {
   return '';
 }
 
+function pickScalar(roots: ActiveTripRaw[], keys: string[]): unknown {
+  for (const root of roots) {
+    if (!root || typeof root !== 'object') continue;
+    const record = root as Record<string, unknown>;
+    for (const key of keys) {
+      const value = record[key];
+      if (value != null && value !== '') return value;
+    }
+  }
+  return undefined;
+}
+
 function pickNested(o: unknown, path: string[]): unknown {
   let cur: unknown = o;
   for (const p of path) {
@@ -80,6 +92,61 @@ function bookingIdOf(o: ActiveTripRaw): string {
     pickScalarStr(pickNested(o, ['booking', 'id'])) ||
     ''
   );
+}
+
+function timestampFrom(value: unknown): number | null {
+  if (typeof value === 'number' && Number.isFinite(value)) {
+    return value > 10_000_000_000 ? value : value * 1000;
+  }
+  if (typeof value !== 'string' || !value.trim()) return null;
+  const parsed = Date.parse(value.trim());
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sortTimestampOf(o: ActiveTripRaw): number {
+  const roots = tripRoots(o);
+  const dateKeys = [
+    'completedAt',
+    'completed_at',
+    'deliveredOn',
+    'delivered_on',
+    'deliveryCompletedAt',
+    'delivery_completed_at',
+    'dropoffTime',
+    'drop_off_time',
+    'deliveryTime',
+    'updatedAt',
+    'updated_at',
+    'recordUpdatedAt',
+    'record_updated_at',
+    'createdOn',
+    'created_on',
+    'createdAt',
+    'created_at',
+    'recordCreatedAt',
+    'record_created_at',
+    'pickupTime',
+    'pick_up_time',
+  ];
+  const direct = timestampFrom(pickScalar(roots, dateKeys));
+  if (direct != null) return direct;
+
+  for (const path of [
+    ['load', 'completedAt'],
+    ['load', 'deliveredOn'],
+    ['load', 'updatedAt'],
+    ['booking', 'completedAt'],
+    ['booking', 'deliveredOn'],
+    ['booking', 'updatedAt'],
+    ['selectedQuote', 'createdOn'],
+    ['selectedQuote', 'recordCreatedAt'],
+  ]) {
+    const nested = timestampFrom(pickNested(o, path));
+    if (nested != null) return nested;
+  }
+
+  const numericId = Number(loadIdOf(o) || idOf(o, 0));
+  return Number.isFinite(numericId) ? numericId : 0;
 }
 
 /** Maps API trip/load objects into home card fields (best-effort across shapes). */
@@ -220,5 +287,6 @@ export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTrip
     destAddress: drop,
     originTimeLabel: originTime,
     destTimeLabel: destTime,
+    sortTimestamp: sortTimestampOf(o),
   };
 }
