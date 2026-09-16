@@ -7,6 +7,7 @@ import { useDeliveryFormStore } from '@/features/map/store/deliveryFormStore';
 import { useMapColors } from '@/features/map/theme/useMapColors';
 import type { TimeWindow } from '@/features/map/types';
 import {
+  endOfDay,
   mergeStopDateTime,
   startOfDay,
 } from '@/features/map/utils/deliverySchedule';
@@ -27,8 +28,8 @@ type Props = {
    */
   minDropoffAt?: Date;
   /**
-   * Same-day mode: the date pill is locked to today (only today selectable)
-   * and the label shows "Today" once set.
+   * Same-day mode still blocks past dates, but it can be scheduled for a
+   * future pickup day.
    */
   sameDay?: boolean;
 };
@@ -40,6 +41,20 @@ function fmtTime(iso: string): string {
 function fmtDate(iso: string): string {
   const d = new Date(iso);
   return d.toLocaleDateString(undefined, { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function sameCalendarDay(a: Date, b: Date): boolean {
+  return (
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+function clampDate(date: Date, min: Date, max?: Date): Date {
+  if (date.getTime() < min.getTime()) return new Date(min.getTime());
+  if (max && date.getTime() > max.getTime()) return new Date(max.getTime());
+  return date;
 }
 
 function singleInstantWindow(at: Date): TimeWindow {
@@ -88,10 +103,9 @@ export function ScheduledPills({
   }, [isDropoff, minDropoffAt]);
 
   const datePickerMax = useMemo(() => {
-    if (!sameDay) return undefined;
-    const t = new Date();
-    return new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59, 999);
-  }, [sameDay]);
+    if (!sameDay || !isDropoff || !minDropoffAt) return undefined;
+    return endOfDay(minDropoffAt);
+  }, [isDropoff, minDropoffAt, sameDay]);
 
   const timePickerValue = useMemo(() => {
     if (!window) return new Date();
@@ -100,6 +114,21 @@ export function ScheduledPills({
     if (noPast && merged < new Date()) return new Date();
     return merged;
   }, [window, dateISO, isDropoff, minDropoffAt, noPast]);
+
+  const timePickerMin = useMemo(() => {
+    const selectedDate = dateISO ? new Date(dateISO) : new Date();
+    const now = new Date();
+
+    if (isDropoff && minDropoffAt && sameCalendarDay(selectedDate, minDropoffAt)) {
+      return minDropoffAt;
+    }
+
+    if (noPast && sameCalendarDay(selectedDate, now)) {
+      return now;
+    }
+
+    return undefined;
+  }, [dateISO, isDropoff, minDropoffAt, noPast]);
 
   const timeLabel = useMemo(() => {
     if (disabled) return isDropoff ? 'ETA pending' : 'Select time';
@@ -159,7 +188,8 @@ export function ScheduledPills({
 
   const handleDateConfirm = useCallback(
     (picked: Date) => {
-      const iso = picked.toISOString();
+      const safeDate = clampDate(picked, datePickerMin, datePickerMax);
+      const iso = safeDate.toISOString();
 
       if (isDropoff && minDropoffAt) {
         const merged = mergeStopDateTime(iso, window?.fromISO);
@@ -189,14 +219,31 @@ export function ScheduledPills({
         onWindowChange(rangeWindow(n, 30));
       }
     },
-    [isDropoff, isPickup, isStop, minDropoffAt, window?.fromISO, noPast, onDateChange, onWindowChange, setToast],
+    [
+      datePickerMax,
+      datePickerMin,
+      isDropoff,
+      isPickup,
+      isStop,
+      minDropoffAt,
+      window?.fromISO,
+      noPast,
+      onDateChange,
+      onWindowChange,
+      setToast,
+    ],
   );
+
+  const selectedDateIsToday = useMemo(() => {
+    if (!dateISO) return false;
+    return sameCalendarDay(new Date(dateISO), new Date());
+  }, [dateISO]);
 
   const dateLabel = useMemo(() => {
     if (!dateISO) return 'Select Date';
-    if (sameDay) return 'Today';
+    if (selectedDateIsToday) return 'Today';
     return fmtDate(dateISO);
-  }, [dateISO, sameDay]);
+  }, [dateISO, selectedDateIsToday]);
   const effectiveDateLabel = disabled && isDropoff ? 'After route' : dateLabel;
 
   const pillBase = {
@@ -254,7 +301,8 @@ export function ScheduledPills({
           openPicker({
             mode: 'time',
             value: timePickerValue,
-            title: sameDay ? 'Pick a time (today)' : 'Pick a time',
+            minimumDate: timePickerMin,
+            title: sameDay && selectedDateIsToday ? 'Pick a time (today)' : 'Pick a time',
             onCancel: () => {},
             onConfirm: handleTimeConfirm,
           });
@@ -290,7 +338,7 @@ export function ScheduledPills({
             value: dateISO ? new Date(dateISO) : datePickerMin,
             minimumDate: datePickerMin,
             maximumDate: datePickerMax,
-            title: sameDay ? 'Pick a date (same day)' : 'Pick a date',
+            title: sameDay ? 'Pick pickup date' : 'Pick a date',
             onCancel: () => {},
             onConfirm: handleDateConfirm,
           });
@@ -316,4 +364,3 @@ export function ScheduledPills({
     </View>
   );
 }
-

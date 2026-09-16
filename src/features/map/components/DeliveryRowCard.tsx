@@ -17,6 +17,7 @@ import { useMapColors } from '@/features/map/theme/useMapColors';
 import {
   computeMinDropoffAt,
   endOfDay,
+  mergeStopDateTime,
 } from '@/features/map/utils/deliverySchedule';
 import type { DeliveryStop, DeliveryTab, TimeWindow } from '@/features/map/types';
 
@@ -76,15 +77,21 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
     const raw = computeMinDropoffAt(rows, routeDurationSec, sameDay ? 0 : undefined);
     if (!raw) return undefined;
     if (sameDay) {
-      const eot = endOfDay(new Date());
+      const pickup = rows.find((r) => r.kind === 'pickup');
+      const pickupAt = mergeStopDateTime(pickup?.dateISO, pickup?.window?.fromISO);
+      const eot = endOfDay(pickupAt);
       return raw.getTime() > eot.getTime() ? eot : raw;
     }
     return raw;
   }, [row.kind, rows, routeDurationSec, sameDay]);
   const isStop = row.kind === 'stop';
   const isPickup = row.kind === 'pickup';
-  const dropoffScheduleNeedsRoute =
-    row.kind === 'dropoff' && !minDropoffAt;
+  const dropoffScheduleReadonly = row.kind === 'dropoff' && sameDay;
+  const dropoffScheduleNeedsRoute = row.kind === 'dropoff' && !minDropoffAt;
+  const scheduleDisabled = dropoffScheduleReadonly || dropoffScheduleNeedsRoute;
+  const scheduleDisabledReason = dropoffScheduleReadonly
+    ? 'Dropoff time is calculated automatically from the pickup time and route ETA.'
+    : 'Select pickup and dropoff first — we calculate dropoff time from route ETA.';
 
   const color = useMemo(() => {
     if (row.kind === 'pickup') return c.brandGreen;
@@ -241,8 +248,8 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
           dateISO={row.dateISO}
           minDropoffAt={minDropoffAt}
           sameDay={sameDay}
-          disabled={dropoffScheduleNeedsRoute}
-          disabledReason="Select pickup and dropoff first — we calculate dropoff time from route ETA."
+          disabled={scheduleDisabled}
+          disabledReason={scheduleDisabledReason}
           onWindowChange={onWindowChange}
           onDateChange={onDateChange}
         />
@@ -250,5 +257,3 @@ export const DeliveryRowCard = memo(function DeliveryRowCard({
     </Animated.View>
   );
 });
-
-

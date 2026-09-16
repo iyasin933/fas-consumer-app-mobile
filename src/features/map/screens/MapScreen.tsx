@@ -298,8 +298,8 @@ export function MapScreen() {
       if (dropoffScheduleUserEditedRef.current) return;
 
       // Scheduled: ETA auto-fills the dropoff date/time until the user edits it.
-      // Same-day: same auto-fill, but the whole window is clamped inside today
-      // so "same day" is always preserved (midnight spill used to make the
+      // Same-day: same auto-fill, but the whole window is clamped inside the
+      // selected pickup day so "same day" is always preserved (midnight spill used to make the
       // merged drop-off end land on the morning of the same day, breaking the
       // pickup-before-dropoff validation and leaving Proceed disabled).
       if (tab !== 'scheduled' && tab !== 'sameDay') return;
@@ -309,8 +309,16 @@ export function MapScreen() {
       let dropAt = arrive;
       let dropEndMs = arrive.getTime() + 30 * 60 * 1000;
       if (tab === 'sameDay') {
-        const t = new Date();
-        const eot = new Date(t.getFullYear(), t.getMonth(), t.getDate(), 23, 59, 59, 999);
+        const pickupDay = new Date(departureMs);
+        const eot = new Date(
+          pickupDay.getFullYear(),
+          pickupDay.getMonth(),
+          pickupDay.getDate(),
+          23,
+          59,
+          59,
+          999,
+        );
         if (arrive.getTime() > eot.getTime()) dropAt = eot;
         dropEndMs = Math.min(dropAt.getTime() + 30 * 60 * 1000, eot.getTime());
       }
@@ -765,5 +773,4 @@ function placesTargetTitle(t: PlacesTarget | null): string {
   if (t.kind === 'stop') return 'Search stop location';
   return 'Search dropoff location';
 }
-
 

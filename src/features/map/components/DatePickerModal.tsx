@@ -34,7 +34,7 @@ type Props = {
  * `Modal`, so touches work above @gorhom/bottom-sheet (same issue as
  * PlacesAutocompleteModal).
  *
- * `tempValue` is only synced from `value` when the sheet **opens**; otherwise
+ * The picker value is only synced from `value` when the sheet **opens**; otherwise
  * parent re-renders would reset the spinner while the user is still editing.
  */
 export function DatePickerModal({
@@ -51,8 +51,22 @@ export function DatePickerModal({
   const { width: winWidth } = useWindowDimensions();
   const narrow = winWidth < 380;
 
-  const [tempValue, setTempValue] = useState<Date>(() => value);
+  const [pickerValue, setPickerValue] = useState<Date>(() => value);
+  const pickedValueRef = useRef<Date>(value);
   const wasVisible = useRef(false);
+
+  const clampPickedValue = useMemo(
+    () => (picked: Date) => {
+      if (minimumDate && picked.getTime() < minimumDate.getTime()) {
+        return new Date(minimumDate.getTime());
+      }
+      if (maximumDate && picked.getTime() > maximumDate.getTime()) {
+        return new Date(maximumDate.getTime());
+      }
+      return new Date(picked.getTime());
+    },
+    [maximumDate, minimumDate],
+  );
 
   const styles = useMemo(
     () =>
@@ -102,12 +116,14 @@ export function DatePickerModal({
     const opened = visible && !wasVisible.current;
     wasVisible.current = visible;
     if (opened) {
-      setTempValue(new Date(value.getTime()));
+      const nextValue = clampPickedValue(value);
+      pickedValueRef.current = nextValue;
+      setPickerValue(nextValue);
     }
-  }, [visible, value]);
+  }, [clampPickedValue, visible, value]);
 
   const handleDone = () => {
-    onConfirm(new Date(tempValue.getTime()));
+    onConfirm(clampPickedValue(pickedValueRef.current));
   };
 
   if (Platform.OS === 'android') {
@@ -124,7 +140,7 @@ export function DatePickerModal({
             onCancel();
             return;
           }
-          onConfirm(picked);
+          onConfirm(clampPickedValue(picked));
         }}
       />
     );
@@ -174,13 +190,14 @@ export function DatePickerModal({
                 </View>
                 <DateTimePicker
                   mode={mode}
-                  value={tempValue}
-                  minimumDate={mode === 'date' ? minimumDate : undefined}
-                  maximumDate={mode === 'date' ? maximumDate : undefined}
+                  value={pickerValue}
+                  minimumDate={minimumDate}
+                  maximumDate={maximumDate}
+                  is24Hour={mode === 'time'}
                   display="spinner"
                   themeVariant={c.isDark ? 'dark' : 'light'}
                   onChange={(_: DateTimePickerEvent, picked?: Date) => {
-                    if (picked) setTempValue(new Date(picked.getTime()));
+                    if (picked) pickedValueRef.current = clampPickedValue(picked);
                   }}
                   style={styles.picker}
                 />
