@@ -44,6 +44,7 @@ Do **not** modify or delete folders outside of `fas-consumer-app-mobile/` unless
 - For App Store, TestFlight, EAS build, or release work, follow the `expo-deployment` skill and this repo's EAS setup before changing version fields.
 - Treat `expo.version` in `app.config.js` as the public marketing version users see in the App Store.
 - Use semantic versioning for the public version: bump patch for bug fixes, minor for new user-facing features, and major for large product or compatibility changes.
+- Before any App Store submission, make sure `expo.version` is greater than the latest published App Store version. Last known published iOS App Store version is `1.1.2`, so the next public release should be at least `1.1.3`.
 - Do not bump the public version for every TestFlight upload. Keep the same public version while iterating on builds for the same release.
 - Treat the iOS build number as an internal upload number. It must increase for every App Store Connect/TestFlight upload and should never be reused.
 - This project uses `cli.appVersionSource: "remote"` and `production.autoIncrement: true` in `eas.json`; prefer letting EAS increment production build numbers automatically.

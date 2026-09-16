@@ -42,7 +42,7 @@ local Metro bundler.
 
 This build is for development only. It is not the best choice for sharing with
 testers because it still expects Metro to be running.
-
+146594
 ### Android standalone APK for team testing
 
 Use this when you want to share a working APK with your team that launches on
