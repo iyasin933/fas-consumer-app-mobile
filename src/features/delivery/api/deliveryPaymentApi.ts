@@ -71,9 +71,34 @@ function pickClientSecret(payload: unknown): string | undefined {
   return undefined;
 }
 
+/**
+ * The create-intent response carries the publishable key that matches the
+ * account which created the PaymentIntent. Prefer it over the build-time
+ * `EXPO_PUBLIC_STRIPE_PUBLISHABLE_KEY` so the Payment Sheet can never mismatch.
+ */
+function pickPublishableKey(payload: unknown): string | undefined {
+  if (!payload || typeof payload !== 'object') return undefined;
+  const o = payload as Record<string, unknown>;
+  const direct = o.publishableKey;
+  if (typeof direct === 'string' && direct) return direct;
+  for (const key of ['data', 'result'] as const) {
+    const nested = o[key];
+    if (nested && typeof nested === 'object') {
+      const v = (nested as Record<string, unknown>).publishableKey;
+      if (typeof v === 'string' && v) return v;
+    }
+  }
+  return undefined;
+}
+
+export type CreateDeliveryPaymentIntentResult = {
+  clientSecret: string;
+  publishableKey?: string;
+};
+
 export async function createDeliveryPaymentIntentClientSecret(
   body: CreateDeliveryPaymentIntentBody,
-): Promise<string> {
+): Promise<CreateDeliveryPaymentIntentResult> {
   const useMajor = env.paymentCreateIntentAmountInMajorUnits;
   const amountPayload = useMajor ? penceToMajorGbp(body.amount) : body.amount;
 
@@ -121,7 +146,7 @@ export async function createDeliveryPaymentIntentClientSecret(
     }
     throw new Error('Server did not return a PaymentIntent client secret.');
   }
-  return secret;
+  return { clientSecret: secret, publishableKey: pickPublishableKey(data) };
 }
 
 export function paymentIntentIdFromClientSecret(clientSecret: string): string {

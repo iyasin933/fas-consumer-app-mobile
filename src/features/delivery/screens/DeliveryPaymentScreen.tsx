@@ -12,7 +12,7 @@ import {
 import ConfettiCannon from 'react-native-confetti-cannon';
 import { isAxiosError } from 'axios';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useStripe } from '@stripe/stripe-react-native';
+import { initStripe, useStripe } from '@stripe/stripe-react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
@@ -36,6 +36,13 @@ import { typography } from '@/shared/theme/typography';
 import type { AppStackParamList } from '@/types/navigation.types';
 
 type Props = NativeStackScreenProps<AppStackParamList, 'DeliveryPayment'>;
+
+/** Last key the SDK was initialised with (build key is the starting value). */
+let activeStripePublishableKey: string | null = null;
+
+function sanitizeStripePublishableKey(value: string): string {
+  return value.replace(/^["']+|["']+$/g, '').trim();
+}
 
 const PAYMENT_FOOTER_TOP_PADDING = spacing.sm;
 const PAYMENT_CTA_MIN_HEIGHT = 56;
@@ -272,11 +279,33 @@ export function DeliveryPaymentScreen({ navigation, route }: Props) {
           vehicleName,
         });
       }
-      const paymentIntentClientSecret = await createDeliveryPaymentIntentClientSecret({
+      const intent = await createDeliveryPaymentIntentClientSecret({
         amount: amountPence,
         currency: 'gbp',
         ...(loadId != null ? { loadId } : {}),
       });
+      const paymentIntentClientSecret = intent.clientSecret;
+
+      // The server returns the publishable key matching the account that
+      // created the PaymentIntent. Re-initialise the SDK when it differs from
+      // the currently active key so the sheet can never hit a key mismatch.
+      const serverKey = intent.publishableKey
+        ? sanitizeStripePublishableKey(intent.publishableKey)
+        : null;
+      const buildKey = sanitizeStripePublishableKey(env.stripePublishableKey);
+      const currentKey = activeStripePublishableKey ?? buildKey;
+      if (serverKey && serverKey !== currentKey) {
+        if (__DEV__) {
+          console.log(
+            '[DeliveryPayment] server publishable key differs from active key; re-initialising Stripe',
+          );
+        }
+        await initStripe({
+          publishableKey: serverKey,
+          urlScheme: 'dropyou',
+        });
+        activeStripePublishableKey = serverKey;
+      }
 
       const { error: initError } = await initPaymentSheet({
         merchantDisplayName: 'DropYou',
