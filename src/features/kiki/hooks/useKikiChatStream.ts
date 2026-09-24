@@ -34,16 +34,21 @@ function asRecord(value: unknown): Record<string, unknown> | null {
 
 function readCreateLoadResult(output: unknown): {
   success: boolean;
-  loadId: number | null;
+  loadId: string | null;
   error?: string;
 } {
   const result = asRecord(output);
   const data = asRecord(result?.data);
   const rawLoadId = result?.loadId ?? data?.id;
-  const loadId = Number(rawLoadId);
+  const loadId =
+    typeof rawLoadId === 'string' && rawLoadId.trim()
+      ? rawLoadId.trim()
+      : typeof rawLoadId === 'number' && Number.isFinite(rawLoadId)
+        ? String(rawLoadId)
+        : null;
   return {
-    success: result?.success === true && Number.isFinite(loadId) && loadId > 0,
-    loadId: Number.isFinite(loadId) && loadId > 0 ? loadId : null,
+    success: result?.success === true && loadId != null,
+    loadId,
     error:
       typeof result?.error === 'string'
         ? result.error

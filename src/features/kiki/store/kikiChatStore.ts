@@ -15,7 +15,7 @@ export interface KikiConversationState {
   quotesLoading: boolean;
   pagination: PaginationMeta | null;
   isFindingQuotes: boolean;
-  currentLoadId: number | null;
+  currentLoadId: string | number | null;
   bookingId: string | null;
   acceptedQuoteId: string | number | null;
   vehiclePrices: Record<string, string>;
@@ -52,10 +52,10 @@ export interface KikiChatState {
   setMessagesLoading: (conversationKey: string, loading: boolean) => void;
   setDraft: (conversationKey: string, draft: string) => void;
 
-  startFindingQuotes: (conversationKey: string, loadId: number) => void;
+  startFindingQuotes: (conversationKey: string, loadId: string | number) => void;
   setBookingIdentity: (
     conversationKey: string,
-    identity: { loadId?: number | null; bookingId?: string | null },
+    identity: { loadId?: string | number | null; bookingId?: string | null },
   ) => void;
   upsertQuote: (conversationKey: string, quote: KikiQuote) => void;
   setQuotesLoading: (conversationKey: string, loading: boolean) => void;

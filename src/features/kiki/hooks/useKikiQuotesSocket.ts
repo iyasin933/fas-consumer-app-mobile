@@ -20,10 +20,10 @@ import { debugLog } from '@/utils/debugLog';
  */
 export function useKikiQuotesSocket(
   conversationKey: string | null,
-  loadId: number | null,
+  loadId: string | number | null,
 ) {
   const socketRef = useRef<Socket | null>(null);
-  const subscribedLoadIdsRef = useRef<Set<number>>(new Set());
+  const subscribedLoadIdsRef = useRef<Set<string>>(new Set());
   const alertedQuoteIdsRef = useRef<Set<string>>(new Set());
   const disconnect = useCallback(() => {
     if (socketRef.current) {
@@ -41,7 +41,7 @@ export function useKikiQuotesSocket(
       debugLog('KikiQuotesSocket', 'no verified load id; not subscribing');
       return;
     }
-    if (subscribedLoadIds.has(loadId)) {
+    if (subscribedLoadIds.has(String(loadId))) {
       debugLog('KikiQuotesSocket', 'load already subscribed', { loadId });
       return;
     }
@@ -54,7 +54,7 @@ export function useKikiQuotesSocket(
       if (cancelled) return;
 
       disconnect();
-      subscribedLoadIds.add(loadId);
+      subscribedLoadIds.add(String(loadId));
       debugLog('KikiQuotesSocket', 'creating socket', {
         loadId,
         url: env.socketUrl,
@@ -86,7 +86,7 @@ export function useKikiQuotesSocket(
         debugLog('KikiQuotesSocket', 'received dropyou_quote_received', data);
         const payload = data as KikiQuote;
         const quoteLoadId = payload.quote?.loadId ?? payload.loadId;
-        if (quoteLoadId != null && Number(quoteLoadId) === Number(loadId)) {
+        if (quoteLoadId != null && String(quoteLoadId) === String(loadId)) {
           const quoteId = payload.quote?.quoteId ?? payload.quoteId;
           const eventTimestamp =
             typeof (data as Record<string, unknown>)?.timestamp === 'string'
@@ -151,7 +151,7 @@ export function useKikiQuotesSocket(
 
     return () => {
       cancelled = true;
-      subscribedLoadIds.delete(loadId);
+      subscribedLoadIds.delete(String(loadId));
       disconnect();
     };
   }, [conversationKey, disconnect, loadId]);

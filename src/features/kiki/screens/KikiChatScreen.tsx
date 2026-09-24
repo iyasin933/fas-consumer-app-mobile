@@ -354,8 +354,8 @@ export function KikiChatScreen() {
 
   const subscriptionLoadId = useMemo(() => {
     if (currentLoadId != null) return currentLoadId;
-    const parsed = Number(activeBookingId);
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+    const trimmed = String(activeBookingId ?? '').trim();
+    return trimmed || null;
   }, [activeBookingId, currentLoadId]);
 
   const sortedQuotes = useMemo(() => {
@@ -433,12 +433,6 @@ export function KikiChatScreen() {
           result?.booking && typeof result.booking === 'object'
             ? (result.booking as Record<string, unknown>)
             : undefined;
-        const candidate =
-          result?.loadId ??
-          result?.load_id ??
-          result?.id ??
-          result?.bookingId ??
-          result?.booking_id;
         const bookingUuid =
           bookingRecord?.id ??
           bookingRecord?.bookingId ??
@@ -452,12 +446,19 @@ export function KikiChatScreen() {
           }
           setBookingIdentity(ownerKey, { bookingId: uuid });
         }
-        const numeric = Number(candidate);
-        if (Number.isFinite(numeric) && numeric > 0) {
+        const candidate = String(
+          result?.loadId ??
+            result?.load_id ??
+            result?.id ??
+            result?.bookingId ??
+            result?.booking_id ??
+            ''
+        ).trim();
+        if (candidate) {
           if (__DEV__) {
-            console.log('[KikiChat] resolved load id from booking details', numeric);
+            console.log('[KikiChat] resolved load id from booking details', candidate);
           }
-          setBookingIdentity(ownerKey, { loadId: numeric });
+          setBookingIdentity(ownerKey, { loadId: candidate });
         }
       } catch (err: unknown) {
         if (__DEV__) {

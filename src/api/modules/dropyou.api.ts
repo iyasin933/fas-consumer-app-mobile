@@ -267,6 +267,7 @@ export function extractLoadIdFromRepostResponse(data: unknown): string | null {
   //   NestJS interceptor wraps: { status, message, result: { tegLoadId } }
   //   Docs shape:               { success, bookingId, tegLoadId }
   //   Nested data:              { data: { tegLoadId } }
+  //   Reposted loads also carry a fresh publicLoadId; fall back to bookingId.
   const result =
     (body.result as Record<string, unknown> | undefined);
 
@@ -274,11 +275,17 @@ export function extractLoadIdFromRepostResponse(data: unknown): string | null {
     result?.tegLoadId as string | number | undefined,
     result?.loadId as string | number | undefined,
     result?.id as string | number | undefined,
+    result?.publicLoadId as string | number | undefined,
+    result?.bookingId as string | number | undefined,
     body.tegLoadId as string | number | undefined,
     body.loadId as string | number | undefined,
     body.id as string | number | undefined,
+    body.publicLoadId as string | number | undefined,
+    body.bookingId as string | number | undefined,
     (body.data as Record<string, unknown> | undefined)?.tegLoadId,
     (body.data as Record<string, unknown> | undefined)?.loadId,
+    (body.data as Record<string, unknown> | undefined)?.publicLoadId,
+    (body.data as Record<string, unknown> | undefined)?.bookingId,
     (body.data as Record<string, unknown> | undefined)?.id,
   ];
 
