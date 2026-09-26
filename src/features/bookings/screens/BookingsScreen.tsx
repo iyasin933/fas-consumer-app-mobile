@@ -1,7 +1,8 @@
+import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -10,19 +11,27 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { fetchLoadDetailsById } from '@/api/modules/dropyou.api';
 import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
+import {
+  isCompletedLoad,
+  isExpiredLoad,
+  isFailedLoad,
+  isPendingLoad,
+} from '@/features/bookings/utils/bookingStatus';
 import { captureSafe } from '@/services/posthog';
 import { useBookingDetailsStore } from '@/features/bookings/store/bookingDetailsStore';
 import { ActiveTripCard } from '@/features/home/components/ActiveTripCard';
 import { useTheme } from '@/hooks/useTheme';
 import { useAuthStore } from '@/store/authStore';
 import { AccountRequiredEmptyState } from '@/shared/components/AccountRequiredEmptyState';
+import { FilterDropdown } from '@/shared/components/FilterDropdown';
 import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
-import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
+import { SearchField } from '@/shared/components/SearchField';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
@@ -30,35 +39,7 @@ import { typography } from '@/shared/theme/typography';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
 import type { AppStackParamList } from '@/types/navigation.types';
 
-type LoadStatusTab = 'all' | 'pending' | 'completed' | 'failed';
-
-const FAILED_STATUS_TERMS = [
-  'failed',
-  'failure',
-  'rejected',
-  'cancelled',
-  'canceled',
-  'declined',
-  'expired',
-  'error',
-];
-const PENDING_STATUS_TERMS = [
-  'pending',
-  'waiting',
-  'processing',
-  'requested',
-  'created',
-  'posted',
-  'open',
-  'quote',
-  'unassigned',
-];
-const COMPLETED_STATUS_TERMS = [
-  'completed',
-  'complete',
-  'delivered',
-  'delivery_completed',
-];
+type LoadStatusTab = 'all' | 'pending' | 'completed' | 'expired' | 'failed';
 
 function logJson(label: string, value: unknown): void {
   try {
@@ -68,7 +49,7 @@ function logJson(label: string, value: unknown): void {
   }
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, narrow: boolean) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
     listContent: {
@@ -82,6 +63,33 @@ function createStyles(colors: ThemeColors) {
       backgroundColor: colors.background,
       zIndex: 5,
       elevation: 5,
+      gap: spacing.sm,
+    },
+    filterRow: {
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.sm,
+    },
+    filterDropdownWrap: {
+      flex: 1,
+      minWidth: 0,
+    },
+    resetButton: {
+      minHeight: narrow ? 36 : 44,
+      flexDirection: 'row',
+      alignItems: 'center',
+      justifyContent: 'center',
+      gap: spacing.xs,
+      borderRadius: 12,
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: colors.surface,
+      paddingHorizontal: narrow ? spacing.sm : spacing.md,
+    },
+    resetText: {
+      fontSize: narrow ? typography.fontSize.sm : typography.fontSize.md,
+      fontWeight: typography.fontWeight.bold,
+      color: colors.primary,
     },
     listItem: {
       paddingHorizontal: spacing.md,
@@ -101,31 +109,15 @@ function createStyles(colors: ThemeColors) {
   });
 }
 
-function normalizedStatus(trip: ActiveTripCardVm): string {
-  return trip.statusLabel.trim().toLowerCase();
-}
-
-function isFailedLoad(trip: ActiveTripCardVm): boolean {
-  const status = normalizedStatus(trip);
-  return FAILED_STATUS_TERMS.some((term) => status.includes(term));
-}
-
-function isPendingLoad(trip: ActiveTripCardVm): boolean {
-  const status = normalizedStatus(trip);
-  return PENDING_STATUS_TERMS.some((term) => status.includes(term));
-}
-
-function isCompletedLoad(trip: ActiveTripCardVm): boolean {
-  const status = normalizedStatus(trip);
-  return COMPLETED_STATUS_TERMS.some((term) => status.includes(term));
-}
-
 export function BookingsScreen() {
   const { colors } = useTheme();
+  const { width } = useWindowDimensions();
+  const narrow = width < 380;
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const styles = useMemo(() => createStyles(colors), [colors]);
+  const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
   const isAuthed = useAuthStore((s) => s.session === 'authed');
   const [activeStatusTab, setActiveStatusTab] = useState<LoadStatusTab>('all');
+  const [searchQuery, setSearchQuery] = useState('');
   const tabBarHeight = useBottomTabBarHeight();
   const detailsByLoadId = useBookingDetailsStore((s) => s.detailsByLoadId);
   const loadingByLoadId = useBookingDetailsStore((s) => s.loadingByLoadId);
@@ -148,29 +140,71 @@ export function BookingsScreen() {
     refetch();
   }, [refetch]);
 
+  // Refresh whenever the tab gains focus so a just-reposted load (new status,
+  // new public id, latest-activity ordering) shows up without waiting for the
+  // query cache to go stale.
+  useFocusEffect(
+    useCallback(() => {
+      refetch();
+    }, [refetch]),
+  );
+
   const pendingCount = useMemo(() => bookings.filter(isPendingLoad).length, [bookings]);
   const completedCount = useMemo(() => bookings.filter(isCompletedLoad).length, [bookings]);
+  const expiredCount = useMemo(() => bookings.filter(isExpiredLoad).length, [bookings]);
   const failedCount = useMemo(() => bookings.filter(isFailedLoad).length, [bookings]);
+
+  // Default filter: land on Pending when pending bookings exist, otherwise All.
+  // Applied once when the first list arrives so the user's later filter choice
+  // is never overridden.
+  const defaultTabAppliedRef = useRef(false);
+  useEffect(() => {
+    if (defaultTabAppliedRef.current || bookings.length === 0) return;
+    defaultTabAppliedRef.current = true;
+    setActiveStatusTab(pendingCount > 0 ? 'pending' : 'all');
+  }, [bookings.length, pendingCount]);
+
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
   const filteredBookings = useMemo(() => {
-    if (activeStatusTab === 'pending') return bookings.filter(isPendingLoad);
-    if (activeStatusTab === 'completed') return bookings.filter(isCompletedLoad);
-    if (activeStatusTab === 'failed') return bookings.filter(isFailedLoad);
-    return bookings;
-  }, [activeStatusTab, bookings]);
+    const byStatus = (() => {
+      if (activeStatusTab === 'pending') return bookings.filter(isPendingLoad);
+      if (activeStatusTab === 'completed') return bookings.filter(isCompletedLoad);
+      if (activeStatusTab === 'expired') return bookings.filter(isExpiredLoad);
+      if (activeStatusTab === 'failed') return bookings.filter(isFailedLoad);
+      return bookings;
+    })();
+
+    if (!normalizedQuery) return byStatus;
+
+    // Match both DropYou identities (short public load id like DY-12345678 and
+    // the booking UUID) and the TEG load id. Partial, case-insensitive.
+    return byStatus.filter((trip) => {
+      const candidates = [
+        trip.loadId,
+        trip.publicLoadId,
+        trip.id,
+        trip.bookingId,
+      ];
+      return candidates.some((value) =>
+        value.toLowerCase().includes(normalizedQuery),
+      );
+    });
+  }, [activeStatusTab, bookings, normalizedQuery]);
 
   const statusTabs = useMemo(
     () => [
       { value: 'all' as const, label: 'All', badge: bookings.length },
       { value: 'pending' as const, label: 'Pending', badge: pendingCount },
       { value: 'completed' as const, label: 'Completed', badge: completedCount },
+      { value: 'expired' as const, label: 'Expired', badge: expiredCount },
       { value: 'failed' as const, label: 'Failed', badge: failedCount },
     ],
-    [bookings.length, completedCount, failedCount, pendingCount],
+    [bookings.length, completedCount, expiredCount, failedCount, pendingCount],
   );
 
   const handleBookingPress = useCallback(
     (trip: ActiveTripCardVm) => {
-      const loadId = (trip.loadId || trip.id).trim();
+      const loadId = (trip.publicLoadId || trip.loadId || trip.id).trim();
       if (!loadId) {
         Alert.alert('Booking details', 'This booking does not include a load id.');
         return;
@@ -188,6 +222,7 @@ export function BookingsScreen() {
           backTitle: 'Bookings',
           loadId,
           ...(trip.bookingId ? { bookingId: trip.bookingId } : {}),
+          ...(trip.publicLoadId ? { publicLoadId: trip.publicLoadId } : {}),
           passengerLabel: trip.passengerLabel,
           statusLabel: trip.statusLabel,
           vehicleName: trip.vehicleName,
@@ -208,6 +243,7 @@ export function BookingsScreen() {
         backTitle: 'Bookings',
         loadId,
         ...(trip.bookingId ? { bookingId: trip.bookingId } : {}),
+        ...(trip.publicLoadId ? { publicLoadId: trip.publicLoadId } : {}),
         passengerLabel: trip.passengerLabel,
         statusLabel: trip.statusLabel,
         vehicleName: trip.vehicleName,
@@ -266,7 +302,23 @@ export function BookingsScreen() {
     navigation.navigate('MainTabs', { screen: 'Map' });
   }, [navigation]);
 
+  const hasActiveFilters = normalizedQuery.length > 0 || activeStatusTab !== 'all';
+
+  const resetFilters = useCallback(() => {
+    setSearchQuery('');
+    setActiveStatusTab('all');
+  }, []);
+
   const emptyCopy = useMemo(() => {
+    if (normalizedQuery) {
+      return {
+        eyebrow: 'No matches',
+        title: 'No bookings found',
+        body: `Nothing matches “${searchQuery.trim()}” across your DropYou and TEG load ids. Try a different id or clear the search.`,
+        icon: 'search-outline' as const,
+        meta: undefined,
+      };
+    }
     if (activeStatusTab === 'pending') {
       return {
         eyebrow: 'All clear',
@@ -282,6 +334,15 @@ export function BookingsScreen() {
         title: 'No completed bookings',
         body: 'Deliveries your driver has finished will be kept here, with proof of delivery when available.',
         icon: 'checkmark-done-outline' as const,
+        meta: undefined,
+      };
+    }
+    if (activeStatusTab === 'expired') {
+      return {
+        eyebrow: 'Nothing expired',
+        title: 'No expired bookings',
+        body: 'Bookings that expired before a driver was assigned will appear here. You can repost them to try again.',
+        icon: 'time-outline' as const,
         meta: undefined,
       };
     }
@@ -301,7 +362,7 @@ export function BookingsScreen() {
       icon: 'calendar-outline' as const,
       meta: undefined,
     };
-  }, [activeStatusTab]);
+  }, [activeStatusTab, normalizedQuery, searchQuery]);
 
   if (!isAuthed) {
     return (
@@ -353,11 +414,33 @@ export function BookingsScreen() {
           style={styles.list}
           ListHeaderComponent={
             <View style={styles.tabsHeader}>
-              <SegmentedTabs
-                value={activeStatusTab}
-                options={statusTabs}
-                onChange={setActiveStatusTab}
+              <SearchField
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search via load ID"
+                accessibilityLabel="Search bookings by load ID"
               />
+              <View style={styles.filterRow}>
+                <View style={styles.filterDropdownWrap}>
+                  <FilterDropdown
+                    value={activeStatusTab}
+                    options={statusTabs}
+                    title="Filter bookings"
+                    onChange={setActiveStatusTab}
+                  />
+                </View>
+                {hasActiveFilters ? (
+                  <Pressable
+                    style={styles.resetButton}
+                    onPress={resetFilters}
+                    accessibilityRole="button"
+                    accessibilityLabel="Reset filters"
+                  >
+                    <Ionicons name="refresh" size={16} color={colors.primary} />
+                    <Text style={styles.resetText}>Reset</Text>
+                  </Pressable>
+                ) : null}
+              </View>
             </View>
           }
           stickyHeaderIndices={[0]}
@@ -385,17 +468,23 @@ export function BookingsScreen() {
               icon={emptyCopy.icon}
               meta={emptyCopy.meta}
               primaryAction={
-                activeStatusTab === 'all'
+                normalizedQuery
                   ? {
-                      label: 'Book a delivery',
-                      icon: 'map-outline',
-                      onPress: openNewBooking,
+                      label: 'Clear search',
+                      icon: 'close-circle-outline' as const,
+                      onPress: () => setSearchQuery(''),
                     }
-                  : {
-                      label: 'View all bookings',
-                      icon: 'albums-outline',
-                      onPress: () => setActiveStatusTab('all'),
-                    }
+                  : activeStatusTab === 'all'
+                    ? {
+                        label: 'Book a delivery',
+                        icon: 'map-outline',
+                        onPress: openNewBooking,
+                      }
+                    : {
+                        label: 'View all bookings',
+                        icon: 'albums-outline',
+                        onPress: () => setActiveStatusTab('all'),
+                      }
               }
               style={{ flex: 1 }}
             />

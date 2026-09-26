@@ -231,6 +231,9 @@ export interface RepostBookingBody {
     location: { longitude: number; latitude: number };
     address: string;
   };
+  vehicle?: { name: string; apiKey: string; price: number };
+  recipientNotes?: string;
+  phone?: string;
 }
 
 /** Repost an expired booking. POST /dropyou/repost/:bookingId */

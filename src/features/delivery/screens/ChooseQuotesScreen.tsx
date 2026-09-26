@@ -45,6 +45,7 @@ import Animated, {
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { acceptDropyouQuote } from '@/features/delivery/api/dropyouAcceptQuoteApi';
+import { CopyableText } from '@/shared/components/CopyableText';
 import { cancelDropyouBooking } from '@/features/delivery/api/dropyouCancelBookingApi';
 import { captureSafe } from '@/services/posthog';
 import { DropyouQuoteCard } from '@/features/delivery/components/DropyouQuoteCard';
@@ -908,7 +909,10 @@ export function ChooseQuotesScreen({ route }: Props) {
               for {vehicleName}.
             </Text>
           )}
-          <Text style={styles.bookingMeta}>Booking ID: {loadId}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.bookingMeta}>Booking ID: </Text>
+            <CopyableText value={loadId} style={styles.bookingMeta} iconSize={13} />
+          </View>
           {!isConnected ? (
             <Text style={styles.errorMessage}>
               We’re having trouble connecting to live quotes. Please check your internet

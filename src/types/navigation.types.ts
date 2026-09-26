@@ -41,6 +41,10 @@ export type MainTabParamList = {
         initialPickup?: MapScreenPickedPlace;
         /** Booking ID to repost after Proceed (calls POST /dropyou/repost/:bookingId). */
         repositBookingId?: string;
+        /** Recipient name prefilled on the recipient step (repost flow). */
+        repostRecipientName?: string;
+        /** Recipient phone (full international, e.g. +447497227114) prefilled on the recipient step (repost flow). */
+        repostRecipientPhone?: string;
         /** Snap index (0=35%, 1=65%, 2=95%). Default 1 when arriving from Home. */
         initialSnapIndex?: 0 | 1 | 2;
       }
@@ -58,6 +62,7 @@ export type AppStackParamList = {
     backTitle?: string;
     loadId: string;
     bookingId?: string;
+    publicLoadId?: string;
     passengerLabel?: string;
     statusLabel?: string;
     vehicleName?: string;
@@ -66,9 +71,9 @@ export type AppStackParamList = {
     pickupTimeLabel?: string;
     dropoffTimeLabel?: string;
   };
-  AddDeliveryContents: undefined;
-  RecipientDetails: undefined;
-  ChooseVehicle: undefined;
+  AddDeliveryContents: { repositBookingId?: string } | undefined;
+  RecipientDetails: { repositBookingId?: string } | undefined;
+  ChooseVehicle: { repositBookingId?: string } | undefined;
   /** Live carrier quotes for a load (after `POST /dropyou/load`, before payment). */
   ChooseQuotes: {
     loadId: string;

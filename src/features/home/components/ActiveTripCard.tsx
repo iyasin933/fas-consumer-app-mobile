@@ -1,5 +1,6 @@
-import { useMemo } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Clipboard, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { LocationFrameSvg } from '@/features/home/components/LocationFrameSvg';
 import { vehicleIconSource } from '@/features/home/utils/vehicleIconFromManifest';
@@ -30,6 +31,16 @@ function createStyles(colors: ThemeColors) {
       flexWrap: 'wrap',
     },
     timeline: { flexDirection: 'row', gap: spacing.sm },
+    copyButton: {
+      width: 28,
+      height: 28,
+      borderRadius: 14,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1,
+      borderColor: colors.border,
+      backgroundColor: 'transparent',
+    },
     colRouteArt: {
       width: 28,
       alignItems: 'center',
@@ -54,11 +65,32 @@ function bookingAccent(colors: ThemeColors, label: string) {
 export function ActiveTripCard({ trip, onPress, disabled }: Props) {
   const { colors } = useTheme();
   const styles = useMemo(() => createStyles(colors), [colors]);
+  const [copied, setCopied] = useState(false);
+  const copyTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const vehicleSrc = useMemo(
     () => vehicleIconSource(trip.vehicleName),
     [trip.vehicleName],
   );
   const accent = bookingAccent(colors, trip.statusLabel);
+
+  const displayId =
+    trip.publicLoadId || trip.loadId || trip.bookingId || trip.id;
+
+  const handleCopy = useCallback(() => {
+    const id = displayId.trim();
+    if (!id) return;
+    Clipboard.setString(id);
+    setCopied(true);
+    if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    copyTimerRef.current = setTimeout(() => setCopied(false), 1500);
+  }, [displayId]);
+
+  useEffect(
+    () => () => {
+      if (copyTimerRef.current) clearTimeout(copyTimerRef.current);
+    },
+    [],
+  );
 
   return (
     <IllustratedActionCard
@@ -77,7 +109,21 @@ export function ActiveTripCard({ trip, onPress, disabled }: Props) {
       footer={
         <>
       <View style={styles.statusRow}>
-        <StatusChip label={trip.bookingId || trip.loadId || trip.id} tone="neutral" />
+        <StatusChip label={displayId} tone="neutral" />
+        <Pressable
+          style={styles.copyButton}
+          onPress={handleCopy}
+          hitSlop={8}
+          disabled={!displayId}
+          accessibilityRole="button"
+          accessibilityLabel={copied ? 'ID copied' : `Copy load ID ${displayId}`}
+        >
+          <Ionicons
+            name={copied ? 'checkmark' : 'copy-outline'}
+            size={15}
+            color={copied ? colors.primary : colors.textSecondary}
+          />
+        </Pressable>
         <StatusChip label={trip.statusLabel} />
       </View>
           <View style={styles.timeline}>

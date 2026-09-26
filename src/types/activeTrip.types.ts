@@ -16,6 +16,8 @@ export type ActiveTripCardVm = {
   id: string;
   /** TEG load id used by `GET /dropyou/load-by-id/:loadId`. */
   loadId: string;
+  /** DropYou short public load id (e.g. `DY-12345678`). */
+  publicLoadId: string;
   /** DropYou booking UUID when present. */
   bookingId: string;
   passengerLabel: string;

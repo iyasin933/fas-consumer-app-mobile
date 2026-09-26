@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useState } from 'react';
 import {
@@ -46,6 +46,7 @@ export function RecipientDetailsScreen() {
   const insets = useSafeAreaInsets();
   const { width: windowWidth, height: windowHeight } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'RecipientDetails'>>();
 
   const recipientName = useDeliveryOrderDraftStore((s) => s.recipientName);
   const recipientCompany = useDeliveryOrderDraftStore((s) => s.recipientCompany);
@@ -92,8 +93,10 @@ export function RecipientDetailsScreen() {
       Alert.alert('Phone required', 'Enter a valid phone number for the selected country.');
       return;
     }
-    navigation.navigate('ChooseVehicle');
-  }, [navigation, recipientName, recipientPhoneLocal, recipientDialCode]);
+    navigation.navigate('ChooseVehicle', {
+      repositBookingId: route.params?.repositBookingId,
+    });
+  }, [navigation, recipientName, recipientPhoneLocal, recipientDialCode, route.params?.repositBookingId]);
 
   const styles = useMemo(
     () =>

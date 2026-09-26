@@ -43,6 +43,7 @@ import {
 import { vehicleIconSource } from '@/features/home/utils/vehicleIconFromManifest';
 import { useTheme } from '@/hooks/useTheme';
 import { IllustratedActionCard } from '@/shared/components/IllustratedActionCard';
+import { CopyableText } from '@/shared/components/CopyableText';
 import { SegmentedTabs } from '@/shared/components/SegmentedTabs';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import { StatusChip } from '@/shared/components/StatusChip';
@@ -726,7 +727,11 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
     [['currentStatus'], ['status'], ['booking', 'status']],
     nonEmpty(route.params.statusLabel) ?? 'Status unavailable',
   );
-  const displayLoadId = textAt(details, [['loadId']], loadId);
+  const displayLoadId = textAt(
+    details,
+    [['publicLoadId'], ['loadId']],
+    nonEmpty(route.params.publicLoadId) ?? loadId,
+  );
   const pickup =
     nonEmpty(route.params.pickupAddress) ??
     textAt(details, [['fromDisplayAddress'], ['booking', 'pickUpAddress', 'address']]);
@@ -759,11 +764,31 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
     ['booking', 'recipientName'],
     ['booking', 'user', 'name'],
   ]);
+  const recipientNameFromNotes = (() => {
+    const raw = textAt(details, [
+      ['booking', 'recipientNotes'],
+      ['recipientNotes'],
+    ]);
+    const match = /^Name:\s*(.+)$/m.exec(raw);
+    return match?.[1]?.trim() ?? '';
+  })();
+  const repostRecipientName =
+    recipientNameFromNotes ||
+    textAt(details, [['booking', 'recipientName'], ['booking', 'user', 'name']]) ||
+    owner;
   const phone = textAt(details, [['phoneNumber'], ['booking', 'phone']]);
   const reference = textAt(
     details,
-    [['reference'], ['booking', 'id']],
-    route.params.bookingId ?? '—',
+    [
+      ['reference'],
+      ['publicLoadId'],
+      ['booking', 'publicLoadId'],
+      ['tegLoadId'],
+      ['loadId'],
+    ],
+    nonEmpty(route.params.publicLoadId) ??
+      nonEmpty(route.params.loadId) ??
+      '—',
   );
   const acceptBookingId = bookingIdFromDetails(details, route.params.bookingId);
   const quotesEnabled = truthyAt(details, [
@@ -1076,6 +1101,8 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
                           ? { address: dropoff, lat: dropoffCoord.latitude, lng: dropoffCoord.longitude }
                           : undefined,
                         repositBookingId: acceptBookingId || route.params.bookingId || undefined,
+                        repostRecipientName: repostRecipientName || undefined,
+                        repostRecipientPhone: phone || undefined,
                       },
                     });
                   }}
@@ -1161,9 +1188,10 @@ export function BookingDetailsScreen({ route, navigation }: Props) {
               containerStyle={styles.illustratedSection}
               footer={
                 <View style={{ gap: spacing.lg }}>
-                  <DetailRow label="Reference" value={reference} styles={styles} />
+                  <DetailRow label="Booking ID" value={displayLoadId} styles={styles} copyable />
+                  <DetailRow label="Reference" value={reference} styles={styles} copyable />
                   <DetailRow label="Carrier / owner" value={owner} styles={styles} />
-                  <DetailRow label="Phone" value={phone} styles={styles} />
+                  <DetailRow label="Phone" value={phone} styles={styles} callable={Boolean(phone.trim())} />
                   <DetailRow
                     label="Job type"
                     value={textAt(details, [
@@ -1337,11 +1365,61 @@ function DetailRow({
   label,
   value,
   styles,
+  copyable,
+  callable,
 }: {
   label: string;
   value: string;
   styles: ReturnType<typeof createStyles>;
+  /** Tap to copy the value. */
+  copyable?: boolean;
+  /** Tap to start a phone call with the value. */
+  callable?: boolean;
 }) {
+  const { colors } = useTheme();
+
+  if (copyable) {
+    return (
+      <View style={styles.row}>
+        <Text style={styles.label}>{label}</Text>
+        <CopyableText value={value} style={styles.value} />
+      </View>
+    );
+  }
+
+  if (callable) {
+    const cleaned = value.replace(/[^\d+]/g, '');
+    const handleCall = () => {
+      if (!cleaned) return;
+      void (async () => {
+        try {
+          // tel: opens the dialer/phone on both iOS and Android.
+          await Linking.openURL(`tel:${cleaned}`);
+        } catch {
+          Alert.alert(
+            'Call failed',
+            `Could not start a call to ${value}. Please dial the number manually.`,
+          );
+        }
+      })();
+    };
+    return (
+      <View style={styles.row}>
+        <Text style={styles.label}>{label}</Text>
+        <Pressable
+          style={{ flexDirection: 'row', alignItems: 'center', gap: spacing.xs, flexShrink: 1 }}
+          onPress={handleCall}
+          hitSlop={6}
+          accessibilityRole="button"
+          accessibilityLabel={`Call ${value}`}
+        >
+          <Text style={styles.value}>{value}</Text>
+          <Ionicons name="call-outline" size={15} color={colors.primary} />
+        </Pressable>
+      </View>
+    );
+  }
+
   return (
     <View style={styles.row}>
       <Text style={styles.label}>{label}</Text>

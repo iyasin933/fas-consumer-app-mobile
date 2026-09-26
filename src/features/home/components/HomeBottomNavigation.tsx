@@ -20,6 +20,7 @@ import Animated, {
 } from 'react-native-reanimated';
 
 import { LiquidTabBarLayer } from '@/features/home/components/LiquidTabBarLayer';
+import { usePendingBookingsCount } from '@/features/bookings/hooks/usePendingBookingsCount';
 import { useNotificationUnreadDot } from '@/features/notifications/hooks/useNotificationUnreadDot';
 import { useTheme } from '@/hooks/useTheme';
 import { lightColors, type ThemeColors } from '@/shared/theme/colors';
@@ -211,6 +212,28 @@ function createStyles(colors: ThemeColors, metrics: TabBarMetrics) {
       borderColor: colors.surface,
       zIndex: 6,
     },
+    /** Count badge (pending bookings) — red pill with number. */
+    countBadge: {
+      position: 'absolute',
+      right: -14,
+      top: -5,
+      minWidth: metrics.badgeSize + 4,
+      height: metrics.badgeSize + 4,
+      borderRadius: (metrics.badgeSize + 4) / 2,
+      paddingHorizontal: 4,
+      alignItems: 'center',
+      justifyContent: 'center',
+      borderWidth: 1.5,
+      borderColor: colors.surface,
+      zIndex: 6,
+    },
+    countBadgeText: {
+      color: '#ffffff',
+      fontSize: 9,
+      fontWeight: '800',
+      lineHeight: 11,
+      textAlign: 'center',
+    },
     /** Floating action button — lifts above the bar via negative top. */
     fab: {
       position: 'absolute',
@@ -249,6 +272,9 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
   const metrics = useMemo(() => tabBarMetrics(width, height), [height, width]);
   const styles = useMemo(() => createStyles(colors, metrics), [colors, metrics]);
   const { hasUnread: hasUnreadNotifications } = useNotificationUnreadDot();
+  const pendingBookingsCount = usePendingBookingsCount();
+  const pendingBadgeLabel =
+    pendingBookingsCount > 99 ? '99+' : String(pendingBookingsCount);
   const shouldHideForMapFlow = state.routes[state.index]?.name === 'Map';
   const logicalTabBarHeight = metrics.barHeight + insets.bottom;
   const contentWidth = Math.max(1, width - insets.left - insets.right);
@@ -337,6 +363,11 @@ export function HomeBottomNavigation({ state, navigation, insets }: BottomTabBar
                     size={metrics.iconSize}
                     color={active ? colors.primary : INACTIVE_COLOR}
                   />
+                  {route.name === 'Bookings' && pendingBookingsCount > 0 ? (
+                    <View style={[styles.countBadge, { backgroundColor: colors.danger }]}>
+                      <Text style={styles.countBadgeText}>{pendingBadgeLabel}</Text>
+                    </View>
+                  ) : null}
                 </View>
                 <Text
                   numberOfLines={1}

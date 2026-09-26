@@ -1,7 +1,8 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { ReactNode } from 'react';
-import { useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  Clipboard,
   Image,
   type ImageSourcePropType,
   Pressable,
@@ -111,10 +112,15 @@ function createStyles(
       backgroundColor: colors.background,
       borderWidth: 1,
       borderColor: colors.border,
+      flexDirection: 'row',
+      alignItems: 'center',
+      gap: spacing.xs,
+      overflow: 'hidden',
+    },
+    codeText: {
       color: colors.textPrimary,
       fontSize: typography.fontSize.sm,
       fontWeight: '800',
-      overflow: 'hidden',
     },
     actionButton: {
       alignSelf: 'flex-start',
@@ -263,6 +269,8 @@ export function IllustratedActionCard({
 }: Props) {
   const { colors } = useTheme();
   const { width } = useWindowDimensions();
+  const [codeCopied, setCodeCopied] = useState(false);
+  const codeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const accent = accentProp ?? colors.primary;
   const styles = useMemo(
     () =>
@@ -278,6 +286,21 @@ export function IllustratedActionCard({
     [accent, colors, hideGlow, imageBubbleBackgroundColor, selected, transparentArt, width],
   );
 
+  const handleCopyCode = useCallback(() => {
+    if (!code) return;
+    Clipboard.setString(code);
+    setCodeCopied(true);
+    if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
+    codeTimerRef.current = setTimeout(() => setCodeCopied(false), 1500);
+  }, [code]);
+
+  useEffect(
+    () => () => {
+      if (codeTimerRef.current) clearTimeout(codeTimerRef.current);
+    },
+    [],
+  );
+
   const content = (
     <>
       <View style={styles.glow} pointerEvents="none" />
@@ -287,7 +310,24 @@ export function IllustratedActionCard({
           {title}
         </Text>
         {body ? <Text style={styles.body}>{body}</Text> : null}
-        {code ? <Text style={styles.code}>CODE: {code}</Text> : null}
+        {code ? (
+          <Pressable
+            style={styles.code}
+            onPress={handleCopyCode}
+            hitSlop={6}
+            accessibilityRole="button"
+            accessibilityLabel={
+              codeCopied ? `Copied code ${code}` : `Copy code ${code}`
+            }
+          >
+            <Text style={styles.codeText}>CODE: {code}</Text>
+            <Ionicons
+              name={codeCopied ? 'checkmark' : 'copy-outline'}
+              size={14}
+              color={codeCopied ? colors.primary : colors.textSecondary}
+            />
+          </Pressable>
+        ) : null}
         {actionLabel ? (
           <Pressable
             accessibilityRole="button"

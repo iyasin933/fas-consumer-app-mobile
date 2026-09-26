@@ -2,7 +2,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   Alert,
   FlatList,
@@ -28,6 +28,7 @@ import { useTheme } from '@/hooks/useTheme';
 import { AccountRequiredEmptyState } from '@/shared/components/AccountRequiredEmptyState';
 import { IllustratedActionCard } from '@/shared/components/IllustratedActionCard';
 import { InteractiveEmptyState } from '@/shared/components/InteractiveEmptyState';
+import { SearchField } from '@/shared/components/SearchField';
 import { Skeleton, SkeletonCard } from '@/shared/components/Skeleton';
 import { StatusChip } from '@/shared/components/StatusChip';
 import type { ThemeColors } from '@/shared/theme/colors';
@@ -132,6 +133,17 @@ function quoteVehicle(q: DropyouQuote): string {
   return vehicle ? normalizeVehicleName(vehicle) : 'Van';
 }
 
+function matchesAmountQuery(query: string, price: number): boolean {
+  const cleaned = query.replace(/[^0-9.]/g, '');
+  if (!cleaned) return false;
+  const candidates = [
+    price.toFixed(2),
+    String(Math.round(price)),
+    String(Math.round(price * 100)),
+  ];
+  return candidates.some((candidate) => candidate.includes(cleaned));
+}
+
 type QuoteNotificationVm = {
   id: string;
   quoteId: string;
@@ -180,7 +192,7 @@ function bookingAccent(colors: ThemeColors, status: string) {
   return colors.textSecondary;
 }
 
-function createStyles(colors: ThemeColors) {
+function createStyles(colors: ThemeColors, narrow: boolean = false) {
   return StyleSheet.create({
     safe: { flex: 1, backgroundColor: colors.background },
     list: { flex: 1 },
@@ -188,6 +200,13 @@ function createStyles(colors: ThemeColors) {
       paddingHorizontal: spacing.md,
       paddingTop: spacing.md,
       gap: spacing.md,
+    },
+    searchHeader: {
+      gap: spacing.sm,
+      backgroundColor: colors.background,
+      zIndex: 5,
+      elevation: 5,
+      paddingBottom: spacing.sm,
     },
     headerCard: {
       padding: spacing.md,
@@ -342,10 +361,12 @@ function createStyles(colors: ThemeColors) {
 
 export function NotificationsScreen() {
   const { colors } = useTheme();
-  const styles = useMemo(() => createStyles(colors), [colors]);
   const { width } = useWindowDimensions();
+  const narrow = width < 380;
+  const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const tabBarHeight = useBottomTabBarHeight();
+  const [searchQuery, setSearchQuery] = useState('');
   const horizontalPadding = width < 380 ? spacing.md : spacing.lg;
   const adaptiveListContent = useMemo(
     () => ({
@@ -390,6 +411,17 @@ export function NotificationsScreen() {
     () => quotes.map((quote, index) => mapQuoteToNotification(quote, index)),
     [quotes],
   );
+
+  const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
+
+  const filteredQuoteItems = useMemo(() => {
+    if (!normalizedQuery) return quoteItems;
+    return quoteItems.filter((item) => {
+      if (item.company.toLowerCase().includes(normalizedQuery)) return true;
+      if (item.vehicle.toLowerCase().includes(normalizedQuery)) return true;
+      return matchesAmountQuery(normalizedQuery, item.price);
+    });
+  }, [normalizedQuery, quoteItems]);
 
   const ensureDetails = useCallback(
     (bookingId: string) => {
@@ -488,15 +520,28 @@ export function NotificationsScreen() {
     <SafeAreaView style={styles.safe} edges={['bottom']}>
       <FlatList
         style={styles.list}
-        data={quoteItems}
+        data={filteredQuoteItems}
         keyExtractor={keyExtractor}
         renderItem={renderItem}
-        ListHeaderComponent={quoteItems.length > 0 ? <QuoteListHeader /> : null}
+        ListHeaderComponent={
+          quoteItems.length > 0 ? (
+            <View style={styles.searchHeader}>
+              <SearchField
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+                placeholder="Search by carrier, vehicle or amount"
+                accessibilityLabel="Search notifications"
+              />
+              <QuoteListHeader />
+            </View>
+          ) : null
+        }
+        stickyHeaderIndices={quoteItems.length > 0 ? [0] : []}
         contentContainerStyle={[
           styles.listContent,
           adaptiveListContent,
           { paddingBottom: tabBarHeight + spacing.lg },
-          quoteItems.length === 0 && { flexGrow: 1, paddingTop: spacing.xl },
+          filteredQuoteItems.length === 0 && { flexGrow: 1, paddingTop: spacing.xl },
         ]}
         refreshControl={
           <RefreshControl
@@ -512,7 +557,25 @@ export function NotificationsScreen() {
         updateCellsBatchingPeriod={60}
         windowSize={7}
         removeClippedSubviews
-        ListEmptyComponent={<QuoteEmptyState isAuthed={isAuthed} />}
+        ListEmptyComponent={
+          normalizedQuery ? (
+            <InteractiveEmptyState
+              eyebrow="No matches"
+              title="No quotes found"
+              body={`Nothing matches “${searchQuery.trim()}” by carrier, vehicle, or amount. Try a different search.`}
+              icon="search-outline"
+              accent={colors.primary}
+              primaryAction={{
+                label: 'Clear search',
+                icon: 'close-circle-outline',
+                onPress: () => setSearchQuery(''),
+              }}
+              style={{ flex: 1 }}
+            />
+          ) : (
+            <QuoteEmptyState isAuthed={isAuthed} />
+          )
+        }
         ListFooterComponent={
           isFetchingNextPage ? (
             <View style={styles.footer}>

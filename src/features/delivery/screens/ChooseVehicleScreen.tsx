@@ -1,4 +1,4 @@
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
@@ -28,6 +28,12 @@ import {
   createDropyouLoad,
   summarizeDropyouLoadError,
 } from '@/features/delivery/api/dropyouLoadApi';
+import {
+  extractLoadIdFromRepostResponse,
+  repostBooking,
+  type RepostBookingBody,
+} from '@/api/modules/dropyou.api';
+import { notifyLoadCreatedForQuotes } from '@/features/delivery/socket/loadQuotesSubscriptionBridge';
 import { VehicleOptionCard } from '@/features/delivery/components/VehicleOptionCard';
 import { useConsumerBookingPriceVehicles } from '@/features/delivery/hooks/useConsumerBookingPriceVehicles';
 import { useDeliveryOrderDraftStore } from '@/features/delivery/store/deliveryOrderDraftStore';
@@ -82,6 +88,7 @@ function vehicleQuoteToAmountPence(v: DeliveryVehicleDto): number {
 
 export function ChooseVehicleScreen() {
   const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const route = useRoute<RouteProp<RootStackParamList, 'ChooseVehicle'>>();
   const { colors } = useTheme();
   const insets = useSafeAreaInsets();
   const [submitting, setSubmitting] = useState(false);
@@ -359,6 +366,47 @@ export function ChooseVehicleScreen() {
         recipientPhoneLocal: draft.recipientPhoneLocal,
         recipientNotes: draft.recipientNotes,
       });
+
+      const repostId = route.params?.repositBookingId;
+      if (repostId) {
+        // Repost flow: reuse the edited addresses, schedule, vehicle, and
+        // recipient details gathered through the normal booking screens.
+        const repostBody: RepostBookingBody = {
+          pickUpDate: payload.pickUpDate,
+          pickupTime: payload.pickupTime,
+          dropOffDate: payload.dropOffDate,
+          dropoffTime: payload.dropoffTime,
+          pickUpAddress: payload.pickUpAddress,
+          dropOffAddress: payload.dropOffAddress,
+          vehicle: payload.vehicle,
+          recipientNotes: payload.recipient?.notes,
+          phone: payload.recipient?.phone,
+        };
+
+        const repostResponse = await repostBooking(repostId, repostBody);
+        const newLoadId =
+          extractLoadIdFromRepostResponse(repostResponse) ?? repostId;
+        if (newLoadId) notifyLoadCreatedForQuotes(newLoadId);
+        useDeliveryOrderDraftStore
+          .getState()
+          .setCreatedLoadIds({ loadId: newLoadId, bookingId: repostId });
+        const amountPence = vehicleQuoteToAmountPence(v);
+        captureSafe('booking_reposted', {
+          load_id: newLoadId,
+          booking_id: repostId,
+          vehicle_name: v.name,
+          amount_pence: amountPence,
+          amount_gbp: amountPence / 100,
+        });
+        navigation.navigate('ChooseQuotes', {
+          loadId: newLoadId,
+          bookingId: repostId,
+          amountPence,
+          vehicleName: v.name,
+        });
+        return;
+      }
+
       const { loadId, bookingId } = await createDropyouLoad(payload);
       useDeliveryOrderDraftStore.getState().setCreatedLoadIds({ loadId, bookingId });
       const amountPence = vehicleQuoteToAmountPence(v);
@@ -398,7 +446,7 @@ export function ChooseVehicleScreen() {
     } finally {
       setSubmitting(false);
     }
-  }, [data, isAuthed, navigation]);
+  }, [data, isAuthed, navigation, route.params?.repositBookingId]);
 
   const renderItem = useCallback(
     ({ item }: { item: DeliveryVehicleDto }) => (

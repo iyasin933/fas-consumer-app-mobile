@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute, type RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import {
@@ -45,6 +45,7 @@ export function AddDeliveryContentsScreen() {
   const insets = useSafeAreaInsets();
   const { width } = useWindowDimensions();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<AppStackParamList, 'AddDeliveryContents'>>();
   const isNarrow = width < 380;
   const syncLocationsFromRows = useDeliveryOrderDraftStore(
     (s) => s.syncLocationsFromRows,
@@ -241,8 +242,10 @@ export function AddDeliveryContentsScreen() {
   }, [coords, refresh, reverse, writePickupOrDropoff]);
 
   const onChooseVehicle = useCallback(() => {
-    navigation.navigate('RecipientDetails');
-  }, [navigation]);
+    navigation.navigate('RecipientDetails', {
+      repositBookingId: route.params?.repositBookingId,
+    });
+  }, [navigation, route.params?.repositBookingId]);
 
   if (!pickup?.address || !dropoff?.address) {
     return (

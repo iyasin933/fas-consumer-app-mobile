@@ -82,6 +82,16 @@ function bookingIdOf(o: ActiveTripRaw): string {
   );
 }
 
+function publicLoadIdOf(o: ActiveTripRaw): string {
+  const roots = tripRoots(o);
+  return (
+    firstPickStr(roots, ['publicLoadId', 'public_load_id', 'dropyouLoadId']) ||
+    pickScalarStr(pickNested(o, ['load', 'publicLoadId'])) ||
+    pickScalarStr(pickNested(o, ['load', 'public_load_id'])) ||
+    ''
+  );
+}
+
 /** Maps API trip/load objects into home card fields (best-effort across shapes). */
 export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTripCardVm {
   const roots = tripRoots(o);
@@ -212,6 +222,7 @@ export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTrip
   return {
     id: idOf(o, index),
     loadId: loadIdOf(o),
+    publicLoadId: publicLoadIdOf(o),
     bookingId: bookingIdOf(o),
     passengerLabel: passenger,
     statusLabel: status,
