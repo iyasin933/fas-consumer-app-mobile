@@ -32,7 +32,7 @@ module.exports = () => {
       name: 'DropYou',
       slug: 'dropyou',
       scheme: googleIosUrlScheme ? ['dropyou', googleIosUrlScheme] : 'dropyou',
-      version: '1.1.5',
+      version: '1.1.6',
       orientation: 'portrait',
       icon: './assets/images/D-app-logo.png',
       userInterfaceStyle: 'automatic',
