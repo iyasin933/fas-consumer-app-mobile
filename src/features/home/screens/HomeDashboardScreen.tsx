@@ -4,6 +4,7 @@ import { useCallback, useRef, useState } from 'react';
 import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { ActiveJobsBanner } from '@/features/home/components/ActiveJobsBanner';
 import { ActiveTripsSection } from '@/features/home/components/ActiveTripsSection';
 import { HomePromoBanner } from '@/features/home/components/HomePromoBanner';
 import { HomeSearchHeader } from '@/features/home/components/HomeSearchHeader';
@@ -111,6 +112,7 @@ export function HomeDashboardScreen() {
           showsVerticalScrollIndicator={false}
         >
           <HomePromoBanner />
+          <ActiveJobsBanner />
           <HomeServiceGrid />
           <ActiveTripsSection />
         </ScrollView>

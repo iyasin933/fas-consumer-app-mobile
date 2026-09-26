@@ -224,6 +224,8 @@ export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTrip
     loadId: loadIdOf(o),
     publicLoadId: publicLoadIdOf(o),
     bookingId: bookingIdOf(o),
+    podSubmitted:
+      typeof o.podSubmitted === 'boolean' ? o.podSubmitted : undefined,
     passengerLabel: passenger,
     statusLabel: status,
     vehicleName: vehicle,

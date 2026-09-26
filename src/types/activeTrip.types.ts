@@ -20,6 +20,8 @@ export type ActiveTripCardVm = {
   publicLoadId: string;
   /** DropYou booking UUID when present. */
   bookingId: string;
+  /** True when proof of delivery was already submitted (backend list flag). */
+  podSubmitted?: boolean;
   passengerLabel: string;
   statusLabel: string;
   /** Vehicle label from API — matched in-app to `transport-icons-manifest.json`. */
