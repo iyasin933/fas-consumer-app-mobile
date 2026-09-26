@@ -5,7 +5,7 @@ import { Alert, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { ActiveJobsBanner } from '@/features/home/components/ActiveJobsBanner';
-import { ActiveTripsSection } from '@/features/home/components/ActiveTripsSection';
+import { HomeOffersSection } from '@/features/home/components/HomeOffersSection';
 import { HomePromoBanner } from '@/features/home/components/HomePromoBanner';
 import { HomeSearchHeader } from '@/features/home/components/HomeSearchHeader';
 import { HomeServiceGrid } from '@/features/home/components/HomeServiceGrid';
@@ -114,7 +114,7 @@ export function HomeDashboardScreen() {
           <HomePromoBanner />
           <ActiveJobsBanner />
           <HomeServiceGrid />
-          <ActiveTripsSection />
+          <HomeOffersSection />
         </ScrollView>
 
         {/* Render last so stacking is above ScrollView + tab bar region */}

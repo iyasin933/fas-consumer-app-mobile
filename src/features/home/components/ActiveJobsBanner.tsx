@@ -1,7 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import type { BottomTabNavigationProp } from '@react-navigation/bottom-tabs';
-import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useMemo } from 'react';
 import {
   Pressable,
@@ -16,7 +15,7 @@ import { useTheme } from '@/hooks/useTheme';
 import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
-import type { AppStackParamList, MainTabParamList } from '@/types/navigation.types';
+import type { MainTabParamList } from '@/types/navigation.types';
 
 function createStyles(colors: ThemeColors, narrow: boolean) {
   return StyleSheet.create({
@@ -74,28 +73,11 @@ export function ActiveJobsBanner() {
   const narrow = width < 380;
   const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
   const tabNavigation = useNavigation<BottomTabNavigationProp<MainTabParamList>>();
-  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  const { count, first } = useActiveJobs();
+  const { count } = useActiveJobs();
 
   const onTrack = useCallback(() => {
-    if (first) {
-      const loadId = (first.publicLoadId || first.loadId || first.id).trim();
-      if (loadId) {
-        navigation.navigate('DeliveryTracking', {
-          backTitle: 'Home',
-          loadId,
-          ...(first.bookingId ? { bookingId: first.bookingId } : {}),
-          vehicleName: first.vehicleName || undefined,
-          pickupAddress: first.originAddress,
-          dropoffAddress: first.destAddress,
-          pickupTimeLabel: first.originTimeLabel,
-          dropoffTimeLabel: first.destTimeLabel,
-        });
-        return;
-      }
-    }
-    tabNavigation.navigate('Bookings');
-  }, [first, navigation, tabNavigation]);
+    tabNavigation.navigate('Bookings', { initialStatusTab: 'active' });
+  }, [tabNavigation]);
 
   if (count <= 0) return null;
 
@@ -118,9 +100,9 @@ export function ActiveJobsBanner() {
           onPress={onTrack}
           hitSlop={4}
           accessibilityRole="button"
-          accessibilityLabel={`Track ${count} active ${count === 1 ? 'job' : 'jobs'}`}
+          accessibilityLabel={`View ${count} active ${count === 1 ? 'job' : 'jobs'}`}
         >
-          <Text style={styles.ctaText}>Track now</Text>
+          <Text style={styles.ctaText}>View now</Text>
         </Pressable>
       </View>
     </View>

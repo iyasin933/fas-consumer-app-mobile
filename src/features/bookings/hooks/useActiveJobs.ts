@@ -53,6 +53,7 @@ export function useActiveJobs(): {
   const rows = bookingsQuery.data ?? [];
   const active = rows
     .map((raw, index) => mapActiveTripToView(raw, index))
-    .filter(isActiveJob);
+    .filter(isActiveJob)
+    .sort((a, b) => b.sortTs - a.sortTs);
   return { count: active.length, first: active[0] ?? null };
 }

@@ -30,4 +30,6 @@ export type ActiveTripCardVm = {
   destAddress: string;
   originTimeLabel: string;
   destTimeLabel: string;
+  /** Epoch ms for newest-first ordering (0 when unknown). */
+  sortTs: number;
 };

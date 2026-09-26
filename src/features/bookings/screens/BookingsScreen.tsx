@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useBottomTabBarHeight } from '@react-navigation/bottom-tabs';
-import { useFocusEffect, useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation, useRoute } from '@react-navigation/native';
+import type { RouteProp } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
@@ -18,6 +19,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { fetchLoadDetailsById } from '@/api/modules/dropyou.api';
 import { useUserBookings } from '@/features/bookings/hooks/useUserBookings';
 import {
+  isActiveLoad,
   isCompletedLoad,
   isExpiredLoad,
   isFailedLoad,
@@ -37,9 +39,9 @@ import type { ThemeColors } from '@/shared/theme/colors';
 import { spacing } from '@/shared/theme/spacing';
 import { typography } from '@/shared/theme/typography';
 import type { ActiveTripCardVm } from '@/types/activeTrip.types';
-import type { AppStackParamList } from '@/types/navigation.types';
+import type { AppStackParamList, BookingsStatusTab, MainTabParamList } from '@/types/navigation.types';
 
-type LoadStatusTab = 'all' | 'pending' | 'completed' | 'expired' | 'failed';
+type LoadStatusTab = BookingsStatusTab;
 
 function logJson(label: string, value: unknown): void {
   try {
@@ -114,9 +116,13 @@ export function BookingsScreen() {
   const { width } = useWindowDimensions();
   const narrow = width < 380;
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const route = useRoute<RouteProp<MainTabParamList, 'Bookings'>>();
   const styles = useMemo(() => createStyles(colors, narrow), [colors, narrow]);
   const isAuthed = useAuthStore((s) => s.session === 'authed');
-  const [activeStatusTab, setActiveStatusTab] = useState<LoadStatusTab>('all');
+  const initialStatusTab = route.params?.initialStatusTab;
+  const [activeStatusTab, setActiveStatusTab] = useState<LoadStatusTab>(
+    initialStatusTab ?? 'all',
+  );
   const [searchQuery, setSearchQuery] = useState('');
   const tabBarHeight = useBottomTabBarHeight();
   const detailsByLoadId = useBookingDetailsStore((s) => s.detailsByLoadId);
@@ -149,6 +155,7 @@ export function BookingsScreen() {
     }, [refetch]),
   );
 
+  const activeCount = useMemo(() => bookings.filter(isActiveLoad).length, [bookings]);
   const pendingCount = useMemo(() => bookings.filter(isPendingLoad).length, [bookings]);
   const completedCount = useMemo(() => bookings.filter(isCompletedLoad).length, [bookings]);
   const expiredCount = useMemo(() => bookings.filter(isExpiredLoad).length, [bookings]);
@@ -164,9 +171,19 @@ export function BookingsScreen() {
     setActiveStatusTab(pendingCount > 0 ? 'pending' : 'all');
   }, [bookings.length, pendingCount]);
 
+  // Respond to `initialStatusTab` param changes (e.g. Home banner navigates to
+  // Bookings with `initialStatusTab: 'active'` while the tab is already mounted).
+  useEffect(() => {
+    if (initialStatusTab) {
+      defaultTabAppliedRef.current = true;
+      setActiveStatusTab(initialStatusTab);
+    }
+  }, [initialStatusTab]);
+
   const normalizedQuery = useMemo(() => searchQuery.trim().toLowerCase(), [searchQuery]);
   const filteredBookings = useMemo(() => {
     const byStatus = (() => {
+      if (activeStatusTab === 'active') return bookings.filter(isActiveLoad);
       if (activeStatusTab === 'pending') return bookings.filter(isPendingLoad);
       if (activeStatusTab === 'completed') return bookings.filter(isCompletedLoad);
       if (activeStatusTab === 'expired') return bookings.filter(isExpiredLoad);
@@ -194,12 +211,20 @@ export function BookingsScreen() {
   const statusTabs = useMemo(
     () => [
       { value: 'all' as const, label: 'All', badge: bookings.length },
+      { value: 'active' as const, label: 'Active', badge: activeCount },
       { value: 'pending' as const, label: 'Pending', badge: pendingCount },
       { value: 'completed' as const, label: 'Completed', badge: completedCount },
       { value: 'expired' as const, label: 'Expired', badge: expiredCount },
       { value: 'failed' as const, label: 'Failed', badge: failedCount },
     ],
-    [bookings.length, completedCount, expiredCount, failedCount, pendingCount],
+    [
+      bookings.length,
+      activeCount,
+      completedCount,
+      expiredCount,
+      failedCount,
+      pendingCount,
+    ],
   );
 
   const handleBookingPress = useCallback(
@@ -316,6 +341,15 @@ export function BookingsScreen() {
         title: 'No bookings found',
         body: `Nothing matches “${searchQuery.trim()}” across your DropYou and TEG load ids. Try a different id or clear the search.`,
         icon: 'search-outline' as const,
+        meta: undefined,
+      };
+    }
+    if (activeStatusTab === 'active') {
+      return {
+        eyebrow: 'All clear',
+        title: 'No active bookings',
+        body: 'Your accepted deliveries with live tracking will appear here once a driver is on the way.',
+        icon: 'navigate-outline' as const,
         meta: undefined,
       };
     }

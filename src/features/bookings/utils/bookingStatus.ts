@@ -32,6 +32,11 @@ export function normalizedStatus(trip: ActiveTripCardVm): string {
   return trip.statusLabel.trim().toLowerCase();
 }
 
+/** Web app's ACTIVE tab matches `status === "ACCEPTED"`. */
+export function isActiveLoad(trip: ActiveTripCardVm): boolean {
+  return trip.statusLabel.trim().toUpperCase() === 'ACCEPTED';
+}
+
 export function isFailedLoad(trip: ActiveTripCardVm): boolean {
   const status = normalizedStatus(trip);
   return FAILED_STATUS_TERMS.some((term) => status.includes(term));

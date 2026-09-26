@@ -29,10 +29,24 @@ export type MapScreenPickedPlace = {
   placeId?: string;
 };
 
+/** Status filter tabs on the Bookings screen. */
+export type BookingsStatusTab =
+  | 'all'
+  | 'active'
+  | 'pending'
+  | 'completed'
+  | 'expired'
+  | 'failed';
+
 /** Bottom tabs inside the signed-in area (see `MainTabNavigator`). */
 export type MainTabParamList = {
   HomeMain: undefined;
-  Bookings: undefined;
+  Bookings:
+    | {
+        /** Open the Bookings tab with this status filter preselected. */
+        initialStatusTab?: BookingsStatusTab;
+      }
+    | undefined;
   Map:
     | {
         /** Pre-fill the Dropoff field from the Home search bar. */

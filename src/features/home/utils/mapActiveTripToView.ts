@@ -16,6 +16,48 @@ function pickScalarStr(v: unknown): string {
   return '';
 }
 
+function sortTsOf(o: ActiveTripRaw): number {
+  const roots = tripRoots(o);
+  const candidates = [
+    firstPickStr(roots, ['pickUpDate', 'pickupDate', 'pickup_date', 'pickUp_date']),
+    firstPickStr(roots, [
+      'createdAt',
+      'created_at',
+      'recordCreatedAt',
+      'record_created_at',
+    ]),
+    firstPickStr(roots, [
+      'updatedAt',
+      'updated_at',
+      'recordUpdatedAt',
+      'record_updated_at',
+    ]),
+    firstPickStr(roots, [
+      'pickupAt',
+      'pickupTime',
+      'scheduledPickup',
+      'startTime',
+      'departureTime',
+      'readyAt',
+      'eventTime',
+      'createdOn',
+    ]),
+    pickScalarStr(pickNested(o, ['load', 'pickUpDate'])) ||
+      pickScalarStr(pickNested(o, ['load', 'createdAt'])) ||
+      pickScalarStr(pickNested(o, ['load', 'updatedAt'])),
+  ].filter(Boolean);
+
+  for (const candidate of candidates) {
+    const direct = Number(candidate);
+    if (Number.isFinite(direct) && direct > 0) {
+      return direct < 1e12 ? direct * 1000 : direct;
+    }
+    const parsed = Date.parse(candidate);
+    if (Number.isFinite(parsed)) return parsed;
+  }
+  return 0;
+}
+
 function pickNested(o: unknown, path: string[]): unknown {
   let cur: unknown = o;
   for (const p of path) {
@@ -233,5 +275,6 @@ export function mapActiveTripToView(o: ActiveTripRaw, index: number): ActiveTrip
     destAddress: drop,
     originTimeLabel: originTime,
     destTimeLabel: destTime,
+    sortTs: sortTsOf(o),
   };
 }
